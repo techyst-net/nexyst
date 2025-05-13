@@ -4,8 +4,6 @@
 import frappe
 from frappe.tests import IntegrationTestCase
 
-IGNORE_TEST_RECORD_DEPENDENCIES = ["Leave Block List"]
-
 
 class TestDepartment(IntegrationTestCase):
 	def test_remove_department_data(self):
