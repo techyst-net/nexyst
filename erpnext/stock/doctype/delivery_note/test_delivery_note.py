@@ -2955,6 +2955,3 @@ def create_delivery_note(**args):
 		dn.load_from_db()
 
 	return dn
-
-
-EXTRA_TEST_RECORD_DEPENDENCIES = ["Product Bundle"]

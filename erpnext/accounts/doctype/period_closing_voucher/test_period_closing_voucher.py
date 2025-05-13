@@ -390,6 +390,3 @@ def create_cost_center(cc_name):
 	)
 	costcenter.insert(ignore_if_duplicate=True)
 	return costcenter.name
-
-
-EXTRA_TEST_RECORD_DEPENDENCIES = ["Customer", "Cost Center"]

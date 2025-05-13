@@ -5574,6 +5574,3 @@ def make_purchase_receipt(**args):
 		pr.load_from_db()
 
 	return pr
-
-
-EXTRA_TEST_RECORD_DEPENDENCIES = ["BOM", "Item Price", "Location"]
