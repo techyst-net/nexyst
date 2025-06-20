@@ -85,6 +85,7 @@ def test_create_test_data():
 				"partner_name": "_Test Coupon Partner",
 				"commission_rate": 2,
 				"referral_code": "COPART",
+				"territory": "All Territories",
 			}
 		)
 		sales_partner.insert()
