@@ -414,6 +414,7 @@ class TestPricingRule(ERPNextTestSuite):
 		self.assertEqual(item.discount_amount, 110)
 		self.assertEqual(item.rate, 990)
 
+	@ERPNextTestSuite.change_settings("Selling Settings", {"allow_multiple_items": 1})
 	def test_pricing_rule_for_product_discount_on_same_item(self):
 		frappe.delete_doc_if_exists("Pricing Rule", "_Test Pricing Rule")
 		test_record = {
@@ -1189,6 +1190,7 @@ class TestPricingRule(ERPNextTestSuite):
 		si.delete()
 		rule.delete()
 
+	@ERPNextTestSuite.change_settings("Selling Settings", {"allow_multiple_items": 1})
 	def test_pricing_rule_for_product_free_item_rounded_qty_and_recursion(self):
 		frappe.delete_doc_if_exists("Pricing Rule", "_Test Pricing Rule")
 		test_record = {
@@ -1234,6 +1236,7 @@ class TestPricingRule(ERPNextTestSuite):
 		so.save()
 		self.assertEqual(len(so.items), 1)
 
+	@ERPNextTestSuite.change_settings("Selling Settings", {"allow_multiple_items": 1})
 	def test_pricing_rule_for_product_free_item_round_free_qty(self):
 		frappe.delete_doc_if_exists("Pricing Rule", "_Test Pricing Rule")
 		test_record = {
