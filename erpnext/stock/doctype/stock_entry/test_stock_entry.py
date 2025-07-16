@@ -2368,7 +2368,7 @@ class TestStockEntry(ERPNextTestSuite):
 		self.assertEqual(target_sabb.entries[0].batch_no, batch)
 		self.assertEqual([entry.serial_no for entry in target_sabb.entries], serial_nos[:2])
 
-	@IntegrationTestCase.change_settings("Manufacturing Settings", {"material_consumption": 0})
+	@ERPNextTestSuite.change_settings("Manufacturing Settings", {"material_consumption": 0})
 	def test_raw_material_missing_validation(self):
 		stock_entry = make_stock_entry(
 			item_code="_Test Item",
@@ -2386,7 +2386,7 @@ class TestStockEntry(ERPNextTestSuite):
 			stock_entry.save,
 		)
 
-	@IntegrationTestCase.change_settings(
+	@ERPNextTestSuite.change_settings(
 		"Manufacturing Settings",
 		{
 			"material_consumption": 1,

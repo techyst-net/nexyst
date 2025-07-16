@@ -2864,7 +2864,7 @@ class TestDeliveryNote(ERPNextTestSuite):
 		for entry in sabb.entries:
 			self.assertEqual(entry.incoming_rate, 200)
 
-	@IntegrationTestCase.change_settings("Selling Settings", {"validate_selling_price": 1})
+	@ERPNextTestSuite.change_settings("Selling Settings", {"validate_selling_price": 1})
 	def test_validate_selling_price(self):
 		item_code = make_item("VSP Item", properties={"is_stock_item": 1}).name
 		make_stock_entry(item_code=item_code, target="_Test Warehouse - _TC", qty=1, basic_rate=10)

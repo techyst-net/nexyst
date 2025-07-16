@@ -2474,7 +2474,7 @@ class TestAccountsController(ERPNextTestSuite):
 		po.items[0].delivered_by_supplier = 1
 		po.save()
 
-	@IntegrationTestCase.change_settings("Global Defaults", {"use_posting_datetime_for_naming_documents": 1})
+	@ERPNextTestSuite.change_settings("Global Defaults", {"use_posting_datetime_for_naming_documents": 1})
 	def test_document_naming_rule_based_on_posting_date(self):
 		frappe.new_doc(
 			"Document Naming Rule", document_type="Sales Invoice", prefix="SI-.MM.-.YYYY.-"

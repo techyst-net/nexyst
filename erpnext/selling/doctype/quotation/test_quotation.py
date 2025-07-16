@@ -180,7 +180,7 @@ class TestQuotation(ERPNextTestSuite):
 
 		self.assertTrue(quotation.payment_schedule)
 
-	@IntegrationTestCase.change_settings(
+	@ERPNextTestSuite.change_settings(
 		"Accounts Settings",
 		{"automatically_fetch_payment_terms": 1},
 	)
@@ -1021,7 +1021,7 @@ class TestQuotation(ERPNextTestSuite):
 		quotation.reload()
 		self.assertEqual(quotation.status, "Ordered")
 
-	@change_settings("Accounts Settings", {"allow_pegged_currencies_exchange_rates": True})
+	@ERPNextTestSuite.change_settings("Accounts Settings", {"allow_pegged_currencies_exchange_rates": True})
 	def test_make_quotation_qar_to_inr(self):
 		quotation = make_quotation(
 			currency="QAR",
@@ -1074,7 +1074,7 @@ class TestQuotation(ERPNextTestSuite):
 		quotation.reload()
 		self.assertEqual(quotation.status, "Open")
 
-	@IntegrationTestCase.change_settings(
+	@ERPNextTestSuite.change_settings(
 		"Accounts Settings",
 		{"automatically_fetch_payment_terms": 1},
 	)

@@ -4733,7 +4733,7 @@ class TestSalesInvoice(ERPNextTestSuite):
 
 		doc.db_set("do_not_use_batchwise_valuation", original_value)
 
-	@change_settings("Selling Settings", {"set_zero_rate_for_expired_batch": True})
+	@ERPNextTestSuite.change_settings("Selling Settings", {"set_zero_rate_for_expired_batch": True})
 	def test_zero_valuation_for_standalone_credit_note_with_expired_batch(self):
 		item_code = "_Test Item for Expiry Batch Zero Valuation"
 		make_item_for_si(
