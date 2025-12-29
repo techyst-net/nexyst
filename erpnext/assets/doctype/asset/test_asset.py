@@ -1695,6 +1695,59 @@ class TestDepreciationBasics(AssetSetup):
 		pr.submit()
 		self.assertTrue(get_gl_entries("Purchase Receipt", pr.name))
 
+	def test_partial_asset_sale_for_existing_asset(self):
+		date = nowdate()
+		purchase_date = add_months(get_first_day(date), -2)
+		depreciation_start_date = add_months(get_last_day(date), -2)
+
+		# create an asset
+		asset = create_asset(
+			item_code="Macbook Pro",
+			is_existing_asset=1,
+			calculate_depreciation=1,
+			available_for_use_date=purchase_date,
+			purchase_date=purchase_date,
+			depreciation_start_date=depreciation_start_date,
+			net_purchase_amount=1000000,
+			purchase_amount=1000000,
+			asset_quantity=10,
+			total_number_of_depreciations=12,
+			frequency_of_depreciation=1,
+			submit=1,
+		)
+		asset_depr_schedule_before_sale = get_asset_depr_schedule_doc(asset.name, "Active")
+		post_depreciation_entries(date)
+		asset.reload()
+
+		# check asset values before sale
+		self.assertEqual(asset.asset_quantity, 10)
+		self.assertEqual(asset.net_purchase_amount, 1000000)
+		self.assertEqual(asset.status, "Partially Depreciated")
+		self.assertEqual(
+			asset_depr_schedule_before_sale.depreciation_schedule[0].get("depreciation_amount"), 83333.33
+		)
+
+		# make a partial sales againt the asset
+		si = make_sales_invoice(
+			asset=asset.name, item_code="Macbook Pro", company="_Test Company", sell_qty=5
+		)
+		si.customer = "_Test Customer"
+		si.due_date = date
+		si.get("items")[0].rate = 25000
+		si.insert()
+		si.submit()
+
+		asset.reload()
+		asset_depr_schedule_after_sale = get_asset_depr_schedule_doc(asset.name, "Active")
+
+		# check asset values after sales
+		self.assertEqual(asset.asset_quantity, 5)
+		self.assertEqual(asset.net_purchase_amount, 500000)
+		self.assertEqual(asset.status, "Sold")
+		self.assertEqual(
+			asset_depr_schedule_after_sale.depreciation_schedule[0].get("depreciation_amount"), 41666.66
+		)
+
 
 def get_gl_entries(doctype, docname):
 	gl_entry = frappe.qb.DocType("GL Entry")
