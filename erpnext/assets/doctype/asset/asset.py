@@ -1083,7 +1083,7 @@ def get_asset_naming_series():
 
 
 @frappe.whitelist()
-def make_sales_invoice(asset, item_code, company, serial_no=None, posting_date=None):
+def make_sales_invoice(asset, item_code, company, sell_qty, serial_no=None):
 	asset_doc = frappe.get_doc("Asset", asset)
 	si = frappe.new_doc("Sales Invoice")
 	si.company = company
@@ -1098,7 +1098,7 @@ def make_sales_invoice(asset, item_code, company, serial_no=None, posting_date=N
 			"income_account": disposal_account,
 			"serial_no": serial_no,
 			"cost_center": depreciation_cost_center,
-			"qty": 1,
+			"qty": sell_qty,
 		},
 	)
 
