@@ -11,6 +11,7 @@ on:
       - 'crowdin.yml'
       - '.coderabbit.yml'
       - '.mergify.yml'
+      - '.github/**'
   workflow_dispatch:
 
 permissions:
