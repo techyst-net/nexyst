@@ -227,10 +227,11 @@
    "type": "Link"
   }
  ],
- "modified": "2026-01-02 18:04:13.860117",
+ "modified": "2026-01-10 00:06:12.956275",
  "modified_by": "Administrator",
  "module": "Setup",
- "name": "Settings",
+ "name": "ERPNext Settings",
  "owner": "Administrator",
- "title": "Settings"
+ "standard": 1,
+ "title": "ERPNext Settings"
 }
