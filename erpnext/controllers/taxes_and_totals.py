@@ -13,7 +13,6 @@ from frappe.utils import cint, flt, round_based_on_smallest_currency_fraction
 import erpnext
 from erpnext.accounts.doctype.journal_entry.journal_entry import get_exchange_rate
 from erpnext.accounts.doctype.pricing_rule.utils import get_applied_pricing_rules
-from erpnext.accounts.utils import get_zero_cutoff
 from erpnext.controllers.accounts_controller import (
 	validate_conversion_rate,
 	validate_inclusive_tax,
@@ -1237,11 +1236,6 @@ def get_itemised_tax(doc, with_tax_account=False):
 			tax_info.tax_account = tax.account_head
 
 	return itemised_tax
-
-
-from erpnext.deprecation_dumpster import (
-	taxes_and_totals_get_itemised_taxable_amount as get_itemised_taxable_amount,
-)
 
 
 def get_rounded_tax_amount(itemised_tax, precision):
