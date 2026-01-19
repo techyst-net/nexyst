@@ -6,7 +6,6 @@
 
 import copy
 import json
-import math
 
 import frappe
 from frappe import _, bold
@@ -243,10 +242,13 @@ def get_other_conditions(conditions, values, args):
 		if group_condition:
 			conditions += " and " + group_condition
 
-	if args.get("transaction_date"):
+	date = args.get("transaction_date") or frappe.get_value(
+		args.get("doctype"), args.get("name"), "posting_date", ignore=True
+	)
+	if date:
 		conditions += """ and %(transaction_date)s between ifnull(`tabPricing Rule`.valid_from, '2000-01-01')
 			and ifnull(`tabPricing Rule`.valid_upto, '2500-12-31')"""
-		values["transaction_date"] = args.get("transaction_date")
+		values["transaction_date"] = date
 
 	if args.get("doctype") in [
 		"Quotation",

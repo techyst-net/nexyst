@@ -1,5 +1,3 @@
-import unittest
-
 import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import getdate
@@ -36,6 +34,16 @@ class TestAccountBalance(IntegrationTestCase):
 			},
 			{
 				"account": "Indirect Income - _TC2",
+				"currency": "EUR",
+				"balance": 0.0,
+			},
+			{
+				"account": "Interest Income - _TC2",
+				"currency": "EUR",
+				"balance": 0.0,
+			},
+			{
+				"account": "Interest on Fixed Deposits - _TC2",
 				"currency": "EUR",
 				"balance": 0.0,
 			},

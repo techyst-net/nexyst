@@ -1,12 +1,10 @@
 # Copyright (c) 2022, Frappe Technologies Pvt. Ltd. and contributors
 # For license information, please see license.txt
 
-import copy
-from collections import defaultdict
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import add_days, cint, today
+from frappe.utils import add_days, today
 
 from erpnext.manufacturing.doctype.production_plan.test_production_plan import make_bom
 from erpnext.manufacturing.doctype.work_order.test_work_order import make_wo_order_test_record
@@ -328,7 +326,7 @@ class TestItemWiseInventoryAccount(IntegrationTestCase):
 					"voucher_no": pr.name,
 					"item_code": ("in", items),
 				},
-				fields=["sum(stock_value_difference) as value"],
+				fields=[{"SUM": "stock_value_difference", "as": "value"}],
 			)
 
 			gl_value = frappe.db.get_value(
@@ -435,7 +433,7 @@ class TestItemWiseInventoryAccount(IntegrationTestCase):
 			sle_value = frappe.get_all(
 				"Stock Ledger Entry",
 				filters={"voucher_type": "Delivery Note", "voucher_no": dn.name, "item_code": ("in", items)},
-				fields=["sum(stock_value_difference) as value"],
+				fields=[{"SUM": "stock_value_difference", "as": "value"}],
 			)
 
 			gl_value = (

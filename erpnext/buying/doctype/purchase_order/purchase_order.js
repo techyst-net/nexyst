@@ -90,31 +90,6 @@ frappe.ui.form.on("Purchase Order", {
 		prevent_past_schedule_dates(frm);
 	},
 
-	supplier: function (frm) {
-		// Do not update if inter company reference is there as the details will already be updated
-		if (frm.updating_party_details || frm.doc.inter_company_invoice_reference) return;
-
-		if (frm.doc.__onload && frm.doc.__onload.load_after_mapping) return;
-
-		erpnext.utils.get_party_details(
-			frm,
-			"erpnext.accounts.party.get_party_details",
-			{
-				posting_date: frm.doc.transaction_date,
-				bill_date: frm.doc.bill_date,
-				party: frm.doc.supplier,
-				party_type: "Supplier",
-				account: frm.doc.credit_to,
-				price_list: frm.doc.buying_price_list,
-				fetch_payment_terms_template: cint(!frm.doc.ignore_default_payment_terms_template),
-			},
-			function () {
-				frm.set_df_property("apply_tds", "read_only", frm.supplier_tds ? 0 : 1);
-				frm.set_df_property("tax_withholding_category", "hidden", frm.supplier_tds ? 0 : 1);
-			}
-		);
-	},
-
 	get_materials_from_supplier: function (frm) {
 		let po_details = [];
 
@@ -162,15 +137,6 @@ frappe.ui.form.on("Purchase Order", {
 			frm.set_value("transaction_date", frappe.datetime.get_today());
 		}
 
-		if (frm.doc.__onload && frm.doc.supplier) {
-			if (frm.is_new()) {
-				frm.doc.apply_tds = frm.doc.__onload.supplier_tds ? 1 : 0;
-			}
-			if (!frm.doc.__onload.supplier_tds) {
-				frm.set_df_property("apply_tds", "read_only", 1);
-			}
-		}
-
 		erpnext.queries.setup_queries(frm, "Warehouse", function () {
 			return erpnext.queries.warehouse(frm.doc);
 		});
@@ -178,14 +144,6 @@ frappe.ui.form.on("Purchase Order", {
 		// On cancel and amending a purchase order with advance payment, reset advance paid amount
 		if (frm.is_new()) {
 			frm.set_value("advance_paid", 0);
-		}
-	},
-
-	apply_tds: function (frm) {
-		if (!frm.doc.apply_tds) {
-			frm.set_value("tax_withholding_category", "");
-		} else {
-			frm.set_value("tax_withholding_category", frm.supplier_tds);
 		}
 	},
 
@@ -317,6 +275,7 @@ erpnext.buying.PurchaseOrderController = class PurchaseOrderController extends (
 	erpnext.buying.BuyingController
 ) {
 	setup() {
+		this.setup_accounting_dimension_triggers();
 		this.frm.custom_make_buttons = {
 			"Purchase Receipt": "Purchase Receipt",
 			"Purchase Invoice": "Purchase Invoice",
@@ -500,17 +459,6 @@ erpnext.buying.PurchaseOrderController = class PurchaseOrderController extends (
 		} else if (doc.docstatus === 0) {
 			this.frm.cscript.add_from_mappers();
 		}
-	}
-
-	onload() {
-		super.onload();
-		this.frm.set_query("supplier", function () {
-			return {
-				filters: {
-					is_transporter: 0,
-				},
-			};
-		});
 	}
 
 	get_items_from_open_material_requests() {

@@ -4,8 +4,7 @@
 
 import frappe
 from frappe import _, bold, json, msgprint
-from frappe.query_builder.functions import CombineDatetime, Sum
-from frappe.utils import add_to_date, cint, cstr, flt, get_datetime, now
+from frappe.utils import add_to_date, cint, cstr, flt, now
 
 import erpnext
 from erpnext.accounts.utils import get_company_default
@@ -17,7 +16,7 @@ from erpnext.stock.doctype.serial_and_batch_bundle.serial_and_batch_bundle impor
 	get_available_serial_nos,
 )
 from erpnext.stock.doctype.serial_no.serial_no import get_serial_nos
-from erpnext.stock.utils import get_incoming_rate, get_stock_balance
+from erpnext.stock.utils import get_combine_datetime, get_incoming_rate, get_stock_balance
 
 
 class OpeningEntryAccountError(frappe.ValidationError):
@@ -877,7 +876,7 @@ class StockReconciliation(StockController):
 			if row.get(dimension.get("fieldname")):
 				has_dimensions = True
 
-		if self.docstatus == 2 and (not row.batch_no or not row.serial_and_batch_bundle):
+		if self.docstatus == 2:
 			if row.current_qty and current_bundle:
 				data.actual_qty = -1 * row.current_qty
 				data.qty_after_transaction = flt(row.current_qty)
@@ -977,6 +976,7 @@ class StockReconciliation(StockController):
 			is_customer_item = frappe.get_cached_value("Item", d.item_code, "is_customer_provided_item")
 			if is_customer_item and d.valuation_rate:
 				d.valuation_rate = 0.0
+				d.allow_zero_valuation_rate = 1
 				changed_any_values = True
 
 		if changed_any_values:
@@ -1057,6 +1057,7 @@ class StockReconciliation(StockController):
 					self.posting_date,
 					self.posting_time,
 					self.name,
+					sle_creation,
 				)
 
 			precesion = row.precision("current_qty")
@@ -1216,33 +1217,27 @@ class StockReconciliation(StockController):
 		return current_qty
 
 
-def get_batch_qty_for_stock_reco(item_code, warehouse, batch_no, posting_date, posting_time, voucher_no):
-	ledger = frappe.qb.DocType("Stock Ledger Entry")
+def get_batch_qty_for_stock_reco(
+	item_code, warehouse, batch_no, posting_date, posting_time, voucher_no, sle_creation
+):
+	posting_datetime = get_combine_datetime(posting_date, posting_time)
 
-	query = (
-		frappe.qb.from_(ledger)
-		.select(
-			Sum(ledger.actual_qty).as_("batch_qty"),
+	qty = (
+		get_batch_qty(
+			batch_no,
+			warehouse,
+			item_code,
+			creation=sle_creation,
+			posting_datetime=posting_datetime,
+			ignore_voucher_nos=[voucher_no],
+			for_stock_levels=True,
+			consider_negative_batches=True,
+			do_not_check_future_batches=True,
 		)
-		.where(
-			(ledger.item_code == item_code)
-			& (ledger.warehouse == warehouse)
-			& (ledger.docstatus == 1)
-			& (ledger.is_cancelled == 0)
-			& (ledger.batch_no == batch_no)
-			& (ledger.posting_date <= posting_date)
-			& (
-				CombineDatetime(ledger.posting_date, ledger.posting_time)
-				<= CombineDatetime(posting_date, posting_time)
-			)
-			& (ledger.voucher_no != voucher_no)
-		)
-		.groupby(ledger.batch_no)
+		or 0
 	)
 
-	sle = query.run(as_dict=True)
-
-	return flt(sle[0].batch_qty) if sle else 0
+	return flt(qty)
 
 
 @frappe.whitelist()

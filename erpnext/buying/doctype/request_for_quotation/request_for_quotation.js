@@ -34,15 +34,6 @@ frappe.ui.form.on("Request for Quotation", {
 		});
 	},
 
-	onload: function (frm) {
-		if (!frm.doc.message_for_supplier) {
-			frm.set_value(
-				"message_for_supplier",
-				__("Please supply the specified items at the best possible rates")
-			);
-		}
-	},
-
 	refresh: function (frm, cdt, cdn) {
 		if (frm.doc.docstatus === 1) {
 			frm.add_custom_button(
@@ -247,6 +238,25 @@ frappe.ui.form.on("Request for Quotation", {
 			});
 		}
 		refresh_field("items");
+	},
+
+	email_template(frm) {
+		if (frm.doc.email_template) {
+			frappe.db
+				.get_value("Email Template", frm.doc.email_template, [
+					"use_html",
+					"response",
+					"response_html",
+					"subject",
+				])
+				.then((r) => {
+					frm.set_value(
+						"message_for_supplier",
+						r.message.use_html ? r.message.response_html : r.message.response
+					);
+					frm.set_value("subject", r.message.subject);
+				});
+		}
 	},
 	preview: (frm) => {
 		let dialog = new frappe.ui.Dialog({
@@ -551,7 +561,10 @@ erpnext.buying.RequestforQuotationController = class RequestforQuotationControll
 				} else if (args.supplier_group) {
 					frappe.db
 						.get_list("Supplier", {
-							filters: { supplier_group: args.supplier_group },
+							filters: {
+								supplier_group: args.supplier_group,
+								disabled: 0,
+							},
 							limit: 100,
 							order_by: "name",
 						})

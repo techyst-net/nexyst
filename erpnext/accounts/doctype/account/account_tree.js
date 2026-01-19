@@ -70,6 +70,7 @@ frappe.treeview_settings["Account"] = {
 					args: {
 						accounts: accounts,
 						company: cur_tree.args.company,
+						include_default_fb_balances: true,
 					},
 				});
 
@@ -159,6 +160,14 @@ frappe.treeview_settings["Account"] = {
 			options: frappe.get_meta("Account").fields.filter((d) => d.fieldname == "account_type")[0]
 				.options,
 			description: __("Optional. This setting will be used to filter in various transactions."),
+		},
+		{
+			fieldtype: "Link",
+			fieldname: "account_category",
+			label: __("Account Category"),
+			options: frappe.get_meta("Account").fields.filter((d) => d.fieldname == "account_category")[0]
+				.options,
+			description: __("Optional. Used with Financial Report Template"),
 		},
 		{
 			fieldtype: "Float",

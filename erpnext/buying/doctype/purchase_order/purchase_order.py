@@ -15,9 +15,6 @@ from erpnext.accounts.doctype.sales_invoice.sales_invoice import (
 	update_linked_doc,
 	validate_inter_company_party,
 )
-from erpnext.accounts.doctype.tax_withholding_category.tax_withholding_category import (
-	get_party_tax_withholding_details,
-)
 from erpnext.accounts.party import get_party_account, get_party_account_currency
 from erpnext.buying.utils import check_on_hold_or_closed_status, validate_for_items
 from erpnext.controllers.buying_controller import BuyingController
@@ -44,6 +41,7 @@ class PurchaseOrder(BuyingController):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
+		from erpnext.accounts.doctype.item_wise_tax_detail.item_wise_tax_detail import ItemWiseTaxDetail
 		from erpnext.accounts.doctype.payment_schedule.payment_schedule import PaymentSchedule
 		from erpnext.accounts.doctype.pricing_rule_detail.pricing_rule_detail import PricingRuleDetail
 		from erpnext.accounts.doctype.purchase_taxes_and_charges.purchase_taxes_and_charges import (
@@ -60,7 +58,6 @@ class PurchaseOrder(BuyingController):
 		advance_payment_status: DF.Literal["Not Initiated", "Initiated", "Partially Paid", "Fully Paid"]
 		amended_from: DF.Link | None
 		apply_discount_on: DF.Literal["", "Grand Total", "Net Total"]
-		apply_tds: DF.Check
 		auto_repeat: DF.Link | None
 		base_discount_amount: DF.Currency
 		base_grand_total: DF.Currency
@@ -68,7 +65,6 @@ class PurchaseOrder(BuyingController):
 		base_net_total: DF.Currency
 		base_rounded_total: DF.Currency
 		base_rounding_adjustment: DF.Currency
-		base_tax_withholding_net_total: DF.Currency
 		base_taxes_and_charges_added: DF.Currency
 		base_taxes_and_charges_deducted: DF.Currency
 		base_total: DF.Currency
@@ -105,6 +101,7 @@ class PurchaseOrder(BuyingController):
 		is_internal_supplier: DF.Check
 		is_old_subcontracting_flow: DF.Check
 		is_subcontracted: DF.Check
+		item_wise_tax_details: DF.Table[ItemWiseTaxDetail]
 		items: DF.Table[PurchaseOrderItem]
 		language: DF.Data | None
 		letter_head: DF.Link | None
@@ -155,8 +152,6 @@ class PurchaseOrder(BuyingController):
 		supplier_name: DF.Data | None
 		supplier_warehouse: DF.Link | None
 		tax_category: DF.Link | None
-		tax_withholding_category: DF.Link | None
-		tax_withholding_net_total: DF.Currency
 		taxes: DF.Table[PurchaseTaxesandCharges]
 		taxes_and_charges: DF.Link | None
 		taxes_and_charges_added: DF.Currency
@@ -189,8 +184,6 @@ class PurchaseOrder(BuyingController):
 		]
 
 	def onload(self):
-		supplier_tds = frappe.db.get_value("Supplier", self.supplier, "tax_withholding_category")
-		self.set_onload("supplier_tds", supplier_tds)
 		self.set_onload("can_update_items", self.can_update_items())
 
 	def before_validate(self):
@@ -201,9 +194,6 @@ class PurchaseOrder(BuyingController):
 		super().validate()
 
 		self.set_status()
-
-		# apply tax withholding only if checked and applicable
-		self.set_tax_withholding()
 
 		self.validate_supplier()
 		self.validate_schedule_date()
@@ -281,36 +271,6 @@ class PurchaseOrder(BuyingController):
 			self.validate_rate_with_reference_doc(
 				[["Supplier Quotation", "supplier_quotation", "supplier_quotation_item"]]
 			)
-
-	def set_tax_withholding(self):
-		if not self.apply_tds:
-			return
-
-		tax_withholding_details = get_party_tax_withholding_details(self, self.tax_withholding_category)
-
-		if not tax_withholding_details:
-			return
-
-		accounts = []
-		for d in self.taxes:
-			if d.account_head == tax_withholding_details.get("account_head"):
-				d.update(tax_withholding_details)
-			accounts.append(d.account_head)
-
-		if not accounts or tax_withholding_details.get("account_head") not in accounts:
-			self.append("taxes", tax_withholding_details)
-
-		to_remove = [
-			d
-			for d in self.taxes
-			if not d.tax_amount and d.account_head == tax_withholding_details.get("account_head")
-		]
-
-		for d in to_remove:
-			self.remove(d)
-
-		# calculate totals again after applying TDS
-		self.calculate_taxes_and_totals()
 
 	def validate_supplier(self):
 		prevent_po = frappe.db.get_value("Supplier", self.supplier, "prevent_pos")
@@ -523,6 +483,9 @@ class PurchaseOrder(BuyingController):
 		if self.is_against_so():
 			self.update_status_updater()
 
+		if self.is_against_pp():
+			self.update_status_updater_if_from_pp()
+
 		if self.has_drop_ship_item():
 			self.update_delivered_qty_in_sales_order()
 
@@ -543,9 +506,6 @@ class PurchaseOrder(BuyingController):
 		self.update_blanket_order()
 
 		unlink_inter_company_doc(self.doctype, self.name, self.inter_company_order_reference)
-
-	def on_update(self):
-		pass
 
 	def update_status_updater(self):
 		self.status_updater.append(
@@ -693,13 +653,6 @@ class PurchaseOrder(BuyingController):
 			if sco:
 				update_sco_status(sco, "Closed" if self.status == "Closed" else None)
 
-	def set_missing_values(self, for_validate=False):
-		tds_category = frappe.db.get_value("Supplier", self.supplier, "tax_withholding_category")
-		if tds_category and not for_validate:
-			self.set_onload("supplier_tds", tds_category)
-
-		super().set_missing_values(for_validate)
-
 
 @frappe.request_cache
 def item_last_purchase_rate(name, conversion_rate, item_code, conversion_factor=1.0):
@@ -819,7 +772,7 @@ def make_purchase_invoice(source_name, target_doc=None, args=None):
 @frappe.whitelist()
 def make_purchase_invoice_from_portal(purchase_order_name):
 	doc = get_mapped_purchase_invoice(purchase_order_name, ignore_permissions=True)
-	if doc.contact_email != frappe.session.user:
+	if frappe.session.user not in frappe.get_all("Portal User", {"parent": doc.supplier}, pluck="user"):
 		frappe.throw(_("Not Permitted"), frappe.PermissionError)
 	doc.save()
 	frappe.db.commit()
@@ -836,10 +789,6 @@ def get_mapped_purchase_invoice(source_name, target_doc=None, ignore_permissions
 	def postprocess(source, target):
 		target.flags.ignore_permissions = ignore_permissions
 		set_missing_values(source, target)
-
-		# set tax_withholding_category from Purchase Order
-		if source.apply_tds and source.tax_withholding_category and target.apply_tds:
-			target.tax_withholding_category = source.tax_withholding_category
 
 		# Get the advance paid Journal Entries in Purchase Invoice Advance
 		if target.get("allocate_advances_automatically"):
@@ -927,6 +876,7 @@ def get_list_context(context=None):
 			"show_search": True,
 			"no_breadcrumbs": True,
 			"title": _("Purchase Orders"),
+			"list_template": "templates/includes/list/list.html",
 		}
 	)
 	return list_context
@@ -1006,6 +956,13 @@ def get_mapped_subcontracting_order(source_name, target_doc=None):
 				target_doc.supplier_warehouse = frappe.get_cached_value(
 					"Job Card", item.job_card, "wip_warehouse"
 				)
+
+		production_plan = set([item.production_plan for item in source_doc.items if item.production_plan])
+		if production_plan:
+			target_doc.production_plan = production_plan.pop()
+		target_doc.reserve_stock = frappe.get_single_value(
+			"Stock Settings", "auto_reserve_stock"
+		) or frappe.get_value("Production Plan", target_doc.production_plan, "reserve_stock")
 
 	if target_doc and isinstance(target_doc, str):
 		target_doc = json.loads(target_doc)

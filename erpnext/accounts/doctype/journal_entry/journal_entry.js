@@ -43,6 +43,20 @@ frappe.ui.form.on("Journal Entry", {
 				},
 			};
 		});
+
+		frm.set_query("project", "accounts", function (doc, cdt, cdn) {
+			let row = frappe.get_doc(cdt, cdn);
+			let filters = {
+				company: doc.company,
+			};
+			if (row.party_type == "Customer") {
+				filters.customer = row.party;
+			}
+			return {
+				query: "erpnext.controllers.queries.get_project_name",
+				filters,
+			};
+		});
 	},
 
 	get_balance_for_periodic_accounting(frm) {
@@ -111,6 +125,12 @@ frappe.ui.form.on("Journal Entry", {
 		}
 
 		erpnext.accounts.unreconcile_payment.add_unreconcile_btn(frm);
+
+		if (frm.doc.voucher_type !== "Exchange Gain Or Loss") {
+			$.each(frm.doc.accounts || [], function (i, row) {
+				erpnext.journal_entry.set_exchange_rate(frm, row.doctype, row.name);
+			});
+		}
 	},
 	before_save: function (frm) {
 		if (frm.doc.docstatus == 0 && !frm.doc.is_system_generated) {
@@ -197,6 +217,7 @@ frappe.ui.form.on("Journal Entry", {
 
 		erpnext.accounts.dimensions.update_dimension(frm, frm.doctype);
 		erpnext.utils.set_letter_head(frm);
+		frm.clear_table("tax_withholding_entries");
 	},
 
 	voucher_type: function (frm) {
@@ -246,6 +267,10 @@ frappe.ui.form.on("Journal Entry", {
 				update_jv_details(frm.doc, doc.accounts);
 			});
 		}
+	},
+
+	apply_tds: function (frm) {
+		frm.clear_table("tax_withholding_entries");
 	},
 });
 
@@ -716,6 +741,8 @@ $.extend(erpnext.journal_entry, {
 					}
 				},
 			});
+		} else {
+			erpnext.journal_entry.clear_fields(frm, dt, dn);
 		}
 	},
 	set_amount_on_last_row: function (frm, dt, dn) {
@@ -739,5 +766,14 @@ $.extend(erpnext.journal_entry, {
 			}
 		}
 		refresh_field("accounts");
+	},
+	clear_fields: function (frm, dt, dn) {
+		let row = locals[dt][dn];
+
+		row.party_type = null;
+		row.party = null;
+		row.bank_account = null;
+
+		frm.refresh_field("accounts");
 	},
 });

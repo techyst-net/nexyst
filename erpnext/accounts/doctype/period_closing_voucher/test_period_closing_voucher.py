@@ -1,6 +1,5 @@
 # Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
 # License: GNU General Public License v3. See license.txt
-import unittest
 
 import frappe
 from frappe.tests import IntegrationTestCase
@@ -13,6 +12,10 @@ from erpnext.accounts.utils import get_fiscal_year
 
 
 class TestPeriodClosingVoucher(IntegrationTestCase):
+	def setUp(self):
+		super().setUp()
+		frappe.db.set_single_value("Accounts Settings", "use_legacy_controller_for_pcv", 1)
+
 	def test_closing_entry(self):
 		frappe.db.sql("delete from `tabGL Entry` where company='Test PCV Company'")
 		frappe.db.sql("delete from `tabPeriod Closing Voucher` where company='Test PCV Company'")

@@ -11,7 +11,6 @@ from frappe.model.document import Document
 from frappe.utils import cint
 
 from erpnext.accounts.utils import sync_auto_reconcile_config
-from erpnext.stock.utils import check_pending_reposting
 
 
 class AccountsSettings(Document):
@@ -23,7 +22,6 @@ class AccountsSettings(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
-		acc_frozen_upto: DF.Date | None
 		add_taxes_from_item_tax_template: DF.Check
 		add_taxes_from_taxes_and_charges_template: DF.Check
 		allow_multi_currency_invoices_against_single_party_account: DF.Check
@@ -42,6 +40,7 @@ class AccountsSettings(Document):
 		confirm_before_resetting_posting_date: DF.Check
 		create_pr_in_draft_status: DF.Check
 		credit_controller: DF.Link | None
+		default_ageing_range: DF.Data | None
 		delete_linked_ledger_entries: DF.Check
 		determine_address_tax_category_from: DF.Literal["Billing Address", "Shipping Address"]
 		enable_common_party_accounting: DF.Check
@@ -50,7 +49,6 @@ class AccountsSettings(Document):
 		enable_party_matching: DF.Check
 		exchange_gain_loss_posting_date: DF.Literal["Invoice", "Payment", "Reconciliation Date"]
 		fetch_valuation_rate_for_internal_transaction: DF.Check
-		frozen_accounts_modifier: DF.Link | None
 		general_ledger_remarks_length: DF.Int
 		ignore_account_closing_balance: DF.Check
 		ignore_is_opening_check_for_reporting: DF.Check
@@ -59,11 +57,11 @@ class AccountsSettings(Document):
 		make_payment_via_journal_entry: DF.Check
 		merge_similar_account_heads: DF.Check
 		over_billing_allowance: DF.Currency
-		post_change_gl_entries: DF.Check
 		receivable_payable_fetch_method: DF.Literal["Buffered Cursor", "UnBuffered Cursor", "Raw SQL"]
 		receivable_payable_remarks_length: DF.Int
 		reconciliation_queue_size: DF.Int
 		role_allowed_to_over_bill: DF.Link | None
+		role_to_notify_on_depreciation_failure: DF.Link | None
 		role_to_override_stop_action: DF.Link | None
 		round_row_wise_tax: DF.Check
 		show_balance_in_coa: DF.Check
@@ -75,6 +73,7 @@ class AccountsSettings(Document):
 		unlink_advance_payment_on_cancelation_of_order: DF.Check
 		unlink_payment_on_cancellation_of_invoice: DF.Check
 		use_legacy_budget_controller: DF.Check
+		use_legacy_controller_for_pcv: DF.Check
 	# end: auto-generated types
 
 	def validate(self):
@@ -98,9 +97,6 @@ class AccountsSettings(Document):
 
 		if old_doc.show_payment_schedule_in_print != self.show_payment_schedule_in_print:
 			self.enable_payment_schedule_in_print()
-
-		if old_doc.acc_frozen_upto != self.acc_frozen_upto:
-			self.validate_pending_reposts()
 
 		if clear_cache:
 			frappe.clear_cache()
@@ -127,10 +123,6 @@ class AccountsSettings(Document):
 				"Check",
 				validate_fields_for_doctype=False,
 			)
-
-	def validate_pending_reposts(self):
-		if self.acc_frozen_upto:
-			check_pending_reposting(self.acc_frozen_upto)
 
 	def validate_and_sync_auto_reconcile_config(self):
 		if self.has_value_changed("auto_reconciliation_job_trigger"):
@@ -160,6 +152,5 @@ class AccountsSettings(Document):
 	def drop_ar_sql_procedures(self):
 		from erpnext.accounts.report.accounts_receivable.accounts_receivable import InitSQLProceduresForAR
 
-		frappe.db.sql(f"drop function if exists {InitSQLProceduresForAR.genkey_function_name}")
 		frappe.db.sql(f"drop procedure if exists {InitSQLProceduresForAR.init_procedure_name}")
 		frappe.db.sql(f"drop procedure if exists {InitSQLProceduresForAR.allocate_procedure_name}")

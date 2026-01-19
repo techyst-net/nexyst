@@ -371,7 +371,7 @@ def get_import_status(docname):
 
 	logs = frappe.get_all(
 		"Data Import Log",
-		fields=["count(*) as count", "success"],
+		fields=[{"COUNT": "*", "as": "count"}, "success"],
 		filters={"data_import": docname},
 		group_by="success",
 	)

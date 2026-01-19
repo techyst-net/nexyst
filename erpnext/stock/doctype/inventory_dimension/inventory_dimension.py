@@ -197,8 +197,7 @@ class InventoryDimension(Document):
 					options=self.reference_document,
 					label=_("Rejected " + self.dimension_name),
 					search_index=1,
-					reqd=self.reqd,
-					mandatory_depends_on=self.mandatory_depends_on,
+					mandatory_depends_on="eval:doc.rejected_qty > 0",
 				)
 			)
 
@@ -320,12 +319,13 @@ def get_inventory_documents(
 
 	return frappe.get_all(
 		"DocField",
-		fields=["distinct parent"],
+		fields=["parent"],
 		filters=and_filters,
 		or_filters=or_filters,
 		start=start,
 		page_length=page_len,
 		as_list=1,
+		distinct=True,
 	)
 
 
@@ -382,7 +382,7 @@ def get_inventory_dimensions():
 	return frappe.get_all(
 		"Inventory Dimension",
 		fields=[
-			"distinct target_fieldname as fieldname",
+			"target_fieldname as fieldname",
 			"source_fieldname",
 			"reference_document as doctype",
 			"validate_negative_stock",
@@ -390,6 +390,7 @@ def get_inventory_dimensions():
 		],
 		filters={"disabled": 0},
 		order_by="creation",
+		distinct=True,
 	)
 
 

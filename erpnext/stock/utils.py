@@ -6,7 +6,7 @@ import json
 
 import frappe
 from frappe import _
-from frappe.query_builder.functions import CombineDatetime, IfNull, Sum
+from frappe.query_builder.functions import IfNull, Sum
 from frappe.utils import cstr, flt, get_link_to_form, get_time, getdate, nowdate, nowtime
 
 import erpnext
@@ -302,7 +302,7 @@ def get_incoming_rate(args, raise_error_if_no_rate=True):
 
 		return batch_obj.get_incoming_rate()
 	else:
-		valuation_method = get_valuation_method(args.get("item_code"))
+		valuation_method = get_valuation_method(args.get("item_code"), args.get("company"))
 		previous_sle = get_previous_sle(args)
 		if valuation_method in ("FIFO", "LIFO"):
 			if previous_sle:
@@ -331,34 +331,6 @@ def get_incoming_rate(args, raise_error_if_no_rate=True):
 	return flt(in_rate)
 
 
-def get_batch_incoming_rate(item_code, warehouse, batch_no, posting_date, posting_time, creation=None):
-	sle = frappe.qb.DocType("Stock Ledger Entry")
-
-	timestamp_condition = CombineDatetime(sle.posting_date, sle.posting_time) < CombineDatetime(
-		posting_date, posting_time
-	)
-	if creation:
-		timestamp_condition |= (
-			CombineDatetime(sle.posting_date, sle.posting_time) == CombineDatetime(posting_date, posting_time)
-		) & (sle.creation < creation)
-
-	batch_details = (
-		frappe.qb.from_(sle)
-		.select(Sum(sle.stock_value_difference).as_("batch_value"), Sum(sle.actual_qty).as_("batch_qty"))
-		.where(
-			(sle.item_code == item_code)
-			& (sle.warehouse == warehouse)
-			& (sle.batch_no == batch_no)
-			& (sle.serial_and_batch_bundle.isnull())
-			& (sle.is_cancelled == 0)
-		)
-		.where(timestamp_condition)
-	).run(as_dict=True)
-
-	if batch_details and batch_details[0].batch_qty:
-		return batch_details[0].batch_value / batch_details[0].batch_qty
-
-
 def get_avg_purchase_rate(serial_nos):
 	"""get average value of serial numbers"""
 
@@ -374,11 +346,15 @@ def get_avg_purchase_rate(serial_nos):
 
 
 @frappe.request_cache
-def get_valuation_method(item_code):
+def get_valuation_method(item_code, company=None):
 	"""get valuation method from item or default"""
 	val_method = frappe.get_cached_value("Item", item_code, "valuation_method")
 	if not val_method:
-		val_method = frappe.get_cached_doc("Stock Settings").valuation_method or "FIFO"
+		val_method = (
+			frappe.get_cached_value("Company", company, "valuation_method")
+			if company
+			else frappe.get_single_value("Stock Settings", "valuation_method") or "FIFO"
+		)
 	return val_method
 
 
@@ -556,7 +532,7 @@ def is_reposting_item_valuation_in_progress():
 		)
 
 
-def check_pending_reposting(posting_date: str, throw_error: bool = True) -> bool:
+def check_pending_reposting(posting_date: str, company: str | None = None, throw_error: bool = True) -> bool:
 	"""Check if there are pending reposting job till the specified posting date."""
 
 	filters = {
@@ -564,6 +540,8 @@ def check_pending_reposting(posting_date: str, throw_error: bool = True) -> bool
 		"status": ["in", ["Queued", "In Progress"]],
 		"posting_date": ["<=", posting_date],
 	}
+	if company:
+		filters["company"] = company
 
 	reposting_pending = frappe.db.exists("Repost Item Valuation", filters)
 	if reposting_pending and throw_error:

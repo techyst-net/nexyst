@@ -15,6 +15,7 @@ from erpnext.accounts.doctype.accounting_dimension.accounting_dimension import g
 from erpnext.accounts.doctype.budget.budget import validate_expense_against_budget
 from erpnext.accounts.party import get_party_details
 from erpnext.buying.utils import update_last_purchase_rate, validate_for_items
+from erpnext.controllers.accounts_controller import get_taxes_and_charges
 from erpnext.controllers.sales_and_purchase_return import get_rate_for_return
 from erpnext.controllers.subcontracting_controller import SubcontractingController
 from erpnext.stock.get_item_details import get_conversion_factor, get_item_defaults
@@ -50,7 +51,7 @@ class BuyingController(SubcontractingController):
 			self.validate_purchase_receipt_if_update_stock()
 
 		if self.doctype == "Purchase Receipt" or (self.doctype == "Purchase Invoice" and self.update_stock):
-			# self.validate_purchase_return()
+			self.validate_purchase_return()
 			self.validate_rejected_warehouse()
 			self.validate_accepted_rejected_qty()
 			validate_for_items(self)
@@ -79,6 +80,19 @@ class BuyingController(SubcontractingController):
 					"Stock Settings", "allow_to_make_quality_inspection_after_purchase_or_delivery"
 				),
 			)
+
+		if (
+			self.get("company")
+			and (
+				default_buying_terms := frappe.get_value(
+					"Company", self.get("company"), "default_buying_terms"
+				)
+			)
+			and not self.get("tc_name")
+			and not self.get("terms")
+		):
+			self.tc_name = default_buying_terms
+			self.terms = frappe.get_value("Terms and Conditions", self.get("tc_name"), "terms")
 
 	def validate_posting_date_with_po(self):
 		po_list = {x.purchase_order for x in self.items if x.purchase_order}
@@ -215,6 +229,12 @@ class BuyingController(SubcontractingController):
 			)
 
 		self.set_missing_item_details(for_validate)
+
+		if self.meta.get_field("taxes"):
+			if self.get("taxes_and_charges") and not self.get("taxes") and not for_validate:
+				taxes = get_taxes_and_charges("Purchase Taxes and Charges Template", self.taxes_and_charges)
+				for tax in taxes:
+					self.append("taxes", tax)
 
 	def set_supplier_from_item_default(self):
 		if self.meta.get_field("supplier") and not self.supplier:
@@ -662,15 +682,8 @@ class BuyingController(SubcontractingController):
 
 	def validate_purchase_return(self):
 		for d in self.get("items"):
-			if self.is_return and flt(d.rejected_qty) != 0:
-				frappe.throw(
-					_("Row #{idx}: {field_label} is not allowed in Purchase Return.").format(
-						idx=d.idx,
-						field_label=_(d.meta.get_label("rejected_qty")),
-					)
-				)
-
-			# validate rate with ref PR
+			if self.is_return and not flt(d.rejected_qty) and d.rejected_warehouse:
+				d.rejected_warehouse = None
 
 	# validate accepted and rejected qty
 	def validate_accepted_rejected_qty(self):

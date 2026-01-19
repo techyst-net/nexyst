@@ -26,15 +26,14 @@ from erpnext.accounts.doctype.repost_accounting_ledger.repost_accounting_ledger 
 	validate_docs_for_deferred_accounting,
 	validate_docs_for_voucher_types,
 )
-from erpnext.accounts.doctype.tax_withholding_category.tax_withholding_category import (
-	get_party_tax_withholding_details,
-)
+from erpnext.accounts.doctype.tax_withholding_entry.tax_withholding_entry import SalesTaxWithholding
 from erpnext.accounts.general_ledger import get_round_off_account_and_cost_center
 from erpnext.accounts.party import get_due_date, get_party_account, get_party_details
 from erpnext.accounts.utils import (
 	get_account_currency,
 	update_voucher_outstanding,
 )
+from erpnext.assets.doctype.asset.asset import split_asset
 from erpnext.assets.doctype.asset.depreciation import (
 	depreciate_asset,
 	get_gl_entries_on_asset_disposal,
@@ -65,6 +64,7 @@ class SalesInvoice(SellingController):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
+		from erpnext.accounts.doctype.item_wise_tax_detail.item_wise_tax_detail import ItemWiseTaxDetail
 		from erpnext.accounts.doctype.payment_schedule.payment_schedule import PaymentSchedule
 		from erpnext.accounts.doctype.pricing_rule_detail.pricing_rule_detail import PricingRuleDetail
 		from erpnext.accounts.doctype.sales_invoice_advance.sales_invoice_advance import SalesInvoiceAdvance
@@ -76,6 +76,7 @@ class SalesInvoice(SellingController):
 		from erpnext.accounts.doctype.sales_taxes_and_charges.sales_taxes_and_charges import (
 			SalesTaxesandCharges,
 		)
+		from erpnext.accounts.doctype.tax_withholding_entry.tax_withholding_entry import TaxWithholdingEntry
 		from erpnext.selling.doctype.sales_team.sales_team import SalesTeam
 		from erpnext.stock.doctype.packed_item.packed_item import PackedItem
 
@@ -89,6 +90,7 @@ class SalesInvoice(SellingController):
 		amended_from: DF.Link | None
 		amount_eligible_for_commission: DF.Currency
 		apply_discount_on: DF.Literal["", "Grand Total", "Net Total"]
+		apply_tds: DF.Check
 		auto_repeat: DF.Link | None
 		base_change_amount: DF.Currency
 		base_discount_amount: DF.Currency
@@ -134,6 +136,7 @@ class SalesInvoice(SellingController):
 		has_subcontracted: DF.Check
 		ignore_default_payment_terms_template: DF.Check
 		ignore_pricing_rule: DF.Check
+		ignore_tax_withholding_threshold: DF.Check
 		in_words: DF.SmallText | None
 		incoterm: DF.Link | None
 		inter_company_invoice_reference: DF.Link | None
@@ -146,6 +149,7 @@ class SalesInvoice(SellingController):
 		is_opening: DF.Literal["No", "Yes"]
 		is_pos: DF.Check
 		is_return: DF.Check
+		item_wise_tax_details: DF.Table[ItemWiseTaxDetail]
 		items: DF.Table[SalesInvoiceItem]
 		language: DF.Link | None
 		letter_head: DF.Link | None
@@ -160,6 +164,7 @@ class SalesInvoice(SellingController):
 		only_include_allocated_payments: DF.Check
 		other_charges_calculation: DF.TextEditor | None
 		outstanding_amount: DF.Currency
+		override_tax_withholding_entries: DF.Check
 		packed_items: DF.Table[PackedItem]
 		paid_amount: DF.Currency
 		party_account_currency: DF.Link | None
@@ -212,6 +217,8 @@ class SalesInvoice(SellingController):
 		subscription: DF.Link | None
 		tax_category: DF.Link | None
 		tax_id: DF.Data | None
+		tax_withholding_entries: DF.Table[TaxWithholdingEntry]
+		tax_withholding_group: DF.Link | None
 		taxes: DF.Table[SalesTaxesandCharges]
 		taxes_and_charges: DF.Link | None
 		tc_name: DF.Link | None
@@ -280,58 +287,13 @@ class SalesInvoice(SellingController):
 			self.indicator_color = "green"
 			self.indicator_title = _("Paid")
 
-	def before_print(self, settings=None):
-		from frappe.contacts.doctype.address.address import get_address_display_list
-
-		super().before_print(settings)
-
-		company_details = frappe.get_value(
-			"Company", self.company, ["company_logo", "website", "phone_no", "email"], as_dict=True
-		)
-
-		required_fields = [
-			company_details.get("company_logo"),
-			company_details.get("phone_no"),
-			company_details.get("email"),
-		]
-
-		if not all(required_fields) and not frappe.has_permission("Company", "write", throw=False):
-			frappe.msgprint(
-				_(
-					"Some required Company details are missing. You don't have permission to update them. Please contact your System Manager."
-				)
+	def onload(self):
+		super().onload()
+		if self.customer:
+			tax_withholding_category, tax_withholding_group = frappe.get_cached_value(
+				"Customer", self.customer, ["tax_withholding_category", "tax_withholding_group"]
 			)
-			return
-
-		if not self.company_address and not frappe.has_permission("Sales Invoice", "write", throw=False):
-			frappe.msgprint(
-				_(
-					"Company Address is missing. You don't have permission to update it. Please contact your System Manager."
-				)
-			)
-			return
-
-		address_display_list = get_address_display_list("Company", self.company)
-		address_line = address_display_list[0].get("address_line1") if address_display_list else ""
-
-		required_fields.append(self.company_address)
-		required_fields.append(address_line)
-
-		if not all(required_fields):
-			frappe.publish_realtime(
-				"sales_invoice_before_print",
-				{
-					"company_logo": company_details.get("company_logo"),
-					"website": company_details.get("website"),
-					"phone_no": company_details.get("phone_no"),
-					"email": company_details.get("email"),
-					"address_line": address_line,
-					"company": self.company,
-					"company_address": self.company_address,
-					"name": self.name,
-				},
-				user=frappe.session.user,
-			)
+			self.set_onload("apply_tds", tax_withholding_category or tax_withholding_group)
 
 	def validate(self):
 		self.validate_auto_set_posting_time()
@@ -342,7 +304,7 @@ class SalesInvoice(SellingController):
 		if not (self.is_pos or self.is_debit_note):
 			self.so_dn_required()
 
-		self.set_tax_withholding()
+		SalesTaxWithholding(self).on_validate()
 
 		self.validate_proj_cust()
 		self.validate_pos_return()
@@ -391,10 +353,22 @@ class SalesInvoice(SellingController):
 			self.is_opening = "No"
 
 		self.set_against_income_account()
-		self.validate_time_sheets_are_submitted()
+
+		if self.is_return and not self.return_against and self.timesheets:
+			frappe.throw(_("Direct return is not allowed for Timesheet."))
+
+		if not self.is_return:
+			self.validate_time_sheets_are_submitted()
+
 		self.validate_multiple_billing("Delivery Note", "dn_detail", "amount")
-		if self.is_return:
-			self.timesheets = []
+
+		if self.is_return and self.return_against:
+			for row in self.timesheets:
+				if row.billing_hours:
+					row.billing_hours = -abs(row.billing_hours)
+				if row.billing_amount:
+					row.billing_amount = -abs(row.billing_amount)
+
 		self.update_packing_list()
 		self.set_billing_hours_and_amount()
 		self.update_timesheet_billing_for_project()
@@ -464,38 +438,6 @@ class SalesInvoice(SellingController):
 		for item in self.get("items"):
 			validate_account_head(item.idx, item.income_account, self.company, _("Income"))
 
-	def set_tax_withholding(self):
-		if self.get("is_opening") == "Yes":
-			return
-
-		tax_withholding_details = get_party_tax_withholding_details(self)
-
-		if not tax_withholding_details:
-			return
-
-		accounts = []
-		tax_withholding_account = tax_withholding_details.get("account_head")
-
-		for d in self.taxes:
-			if d.account_head == tax_withholding_account:
-				d.update(tax_withholding_details)
-			accounts.append(d.account_head)
-
-		if not accounts or tax_withholding_account not in accounts:
-			self.append("taxes", tax_withholding_details)
-
-		to_remove = [
-			d
-			for d in self.taxes
-			if not d.tax_amount and d.charge_type == "Actual" and d.account_head == tax_withholding_account
-		]
-
-		for d in to_remove:
-			self.remove(d)
-
-		# calculate totals again after applying TDS
-		self.calculate_taxes_and_totals()
-
 	def before_save(self):
 		self.set_account_for_mode_of_payment()
 		self.set_paid_amount()
@@ -517,6 +459,8 @@ class SalesInvoice(SellingController):
 			# NOTE status updating bypassed for is_return
 			self.status_updater = []
 
+		SalesTaxWithholding(self).on_submit()
+
 		self.update_status_updater_args()
 		self.update_prevdoc_status()
 
@@ -537,6 +481,8 @@ class SalesInvoice(SellingController):
 			self.update_stock_reservation_entries()
 			self.update_stock_ledger()
 
+		self.split_asset_based_on_sale_qty()
+
 		self.process_asset_depreciation()
 
 		# this sequence because outstanding may get -ve
@@ -553,7 +499,7 @@ class SalesInvoice(SellingController):
 		if cint(self.is_pos) != 1 and not self.is_return:
 			self.update_against_document_in_jv()
 
-		self.update_time_sheet(self.name)
+		self.update_time_sheet(None if (self.is_return and self.return_against) else self.name)
 
 		if frappe.get_single_value("Selling Settings", "sales_update_frequency") == "Each Transaction":
 			update_company_current_month_sales(self.company)
@@ -633,7 +579,7 @@ class SalesInvoice(SellingController):
 		self.check_if_consolidated_invoice()
 
 		super().before_cancel()
-		self.update_time_sheet(None)
+		self.update_time_sheet(self.return_against if (self.is_return and self.return_against) else None)
 
 	def on_cancel(self):
 		check_if_return_invoice_linked_with_payment_entry(self)
@@ -656,6 +602,7 @@ class SalesInvoice(SellingController):
 
 		# Updating stock ledger should always be called after updating prevdoc status,
 		# because updating reserved qty in bin depends upon updated delivered qty in SO
+		SalesTaxWithholding(self).on_cancel()
 		if self.update_stock == 1:
 			self.update_stock_ledger()
 
@@ -697,6 +644,7 @@ class SalesInvoice(SellingController):
 			"Unreconcile Payment Entries",
 			"Payment Ledger Entry",
 			"Serial and Batch Bundle",
+			"Tax Withholding Entry",
 		)
 
 		self.delete_auto_created_batches()
@@ -847,9 +795,10 @@ class SalesInvoice(SellingController):
 				timesheet.db_update_all()
 
 	def update_billed_qty_in_scio(self):
-		table = frappe.qb.DocType("Subcontracting Inward Order Received Item")
-		fieldname = table.returned_qty if self.is_return else table.billed_qty
+		if self.is_return:
+			return
 
+		table = frappe.qb.DocType("Subcontracting Inward Order Received Item")
 		data = frappe._dict(
 			{
 				item.scio_detail: item.stock_qty if self._action == "submit" else -item.stock_qty
@@ -861,8 +810,8 @@ class SalesInvoice(SellingController):
 		if data:
 			case_expr = Case()
 			for name, qty in data.items():
-				case_expr = case_expr.when(table.name == name, fieldname + qty)
-			frappe.qb.update(table).set(fieldname, case_expr).where(
+				case_expr = case_expr.when(table.name == name, table.billed_qty + qty)
+			frappe.qb.update(table).set(table.billed_qty, case_expr).where(
 				(table.name.isin(list(data.keys()))) & (table.docstatus == 1)
 			).run()
 
@@ -870,8 +819,20 @@ class SalesInvoice(SellingController):
 		for data in timesheet.time_logs:
 			if (
 				(self.project and args.timesheet_detail == data.name)
-				or (not self.project and not data.sales_invoice)
-				or (not sales_invoice and data.sales_invoice == self.name)
+				or (not self.project and not data.sales_invoice and args.timesheet_detail == data.name)
+				or (
+					not sales_invoice
+					and data.sales_invoice == self.name
+					and args.timesheet_detail == data.name
+				)
+				or (
+					self.is_return
+					and self.return_against
+					and data.sales_invoice
+					and data.sales_invoice == self.return_against
+					and not sales_invoice
+					and args.timesheet_detail == data.name
+				)
 			):
 				data.sales_invoice = sales_invoice
 
@@ -911,11 +872,26 @@ class SalesInvoice(SellingController):
 			payment.account = get_bank_cash_account(payment.mode_of_payment, self.company).get("account")
 
 	def validate_time_sheets_are_submitted(self):
+		# Note: This validation is skipped for return invoices
+		# to allow returns to reference already-billed timesheet details
 		for data in self.timesheets:
+			# Handle invoice duplication
+			if data.time_sheet and data.timesheet_detail:
+				if sales_invoice := frappe.db.get_value(
+					"Timesheet Detail", data.timesheet_detail, "sales_invoice"
+				):
+					frappe.throw(
+						_("Row {0}: Sales Invoice {1} is already created for {2}").format(
+							data.idx, frappe.bold(sales_invoice), frappe.bold(data.time_sheet)
+						)
+					)
+
 			if data.time_sheet:
 				status = frappe.db.get_value("Timesheet", data.time_sheet, "status")
-				if status not in ["Submitted", "Payslip"]:
-					frappe.throw(_("Timesheet {0} is already completed or cancelled").format(data.time_sheet))
+				if status not in ["Submitted", "Payslip", "Partially Billed"]:
+					frappe.throw(
+						_("Timesheet {0} cannot be invoiced in its current state").format(data.time_sheet)
+					)
 
 	def set_pos_fields(self, for_validate=False):
 		"""Set retail related fields from POS Profiles"""
@@ -1281,16 +1257,14 @@ class SalesInvoice(SellingController):
 			table = frappe.qb.DocType("Subcontracting Inward Order Received Item")
 			query = (
 				frappe.qb.from_(table)
-				.select(
-					table.required_qty, table.consumed_qty, table.billed_qty, table.returned_qty, table.name
-				)
+				.select(table.required_qty, table.consumed_qty, table.billed_qty, table.name)
 				.where((table.docstatus == 1) & (table.name.isin([item.scio_detail for item in self_rms])))
 			)
 			result = query.run(as_dict=True)
 			data = {item.name: item for item in result}
 			for item in self_rms:
 				row = data.get(item.scio_detail)
-				max_qty = max(row.required_qty, row.consumed_qty) - row.billed_qty - row.returned_qty
+				max_qty = max(row.required_qty, row.consumed_qty) - row.billed_qty
 				if item.stock_qty > max_qty:
 					frappe.throw(
 						_("Row #{0}: Stock quantity {1} ({2}) for item {3} cannot exceed {4}").format(
@@ -1351,7 +1325,12 @@ class SalesInvoice(SellingController):
 					timesheet.billing_amount = ts_doc.total_billable_amount
 
 	def update_timesheet_billing_for_project(self):
-		if not self.timesheets and self.project and self.is_auto_fetch_timesheet_enabled():
+		if (
+			not self.is_return
+			and not self.timesheets
+			and self.project
+			and self.is_auto_fetch_timesheet_enabled()
+		):
 			self.add_timesheet_data()
 		else:
 			self.calculate_billing_amount_for_timesheet()
@@ -1425,6 +1404,51 @@ class SalesInvoice(SellingController):
 				and frappe.db.get_value("Delivery Note", d.delivery_note, "docstatus", cache=True) != 1
 			):
 				throw(_("Delivery Note {0} is not submitted").format(d.delivery_note))
+
+	def split_asset_based_on_sale_qty(self):
+		asset_qty_map = self.get_asset_qty()
+		for asset, qty in asset_qty_map.items():
+			if qty["actual_qty"] < qty["sale_qty"]:
+				frappe.throw(
+					_(
+						"Sell quantity cannot exceed the asset quantity. Asset {0} has only {1} item(s)."
+					).format(asset, qty["actual_qty"])
+				)
+
+			remaining_qty = qty["actual_qty"] - qty["sale_qty"]
+			if remaining_qty > 0:
+				split_asset(asset, remaining_qty)
+
+	def get_asset_qty(self):
+		asset_qty_map = {}
+
+		assets = {row.asset for row in self.items if row.is_fixed_asset and row.asset}
+		if not assets or self.is_return:
+			return asset_qty_map
+
+		asset_actual_qty = dict(
+			frappe.db.get_all(
+				"Asset",
+				{"name": ["in", list(assets)]},
+				["name", "asset_quantity"],
+				as_list=True,
+			)
+		)
+		for row in self.items:
+			if row.is_fixed_asset and row.asset:
+				actual_qty = asset_actual_qty.get(row.asset)
+				if row.asset in asset_qty_map.keys():
+					asset_qty_map[row.asset]["sale_qty"] += flt(row.qty)
+				else:
+					asset_qty_map.setdefault(
+						row.asset,
+						{
+							"sale_qty": flt(row.qty),
+							"actual_qty": flt(actual_qty),
+						},
+					)
+
+		return asset_qty_map
 
 	def process_asset_depreciation(self):
 		if (self.is_return and self.docstatus == 2) or (not self.is_return and self.docstatus == 1):
@@ -1677,7 +1701,11 @@ class SalesInvoice(SellingController):
 		)
 
 		for item in self.get("items"):
-			if flt(item.base_net_amount, item.precision("base_net_amount")) or item.is_fixed_asset:
+			if (
+				flt(item.base_net_amount, item.precision("base_net_amount"))
+				or item.is_fixed_asset
+				or enable_discount_accounting
+			):
 				# Do not book income for transfer within same company
 				if self.is_internal_transfer():
 					continue
@@ -1790,7 +1818,7 @@ class SalesInvoice(SellingController):
 	def make_pos_gl_entries(self, gl_entries):
 		if cint(self.is_pos):
 			skip_change_gl_entries = not cint(
-				frappe.get_single_value("Accounts Settings", "post_change_gl_entries")
+				frappe.get_single_value("POS Settings", "post_change_gl_entries")
 			)
 
 			for payment_mode in self.payments:
@@ -2374,6 +2402,7 @@ def get_list_context(context=None):
 			"show_search": True,
 			"no_breadcrumbs": True,
 			"title": _("Invoices"),
+			"list_template": "templates/includes/list/list.html",
 		}
 	)
 	return list_context
@@ -2945,59 +2974,6 @@ def get_loyalty_programs(customer):
 		return lp_details
 	else:
 		return lp_details
-
-
-@frappe.whitelist()
-def save_company_master_details(name, company, details):
-	from frappe.utils import validate_email_address
-
-	if isinstance(details, str):
-		details = frappe.parse_json(details)
-
-	if details.get("email"):
-		validate_email_address(details.get("email"), throw=True)
-
-	company_fields = ["company_logo", "website", "phone_no", "email"]
-	company_fields_to_update = {field: details.get(field) for field in company_fields if details.get(field)}
-
-	if company_fields_to_update:
-		frappe.db.set_value("Company", company, company_fields_to_update)
-
-	company_address = details.get("company_address")
-	if details.get("address_line1"):
-		address_doc = frappe.get_doc(
-			{
-				"doctype": "Address",
-				"address_title": details.get("address_title"),
-				"address_type": details.get("address_type"),
-				"address_line1": details.get("address_line1"),
-				"address_line2": details.get("address_line2"),
-				"city": details.get("city"),
-				"state": details.get("state"),
-				"pincode": details.get("pincode"),
-				"country": details.get("country"),
-				"is_your_company_address": 1,
-				"links": [{"link_doctype": "Company", "link_name": company}],
-			}
-		)
-		address_doc.insert()
-		company_address = address_doc.name
-
-	if company_address:
-		company_address_display = frappe.db.get_value("Sales Invoice", name, "company_address_display")
-		if not company_address_display or details.get("address_line1"):
-			from frappe.query_builder import DocType
-
-			SalesInvoice = DocType("Sales Invoice")
-
-			(
-				frappe.qb.update(SalesInvoice)
-				.set(SalesInvoice.company_address, company_address)
-				.set(SalesInvoice.company_address_display, get_address_display(company_address))
-				.where(SalesInvoice.name == name)
-			).run()
-
-	return True
 
 
 @frappe.whitelist()

@@ -340,7 +340,6 @@
    "label": "Maintenance Required"
   },
   {
-   "allow_on_submit": 1,
    "default": "Draft",
    "fieldname": "status",
    "fieldtype": "Select",
@@ -348,7 +347,7 @@
    "in_standard_filter": 1,
    "label": "Status",
    "no_copy": 1,
-   "options": "Draft\nSubmitted\nPartially Depreciated\nFully Depreciated\nSold\nScrapped\nIn Maintenance\nOut of Order\nIssue\nReceipt\nCapitalized\nWork In Progress",
+   "options": "Draft\nSubmitted\nCancelled\nPartially Depreciated\nFully Depreciated\nSold\nScrapped\nIn Maintenance\nOut of Order\nIssue\nReceipt\nCapitalized\nWork In Progress",
    "read_only": 1
   },
   {
@@ -557,7 +556,8 @@
    "fieldtype": "Currency",
    "label": "Net Purchase Amount",
    "mandatory_depends_on": "eval:(!doc.is_composite_asset || doc.docstatus==1)",
-   "options": "Company:company:default_currency"
+   "options": "Company:company:default_currency",
+   "read_only_depends_on": "eval: doc.is_composite_asset"
   }
  ],
  "idx": 72,
@@ -601,7 +601,7 @@
    "link_fieldname": "target_asset"
   }
  ],
- "modified": "2025-05-23 00:53:54.249309",
+ "modified": "2025-12-18 16:36:40.904246",
  "modified_by": "Administrator",
  "module": "Assets",
  "name": "Asset",

@@ -58,6 +58,15 @@ frappe.ui.form.on("Job Card", {
 				return doc.status === "Complete" ? "green" : "orange";
 			}
 		});
+
+		frm.set_query("employee", () => {
+			return {
+				filters: {
+					company: frm.doc.company,
+					status: "Active",
+				},
+			};
+		});
 	},
 
 	set_company_filters(frm, fieldname) {
@@ -212,6 +221,10 @@ frappe.ui.form.on("Job Card", {
 								label: __("Select Employees"),
 								options: "Job Card Time Log",
 								fieldname: "employees",
+								reqd: 1,
+								filters: {
+									status: "Active",
+								},
 							},
 							(d) => {
 								frm.events.start_timer(frm, from_time, d.employees);

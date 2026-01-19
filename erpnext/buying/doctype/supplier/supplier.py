@@ -14,6 +14,7 @@ from frappe.model.naming import set_name_by_naming_series, set_name_from_naming_
 from erpnext.accounts.party import (
 	get_dashboard_info,
 	validate_party_accounts,
+	validate_party_currency_before_merging,
 )
 from erpnext.controllers.website_list_for_contact import add_role_for_portal_user
 from erpnext.utilities.transaction_base import TransactionBase
@@ -61,7 +62,7 @@ class Supplier(TransactionBase):
 		portal_users: DF.Table[PortalUser]
 		prevent_pos: DF.Check
 		prevent_rfqs: DF.Check
-		primary_address: DF.Text | None
+		primary_address: DF.TextEditor | None
 		release_date: DF.Date | None
 		represents_company: DF.Link | None
 		supplier_details: DF.Text | None
@@ -73,6 +74,7 @@ class Supplier(TransactionBase):
 		tax_category: DF.Link | None
 		tax_id: DF.Data | None
 		tax_withholding_category: DF.Link | None
+		tax_withholding_group: DF.Link | None
 		warn_pos: DF.Check
 		warn_rfqs: DF.Check
 		website: DF.Data | None
@@ -212,6 +214,10 @@ class Supplier(TransactionBase):
 
 		delete_contact_and_address("Supplier", self.name)
 
+	def before_rename(self, olddn, newdn, merge=False):
+		if merge:
+			validate_party_currency_before_merging("Supplier", olddn, newdn)
+
 	def after_rename(self, olddn, newdn, merge=False):
 		if frappe.defaults.get_global_default("supp_master_name") == "Supplier Name":
 			self.db_set("supplier_name", newdn)
@@ -219,19 +225,25 @@ class Supplier(TransactionBase):
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def get_supplier_primary_contact(doctype, txt, searchfield, start, page_len, filters):
+def get_supplier_primary(doctype, txt, searchfield, start, page_len, filters):
 	supplier = filters.get("supplier")
-	contact = frappe.qb.DocType("Contact")
+	type = filters.get("type")
+	type_doctype = frappe.qb.DocType(type)
 	dynamic_link = frappe.qb.DocType("Dynamic Link")
 
-	return (
-		frappe.qb.from_(contact)
+	query = (
+		frappe.qb.from_(type_doctype)
 		.join(dynamic_link)
-		.on(contact.name == dynamic_link.parent)
-		.select(contact.name, contact.email_id)
+		.on(type_doctype.name == dynamic_link.parent)
+		.select(type_doctype.name)
 		.where(
 			(dynamic_link.link_name == supplier)
 			& (dynamic_link.link_doctype == "Supplier")
-			& (contact.name.like(f"%{txt}%"))
+			& (type_doctype.name.like(f"%{txt}%"))
 		)
-	).run(as_dict=False)
+	)
+
+	if type == "Contact":
+		query = query.select(type_doctype.email_id)
+
+	return query.run()

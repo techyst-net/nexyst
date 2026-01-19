@@ -71,8 +71,8 @@ class OpeningInvoiceCreationTool(Document):
 		max_count = {}
 		fields = [
 			"company",
-			"count(name) as total_invoices",
-			"sum(outstanding_amount) as outstanding_amount",
+			{"COUNT": "*", "as": "total_invoices"},
+			{"SUM": "outstanding_amount", "as": "outstanding_amount"},
 		]
 		companies = frappe.get_all("Company", fields=["name as company", "default_currency as currency"])
 		if not companies:
@@ -213,6 +213,9 @@ class OpeningInvoiceCreationTool(Document):
 				"disable_rounded_total": 1,
 			}
 		)
+
+		if self.invoice_type == "Purchase" and row.supplier_invoice_date:
+			invoice.update({"bill_date": row.supplier_invoice_date})
 
 		accounting_dimension = get_accounting_dimensions()
 		for dimension in accounting_dimension:

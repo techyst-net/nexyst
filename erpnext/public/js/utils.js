@@ -624,6 +624,7 @@ erpnext.utils.update_child_items = function (opts) {
 			uom: d.uom,
 			fg_item: d.fg_item,
 			fg_item_qty: d.fg_item_qty,
+			description: d.description,
 		};
 	});
 
@@ -707,8 +708,8 @@ erpnext.utils.update_child_items = function (opts) {
 								conversion_factor,
 								item_name,
 								bom_no,
+								description,
 							} = r.message;
-
 							const row = dialog.fields_dict.trans_items.df.data.find(
 								(row) => row.name == me.doc.name
 							);
@@ -720,6 +721,7 @@ erpnext.utils.update_child_items = function (opts) {
 									rate: me.doc.rate || rate,
 									item_name: item_name,
 									bom_no: bom_no,
+									description: me.doc.description || description,
 								});
 								dialog.fields_dict.trans_items.grid.refresh();
 							}
@@ -733,6 +735,7 @@ erpnext.utils.update_child_items = function (opts) {
 			fieldname: "item_name",
 			label: __("Item Name"),
 			read_only: 1,
+			in_list_view: 1,
 		},
 		{
 			fieldtype: "Link",
@@ -781,10 +784,16 @@ erpnext.utils.update_child_items = function (opts) {
 			label: __("Rate"),
 			precision: get_precision("rate"),
 		},
+		{
+			fieldtype: "Text Editor",
+			fieldname: "description",
+			read_only: 0,
+			label: __("Description"),
+		},
 	];
 
 	if (frm.doc.doctype == "Sales Order" || frm.doc.doctype == "Purchase Order") {
-		fields.splice(2, 0, {
+		fields.splice(3, 0, {
 			fieldtype: "Date",
 			fieldname: frm.doc.doctype == "Sales Order" ? "delivery_date" : "schedule_date",
 			in_list_view: 1,
@@ -792,7 +801,7 @@ erpnext.utils.update_child_items = function (opts) {
 			default: frm.doc.doctype == "Sales Order" ? frm.doc.delivery_date : frm.doc.schedule_date,
 			reqd: 1,
 		});
-		fields.splice(3, 0, {
+		fields.splice(4, 0, {
 			fieldtype: "Float",
 			fieldname: "conversion_factor",
 			label: __("Conversion Factor"),
@@ -1060,7 +1069,15 @@ frappe.form.link_formatters["Project"] = function (value, doc, df) {
  * @returns {string} - The link value with the added title.
  */
 function add_link_title(value, doc, df, title_field) {
-	if (doc && value && doc[title_field] && doc[title_field] !== value && doc[df.fieldname] === value) {
+	if (doc.doctype != df.parent) {
+		return "";
+	} else if (
+		doc &&
+		value &&
+		doc[title_field] &&
+		doc[title_field] !== value &&
+		doc[df.fieldname] === value
+	) {
 		return value + ": " + doc[title_field];
 	} else if (!value && doc.doctype && doc[title_field]) {
 		return doc[title_field];

@@ -159,14 +159,21 @@ class Batch(Document):
 	@frappe.whitelist()
 	def recalculate_batch_qty(self):
 		batches = get_batch_qty(
-			batch_no=self.name, item_code=self.item, for_stock_levels=True, consider_negative_batches=True
+			batch_no=self.name,
+			item_code=self.item,
+			for_stock_levels=True,
+			consider_negative_batches=True,
+			ignore_reserved_stock=True,
 		)
+
 		batch_qty = 0.0
 		if batches:
 			for row in batches:
 				batch_qty += row.get("qty")
 
-		self.db_set("batch_qty", batch_qty)
+		if self.batch_qty != batch_qty:
+			self.db_set("batch_qty", batch_qty)
+
 		frappe.msgprint(_("Batch Qty updated to {0}").format(batch_qty), alert=True)
 
 	def set_batchwise_valuation(self):
@@ -239,6 +246,7 @@ def get_batch_qty(
 	for_stock_levels=False,
 	consider_negative_batches=False,
 	do_not_check_future_batches=False,
+	ignore_reserved_stock=False,
 ):
 	"""Returns batch actual qty if warehouse is passed,
 	        or returns dict of qty by warehouse if warehouse is None
@@ -267,6 +275,7 @@ def get_batch_qty(
 			"for_stock_levels": for_stock_levels,
 			"consider_negative_batches": consider_negative_batches,
 			"do_not_check_future_batches": do_not_check_future_batches,
+			"ignore_reserved_stock": ignore_reserved_stock,
 		}
 	)
 
@@ -297,7 +306,7 @@ def get_batches_by_oldest(item_code, warehouse):
 @frappe.whitelist()
 def split_batch(batch_no: str, item_code: str, warehouse: str, qty: float, new_batch_id: str | None = None):
 	"""Split the batch into a new batch"""
-	batch = frappe.get_doc(dict(doctype="Batch", item=item_code, batch_id=new_batch_id)).insert()
+	batch = frappe.get_doc(doctype="Batch", item=item_code, batch_id=new_batch_id).insert()
 	qty = flt(qty)
 
 	company = frappe.db.get_value("Warehouse", warehouse, "company")
@@ -321,22 +330,18 @@ def split_batch(batch_no: str, item_code: str, warehouse: str, qty: float, new_b
 	)
 
 	stock_entry = frappe.get_doc(
-		dict(
-			doctype="Stock Entry",
-			purpose="Repack",
-			company=company,
-			items=[
-				dict(
-					item_code=item_code,
-					qty=qty,
-					s_warehouse=warehouse,
-					serial_and_batch_bundle=from_bundle_id,
-				),
-				dict(
-					item_code=item_code, qty=qty, t_warehouse=warehouse, serial_and_batch_bundle=to_bundle_id
-				),
-			],
-		)
+		doctype="Stock Entry",
+		purpose="Repack",
+		company=company,
+		items=[
+			dict(
+				item_code=item_code,
+				qty=qty,
+				s_warehouse=warehouse,
+				serial_and_batch_bundle=from_bundle_id,
+			),
+			dict(item_code=item_code, qty=qty, t_warehouse=warehouse, serial_and_batch_bundle=to_bundle_id),
+		],
 	)
 	stock_entry.set_stock_entry_type()
 	stock_entry.insert()
@@ -405,8 +410,9 @@ def get_batches(item_code, warehouse, qty=1, throw=False, serial_no=None):
 		serial_nos = get_serial_nos(serial_no)
 		batches = frappe.get_all(
 			"Serial No",
-			fields=["distinct batch_no"],
+			fields=["batch_no"],
 			filters={"item_code": item_code, "warehouse": warehouse, "name": ("in", serial_nos)},
+			distinct=True,
 		)
 
 		if not batches:

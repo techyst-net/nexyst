@@ -23,7 +23,7 @@ from frappe.utils import (
 	time_diff_in_hours,
 )
 
-from erpnext.manufacturing.doctype.bom.bom import add_additional_cost
+from erpnext.manufacturing.doctype.bom.bom import add_additional_cost, get_bom_items_as_dict
 from erpnext.manufacturing.doctype.manufacturing_settings.manufacturing_settings import (
 	get_mins_between_operations,
 )
@@ -144,6 +144,9 @@ class JobCard(Document):
 		self.set_onload("work_order_closed", self.is_work_order_closed())
 		self.set_onload("has_stock_entry", self.has_stock_entry())
 
+	def on_discard(self):
+		self.db_set("status", "Cancelled")
+
 	def has_stock_entry(self):
 		return frappe.db.exists("Stock Entry", {"job_card": self.name, "docstatus": ["!=", 2]})
 
@@ -162,6 +165,7 @@ class JobCard(Document):
 			self.set_total_completed_qty_from_sub_operations()
 
 		self.validate_work_order()
+		self.set_employees()
 
 	def on_update(self):
 		self.validate_job_card_qty()
@@ -207,7 +211,7 @@ class JobCard(Document):
 
 		job_card_qty = frappe.get_all(
 			"Job Card",
-			fields=["sum(for_quantity)"],
+			fields=[{"SUM": "for_quantity"}],
 			filters={
 				"work_order": self.work_order,
 				"operation_id": self.operation_id,
@@ -220,17 +224,12 @@ class JobCard(Document):
 
 		if job_card_qty and ((job_card_qty - completed_qty) > wo_qty):
 			form_link = get_link_to_form("Manufacturing Settings", "Manufacturing Settings")
-
-			msg = f"""
-				Qty To Manufacture in the job card
-				cannot be greater than Qty To Manufacture in the
-				work order for the operation {bold(self.operation)}.
-				<br><br><b>Solution: </b> Either you can reduce the
-				Qty To Manufacture in the job card or set the
-				'Overproduction Percentage For Work Order'
-				in the {form_link}."""
-
-			frappe.throw(_(msg), title=_("Extra Job Card Quantity"))
+			frappe.throw(
+				_(
+					"Qty To Manufacture in the job card cannot be greater than Qty To Manufacture in the work order for the operation {0}. <br><br><b>Solution: </b> Either you can reduce the Qty To Manufacture in the job card or set the 'Overproduction Percentage For Work Order' in the {1}."
+				).format(bold(self.operation), form_link),
+				title=_("Extra Job Card Quantity"),
+			)
 
 	def set_sub_operations(self):
 		if not self.sub_operations and self.operation:
@@ -244,6 +243,26 @@ class JobCard(Document):
 				row.status = "Pending"
 				row.sub_operation = row.operation
 				self.append("sub_operations", row)
+
+	def set_scrap_items(self):
+		if not self.semi_fg_bom:
+			return
+
+		items_dict = get_bom_items_as_dict(
+			self.semi_fg_bom, self.company, qty=self.for_quantity, fetch_exploded=0, fetch_scrap_items=1
+		)
+		for item_code, values in items_dict.items():
+			values = frappe._dict(values)
+
+			self.append(
+				"scrap_items",
+				{
+					"item_code": item_code,
+					"stock_qty": values.qty,
+					"item_name": values.item_name,
+					"stock_uom": values.stock_uom,
+				},
+			)
 
 	def validate_time_logs(self, save=False):
 		self.total_time_in_mins = 0.0
@@ -616,11 +635,6 @@ class JobCard(Document):
 		row = self.append("time_logs", args)
 		row.db_update()
 
-	def set_employees(self, employees):
-		for name in employees:
-			self.append("employee", {"employee": name.get("employee"), "completed_qty": 0.0})
-			self.save()
-
 	def update_sub_operation_status(self):
 		if not self.sub_operations:
 			return
@@ -923,15 +937,19 @@ class JobCard(Document):
 		wo.update_operation_status()
 		wo.calculate_operating_cost()
 		wo.set_actual_dates()
+
+		if time_data:
+			wo.status = "In Process"
+
 		wo.save()
 
 	def get_current_operation_data(self):
 		return frappe.get_all(
 			"Job Card",
 			fields=[
-				"sum(total_time_in_mins) as time_in_mins",
-				"sum(total_completed_qty) as completed_qty",
-				"sum(process_loss_qty) as process_loss_qty",
+				{"SUM": "total_time_in_mins", "as": "time_in_mins"},
+				{"SUM": "total_completed_qty", "as": "completed_qty"},
+				{"SUM": "process_loss_qty", "as": "process_loss_qty"},
 			],
 			filters={
 				"docstatus": 1,
@@ -940,6 +958,36 @@ class JobCard(Document):
 				"is_corrective_job_card": 0,
 			},
 		)
+
+	def set_consumed_qty_in_job_card_item(self, ste_doc):
+		jc_item_names = [row.job_card_item for row in ste_doc.get("items") if row.get("job_card_item")]
+
+		if not jc_item_names:
+			return
+
+		se = frappe.qb.DocType("Stock Entry")
+		sed = frappe.qb.DocType("Stock Entry Detail")
+
+		query = (
+			frappe.qb.from_(sed)
+			.join(se)
+			.on(sed.parent == se.name)
+			.select(sed.job_card_item, Sum(sed.qty))
+			.where(
+				(sed.job_card_item.isin(jc_item_names)) & (se.docstatus == 1) & (se.purpose == "Manufacture")
+			)
+			.groupby(sed.job_card_item)
+		)
+
+		itemwise_consumed_qty = frappe._dict(query.run(as_list=True))
+
+		for row in ste_doc.items:
+			if not row.get("job_card_item"):
+				continue
+
+			consumed_qty = flt(itemwise_consumed_qty.get(row.job_card_item, 0.0))
+
+			frappe.db.set_value("Job Card Item", row.job_card_item, "consumed_qty", consumed_qty)
 
 	def set_transferred_qty_in_job_card_item(self, ste_doc):
 		def _get_job_card_items_transferred_qty(ste_doc):
@@ -1081,7 +1129,7 @@ class JobCard(Document):
 
 	def set_wip_warehouse(self):
 		if not self.wip_warehouse:
-			self.wip_warehouse = frappe.db.get_single_value("Manufacturing Settings", "default_wip_warehouse")
+			self.wip_warehouse = frappe.get_cached_value("Company", self.company, "default_wip_warehouse")
 
 	def validate_operation_id(self):
 		if (
@@ -1166,18 +1214,26 @@ class JobCard(Document):
 				)
 
 			if row.completed_qty < current_operation_qty:
-				msg = f"""The completed quantity {bold(current_operation_qty)}
-					of an operation {bold(self.operation)} cannot be greater
-					than the completed quantity {bold(row.completed_qty)}
-					of a previous operation
-					{bold(row.operation)}.
-				"""
-
-				frappe.throw(_(msg))
+				frappe.throw(
+					_(
+						"The completed quantity {0} of an operation {1} cannot be greater than the completed quantity {2} of a previous operation {3}."
+					).format(
+						bold(current_operation_qty),
+						bold(self.operation),
+						bold(row.completed_qty),
+						bold(row.operation),
+					)
+				)
 
 	def validate_work_order(self):
 		if self.is_work_order_closed():
 			frappe.throw(_("You can't make any changes to Job Card since Work Order is closed."))
+
+	def set_employees(self):
+		self.employee = []
+		for item in self.time_logs:
+			if not any(d.employee == item.employee for d in self.employee):
+				self.append("employee", {"employee": item.employee, "completed_qty": 0.0})
 
 	def is_work_order_closed(self):
 		if self.work_order:
@@ -1234,10 +1290,8 @@ class JobCard(Document):
 
 			self.set_status(update_status=update_status)
 
-		if not self.employee and kwargs.employees:
-			self.set_employees(kwargs.employees)
-
 		self.validate_time_logs(save=True)
+		self.save()
 
 	def update_workstation_status(self):
 		status_map = {
@@ -1278,17 +1332,15 @@ class JobCard(Document):
 			kwargs = frappe._dict(kwargs)
 
 		if kwargs.end_time:
+			if kwargs.for_quantity:
+				self.for_quantity = kwargs.for_quantity
+
 			self.add_time_logs(
 				to_time=kwargs.end_time,
 				completed_qty=kwargs.qty,
 				employees=self.employee,
 				sub_operation=kwargs.get("sub_operation"),
 			)
-
-			if kwargs.for_quantity:
-				self.for_quantity = kwargs.for_quantity
-
-			self.save()
 		else:
 			self.add_time_logs(completed_qty=kwargs.qty, employees=self.employee)
 			self.save()
@@ -1330,10 +1382,15 @@ class JobCard(Document):
 		wo_doc = frappe.get_doc("Work Order", self.work_order)
 		add_additional_cost(ste.stock_entry, wo_doc, self)
 
-		ste.stock_entry.save()
+		ste.stock_entry.set_scrap_items()
+		for row in ste.stock_entry.items:
+			if row.is_scrap_item and not row.t_warehouse:
+				row.t_warehouse = self.target_warehouse
 
 		if auto_submit:
 			ste.stock_entry.submit()
+		else:
+			ste.stock_entry.save()
 
 		frappe.msgprint(
 			_("Stock Entry {0} has created").format(get_link_to_form("Stock Entry", ste.stock_entry.name))
@@ -1419,11 +1476,12 @@ def get_operations(doctype, txt, searchfield, start, page_len, filters):
 	return frappe.get_all(
 		"Work Order Operation",
 		filters=args,
-		fields=["distinct operation as operation"],
+		fields=["operation"],
 		limit_start=start,
 		limit_page_length=page_len,
 		order_by="idx asc",
 		as_list=1,
+		distinct=True,
 	)
 
 

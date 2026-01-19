@@ -9,7 +9,7 @@ from frappe.desk.reportview import get_match_cond
 from frappe.model.document import Document
 from frappe.query_builder import Interval
 from frappe.query_builder.functions import Count, CurDate, Date, Sum, UnixTimestamp
-from frappe.utils import add_days, flt, get_datetime, get_link_to_form, get_time, get_url, nowtime, today
+from frappe.utils import add_days, flt, get_datetime, get_link_to_form, get_time, nowtime, today
 from frappe.utils.user import is_website_user
 
 from erpnext import get_default_company
@@ -127,22 +127,20 @@ class Project(Document):
 
 	def create_task_from_template(self, task_details):
 		return frappe.get_doc(
-			dict(
-				doctype="Task",
-				subject=task_details.subject,
-				project=self.name,
-				status="Open",
-				exp_start_date=self.calculate_start_date(task_details),
-				exp_end_date=self.calculate_end_date(task_details),
-				description=task_details.description,
-				task_weight=task_details.task_weight,
-				type=task_details.type,
-				issue=task_details.issue,
-				is_group=task_details.is_group,
-				color=task_details.color,
-				template_task=task_details.name,
-				priority=task_details.priority,
-			)
+			doctype="Task",
+			subject=task_details.subject,
+			project=self.name,
+			status="Open",
+			exp_start_date=self.calculate_start_date(task_details),
+			exp_end_date=self.calculate_end_date(task_details),
+			description=task_details.description,
+			task_weight=task_details.task_weight,
+			type=task_details.type,
+			issue=task_details.issue,
+			is_group=task_details.is_group,
+			color=task_details.color,
+			template_task=task_details.name,
+			priority=task_details.priority,
 		).insert()
 
 	def calculate_start_date(self, task_details):
@@ -282,6 +280,8 @@ class Project(Document):
 				Min(TimesheetDetail.from_time).as_("start_date"),
 				Max(TimesheetDetail.to_time).as_("end_date"),
 				Sum(TimesheetDetail.hours).as_("time"),
+				Sum(TimesheetDetail.base_costing_amount).as_("base_costing_amount"),
+				Sum(TimesheetDetail.base_billing_amount).as_("base_billing_amount"),
 			)
 			.where((TimesheetDetail.project == self.name) & (TimesheetDetail.docstatus == 1))
 		).run(as_dict=True)[0]
@@ -289,8 +289,8 @@ class Project(Document):
 		self.actual_start_date = from_time_sheet.start_date
 		self.actual_end_date = from_time_sheet.end_date
 
-		self.total_costing_amount = from_time_sheet.costing_amount
-		self.total_billable_amount = from_time_sheet.billing_amount
+		self.total_costing_amount = from_time_sheet.base_costing_amount
+		self.total_billable_amount = from_time_sheet.base_billing_amount
 		self.actual_time = from_time_sheet.time
 
 		self.update_purchase_costing()
@@ -401,8 +401,6 @@ def get_project_list(doctype, txt, filters, limit_start, limit_page_length=20, o
 
 	meta = frappe.get_meta(doctype)
 
-	fields = "distinct *"
-
 	or_filters = []
 
 	if txt:
@@ -424,13 +422,14 @@ def get_project_list(doctype, txt, filters, limit_start, limit_page_length=20, o
 
 	return frappe.get_list(
 		doctype,
-		fields=fields,
+		fields="*",
 		filters=filters,
 		or_filters=or_filters,
 		limit_start=limit_start,
 		limit_page_length=limit_page_length,
 		order_by=order_by,
 		ignore_permissions=ignore_permissions,
+		distinct=True,
 	)
 
 
@@ -446,6 +445,7 @@ def get_list_context(context=None):
 			"title": _("Projects"),
 			"get_list": get_project_list,
 			"row_template": "templates/includes/projects/project_row.html",
+			"list_template": "templates/includes/list/list.html",
 		}
 	)
 

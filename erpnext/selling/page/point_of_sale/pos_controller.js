@@ -258,33 +258,6 @@ erpnext.PointOfSale.Controller = class {
 		this.page.clear_icons();
 		this.page.set_primary_action(__("New Invoice"), this.new_invoice_event.bind(this));
 		this.page.set_secondary_action(__("Recent Orders"), this.toggle_recent_order.bind(this));
-		this.page.add_action_icon(
-			"fullscreen",
-			this.bind_fullscreen_events.bind(this),
-			"btn-fullscreen",
-			"Fullscreen"
-		);
-		this.page.add_action_icon(
-			"minimize",
-			this.bind_fullscreen_events.bind(this),
-			"btn-minimize hide",
-			"Minimize"
-		);
-	}
-
-	bind_fullscreen_events() {
-		if (!document.fullscreenElement) {
-			document.documentElement.requestFullscreen();
-			this.toggle_fullscreen_btn(".btn-minimize", ".btn-fullscreen");
-		} else if (document.exitFullscreen) {
-			document.exitFullscreen();
-			this.toggle_fullscreen_btn(".btn-fullscreen", ".btn-minimize");
-		}
-	}
-
-	toggle_fullscreen_btn(show, hide) {
-		this.page.page_actions.find(hide).addClass("hide");
-		this.page.page_actions.find(show).removeClass("hide");
 	}
 
 	open_form_view() {
@@ -678,6 +651,9 @@ erpnext.PointOfSale.Controller = class {
 
 	async on_cart_update(args) {
 		frappe.dom.freeze();
+		if (this.frm.doc.set_warehouse !== this.settings.warehouse) {
+			this.frm.set_value("set_warehouse", this.settings.warehouse);
+		}
 		let item_row = undefined;
 		try {
 			let { field, value, item } = args;
@@ -831,12 +807,16 @@ erpnext.PointOfSale.Controller = class {
 		const resp = (await this.get_available_stock(item_row.item_code, warehouse)).message;
 		const available_qty = resp[0];
 		const is_stock_item = resp[1];
+		const is_negative_stock_allowed = resp[2];
 
 		frappe.dom.unfreeze();
 		const bold_uom = item_row.stock_uom.bold();
 		const bold_item_code = item_row.item_code.bold();
 		const bold_warehouse = warehouse.bold();
 		const bold_available_qty = available_qty.toString().bold();
+
+		if (is_negative_stock_allowed) return;
+
 		if (!(available_qty > 0)) {
 			if (is_stock_item) {
 				frappe.model.clear_doc(item_row.doctype, item_row.name);

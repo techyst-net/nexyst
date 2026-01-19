@@ -11,11 +11,22 @@ from frappe.cache_manager import clear_defaults_cache
 from frappe.contacts.address_and_contact import load_address_and_contact
 from frappe.custom.doctype.property_setter.property_setter import make_property_setter
 from frappe.desk.page.setup_wizard.setup_wizard import make_records
-from frappe.utils import add_months, cint, formatdate, get_first_day, get_link_to_form, get_timestamp, today
+from frappe.utils import (
+	cint,
+	get_first_day,
+	get_last_day,
+	get_link_to_form,
+	get_timestamp,
+	today,
+)
 from frappe.utils.nestedset import NestedSet, rebuild_tree
 
 from erpnext.accounts.doctype.account.account import get_account_currency
+from erpnext.accounts.doctype.financial_report_template.financial_report_template import (
+	sync_financial_report_templates,
+)
 from erpnext.setup.setup_wizard.operations.taxes_setup import setup_taxes_and_charges
+from erpnext.stock.utils import check_pending_reposting
 
 
 class Company(NestedSet):
@@ -28,6 +39,7 @@ class Company(NestedSet):
 		from frappe.types import DF
 
 		abbr: DF.Data
+		accounts_frozen_till_date: DF.Date | None
 		accumulated_depreciation_account: DF.Link | None
 		allow_account_creation_against_child_company: DF.Check
 		asset_received_but_not_billed: DF.Link | None
@@ -56,6 +68,7 @@ class Company(NestedSet):
 		default_deferred_revenue_account: DF.Link | None
 		default_discount_account: DF.Link | None
 		default_expense_account: DF.Link | None
+		default_fg_warehouse: DF.Link | None
 		default_finance_book: DF.Link | None
 		default_holiday_list: DF.Link | None
 		default_in_transit_warehouse: DF.Link | None
@@ -66,8 +79,11 @@ class Company(NestedSet):
 		default_payable_account: DF.Link | None
 		default_provisional_account: DF.Link | None
 		default_receivable_account: DF.Link | None
+		default_sales_contact: DF.Link | None
+		default_scrap_warehouse: DF.Link | None
 		default_selling_terms: DF.Link | None
 		default_warehouse_for_sales_return: DF.Link | None
+		default_wip_warehouse: DF.Link | None
 		depreciation_cost_center: DF.Link | None
 		depreciation_expense_account: DF.Link | None
 		disposal_account: DF.Link | None
@@ -96,6 +112,7 @@ class Company(NestedSet):
 		registration_details: DF.Code | None
 		reporting_currency: DF.Link | None
 		rgt: DF.Int
+		role_allowed_for_frozen_entries: DF.Link | None
 		round_off_account: DF.Link | None
 		round_off_cost_center: DF.Link | None
 		round_off_for_opening: DF.Link | None
@@ -110,6 +127,7 @@ class Company(NestedSet):
 		transactions_annual_history: DF.Code | None
 		unrealized_exchange_gain_loss_account: DF.Link | None
 		unrealized_profit_loss_account: DF.Link | None
+		valuation_method: DF.Literal["FIFO", "Moving Average", "LIFO"]
 		website: DF.Data | None
 		write_off_account: DF.Link | None
 	# end: auto-generated types
@@ -143,6 +161,7 @@ class Company(NestedSet):
 		return exists
 
 	def validate(self):
+		old_doc = self.get_doc_before_save()
 		self.update_default_account = False
 		if self.is_new():
 			self.update_default_account = True
@@ -160,6 +179,33 @@ class Company(NestedSet):
 		self.validate_parent_company()
 		self.set_reporting_currency()
 		self.validate_inventory_account_settings()
+		self.cant_change_valuation_method()
+		self.validate_pending_reposts(old_doc)
+
+	def cant_change_valuation_method(self):
+		doc_before_save = self.get_doc_before_save()
+		if not doc_before_save:
+			return
+
+		previous_valuation_method = doc_before_save.get("valuation_method")
+
+		if previous_valuation_method and previous_valuation_method != self.valuation_method:
+			# check if there are any stock ledger entries against items
+			# which does not have it's own valuation method
+			sle = frappe.db.sql(
+				"""select name from `tabStock Ledger Entry` sle
+				where exists(select name from tabItem
+					where name=sle.item_code and (valuation_method is null or valuation_method='')) and sle.company=%s limit 1
+			""",
+				self.name,
+			)
+
+			if sle:
+				frappe.throw(
+					_(
+						"Can't change the valuation method, as there are transactions against some items which do not have its own valuation method"
+					)
+				)
 
 	def validate_inventory_account_settings(self):
 		doc_before_save = self.get_doc_before_save()
@@ -294,6 +340,7 @@ class Company(NestedSet):
 		):
 			if not frappe.local.flags.ignore_chart_of_accounts:
 				frappe.flags.country_change = True
+				sync_financial_report_templates(self.chart_of_accounts, self.existing_company)
 				self.create_default_accounts()
 				self.create_default_warehouses()
 
@@ -562,6 +609,11 @@ class Company(NestedSet):
 			)
 			self.reporting_currency = parent_reporting_currency
 
+	def validate_pending_reposts(self, old_doc):
+		if old_doc and old_doc.accounts_frozen_till_date != self.accounts_frozen_till_date:
+			if self.accounts_frozen_till_date:
+				check_pending_reposting(self.accounts_frozen_till_date, self.name)
+
 	def set_default_accounts(self):
 		default_accounts = {
 			"default_cash_account": "Cash",
@@ -821,30 +873,40 @@ def install_country_fixtures(company, country):
 
 
 def update_company_current_month_sales(company):
-	from_date = get_first_day(today())
-	to_date = get_first_day(add_months(from_date, 1))
+	"""Update Company's Total Monthly Sales.
 
-	results = frappe.db.sql(
-		"""
-		SELECT
-			SUM(base_grand_total) AS total,
-			DATE_FORMAT(posting_date, '%%m-%%Y') AS month_year
-		FROM
-			`tabSales Invoice`
-		WHERE
-			posting_date >= %s
-			AND posting_date < %s
-			AND docstatus = 1
-			AND company = %s
-		GROUP BY
-			month_year
-		""",
-		(from_date, to_date, company),
-		as_dict=True,
+	Postgres compatibility:
+	- Avoid MariaDB-only DATE_FORMAT().
+	- Use a date range for the current month instead (portable + index-friendly).
+	"""
+
+	# Local imports so you don't have to touch file-level imports
+	from frappe.query_builder.functions import Sum
+
+	start_date = get_first_day(today())
+	end_date = get_last_day(today())
+
+	si = frappe.qb.DocType("Sales Invoice")
+
+	total_monthly_sales = (
+		frappe.qb.from_(si)
+		.select(Sum(si.base_grand_total))
+		.where(
+			(si.docstatus == 1)
+			& (si.company == company)
+			& (si.posting_date >= start_date)
+			& (si.posting_date <= end_date)
+		)
+	).run(pluck=True)[0] or 0
+
+	# Fieldname in standard ERPNext is `total_monthly_sales`
+	frappe.db.set_value(
+		"Company",
+		company,
+		"total_monthly_sales",
+		total_monthly_sales,
+		update_modified=False,
 	)
-
-	monthly_total = results[0]["total"] if len(results) > 0 else 0
-	frappe.db.set_value("Company", company, "total_monthly_sales", monthly_total)
 
 
 def update_company_monthly_sales(company):

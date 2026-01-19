@@ -23,6 +23,7 @@ class Quotation(SellingController):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
+		from erpnext.accounts.doctype.item_wise_tax_detail.item_wise_tax_detail import ItemWiseTaxDetail
 		from erpnext.accounts.doctype.payment_schedule.payment_schedule import PaymentSchedule
 		from erpnext.accounts.doctype.pricing_rule_detail.pricing_rule_detail import PricingRuleDetail
 		from erpnext.accounts.doctype.sales_taxes_and_charges.sales_taxes_and_charges import (
@@ -72,6 +73,7 @@ class Quotation(SellingController):
 		ignore_pricing_rule: DF.Check
 		in_words: DF.Data | None
 		incoterm: DF.Link | None
+		item_wise_tax_details: DF.Table[ItemWiseTaxDetail]
 		items: DF.Table[QuotationItem]
 		language: DF.Link | None
 		letter_head: DF.Link | None
@@ -343,6 +345,7 @@ def get_list_context(context=None):
 			"show_search": True,
 			"no_breadcrumbs": True,
 			"title": _("Quotations"),
+			"list_template": "templates/includes/list/list.html",
 		}
 	)
 
@@ -610,6 +613,7 @@ def handle_mandatory_error(e, customer, lead_name):
 	frappe.throw(message, title=_("Mandatory Missing"))
 
 
+@frappe.whitelist()
 def get_ordered_items(quotation: str):
 	"""
 	Returns a dict of ordered items with their total qty based on quotation row name.
@@ -628,7 +632,7 @@ def get_ordered_items(quotation: str):
 		frappe.get_all(
 			"Sales Order Item",
 			filters={"prevdoc_docname": quotation, "docstatus": 1},
-			fields=["quotation_item", "sum(qty)"],
+			fields=["quotation_item", {"SUM": "qty"}],
 			group_by="quotation_item",
 			as_list=1,
 		)

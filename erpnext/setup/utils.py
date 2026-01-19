@@ -4,7 +4,7 @@
 import frappe
 from frappe import _
 from frappe.utils import add_days, flt, get_datetime_str, nowdate
-from frappe.utils.data import getdate, now_datetime
+from frappe.utils.data import now_datetime
 from frappe.utils.nestedset import get_root_of
 
 from erpnext import get_default_company
@@ -232,3 +232,15 @@ def welcome_email():
 	site_name = get_default_company() or "ERPNext"
 	title = _("Welcome to {0}").format(site_name)
 	return title
+
+
+def identity(x, *args, **kwargs):
+	"""Used for redefining the translation function to return the string as is.
+
+	We want to create english records but still mark the strings as translatable.
+	E.g. when the respective DocTypes have 'Translate Link Fields' enabled or
+	we're creating custom fields.
+
+	Use like this: `from erpnext.setup.utils import identity as _`
+	"""
+	return x

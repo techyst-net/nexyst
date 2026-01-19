@@ -3,7 +3,7 @@
 
 
 import frappe
-from frappe import _, msgprint, scrub, unscrub
+from frappe import _, msgprint
 from frappe.core.doctype.user_permission.user_permission import get_permitted_documents
 from frappe.model.document import Document
 from frappe.utils import get_link_to_form, now
@@ -75,6 +75,7 @@ class POSProfile(Document):
 	# end: auto-generated types
 
 	def validate(self):
+		self.validate_disabled()
 		self.validate_default_profile()
 		self.validate_all_link_fields()
 		self.validate_duplicate_groups()
@@ -98,6 +99,21 @@ class POSProfile(Document):
 					),
 					title=_("Mandatory Accounting Dimension"),
 				)
+
+	def validate_disabled(self):
+		old_doc = self.get_doc_before_save()
+
+		if (
+			old_doc
+			and self.disabled
+			and old_doc.disabled != self.disabled
+			and frappe.db.exists("POS Opening Entry", {"pos_profile": self.name, "status": "Open"})
+		):
+			frappe.throw(
+				_("POS Profile {0} cannot be disabled as there are ongoing POS sessions.").format(
+					frappe.bold(self.name)
+				)
+			)
 
 	def validate_default_profile(self):
 		for row in self.applicable_for_users:

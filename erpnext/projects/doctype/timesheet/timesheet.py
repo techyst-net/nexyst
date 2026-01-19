@@ -51,7 +51,9 @@ class Timesheet(Document):
 		per_billed: DF.Percent
 		sales_invoice: DF.Link | None
 		start_date: DF.Date | None
-		status: DF.Literal["Draft", "Submitted", "Billed", "Payslip", "Completed", "Cancelled"]
+		status: DF.Literal[
+			"Draft", "Submitted", "Partially Billed", "Billed", "Payslip", "Completed", "Cancelled"
+		]
 		time_logs: DF.Table[TimesheetDetail]
 		title: DF.Data | None
 		total_billable_amount: DF.Currency
@@ -72,6 +74,14 @@ class Timesheet(Document):
 		self.calculate_total_amounts()
 		self.calculate_percentage_billed()
 		self.set_dates()
+
+	def on_discard(self):
+		self.db_set("status", "Cancelled")
+
+	def on_update_after_submit(self):
+		self.validate_mandatory_fields()
+		self.update_task_and_project()
+		self.validate_time_logs()
 
 	def calculate_hours(self):
 		for row in self.time_logs:
@@ -119,6 +129,9 @@ class Timesheet(Document):
 
 		if flt(self.per_billed, self.precision("per_billed")) >= 100.0:
 			self.status = "Billed"
+
+		if 0.0 < flt(self.per_billed, self.precision("per_billed")) < 100.0:
+			self.status = "Partially Billed"
 
 		if self.sales_invoice:
 			self.status = "Completed"
@@ -383,7 +396,7 @@ def get_timesheet_data(name, project):
 		data = frappe.get_all(
 			"Timesheet",
 			fields=[
-				"(total_billable_amount - total_billed_amount) as billing_amt",
+				{"SUB": ["total_billable_amount", "total_billed_amount"], "as": "billing_amt"},
 				"total_billable_hours as billing_hours",
 			],
 			filters={"name": name},
@@ -425,7 +438,7 @@ def make_sales_invoice(source_name, item_code=None, customer=None, currency=None
 		target.append("items", {"item_code": item_code, "qty": hours, "rate": billing_rate})
 
 	for time_log in timesheet.time_logs:
-		if time_log.is_billable:
+		if time_log.is_billable and not time_log.sales_invoice:
 			target.append(
 				"timesheets",
 				{
@@ -559,4 +572,5 @@ def get_list_context(context=None):
 		"title": _("Timesheets"),
 		"get_list": get_timesheets_list,
 		"row_template": "templates/includes/timesheet/timesheet_row.html",
+		"list_template": "templates/includes/list/list.html",
 	}
