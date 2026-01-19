@@ -20,7 +20,6 @@ from frappe.utils import (
 	get_link_to_form,
 	getdate,
 	now,
-	nowtime,
 	parse_json,
 	today,
 )
