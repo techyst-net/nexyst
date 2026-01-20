@@ -3,7 +3,8 @@
 import datetime
 
 import frappe
-from frappe.tests import IntegrationTestCase
+
+from erpnext.tests.utils import ERPNextTestSuite
 
 LEAD_EMAIL = "test_appointment_lead@example.com"
 
@@ -25,7 +26,7 @@ def create_test_appointment():
 	return test_appointment
 
 
-class TestAppointment(IntegrationTestCase):
+class TestAppointment(ERPNextTestSuite):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()

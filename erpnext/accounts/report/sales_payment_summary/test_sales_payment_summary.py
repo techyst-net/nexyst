@@ -2,7 +2,6 @@
 # License: GNU General Public License v3. See license.txt
 
 import frappe
-from frappe.tests import IntegrationTestCase
 from frappe.utils import today
 
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
@@ -10,9 +9,10 @@ from erpnext.accounts.report.sales_payment_summary.sales_payment_summary import 
 	get_mode_of_payment_details,
 	get_mode_of_payments,
 )
+from erpnext.tests.utils import ERPNextTestSuite
 
 
-class TestSalesPaymentSummary(IntegrationTestCase):
+class TestSalesPaymentSummary(ERPNextTestSuite):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()

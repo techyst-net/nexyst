@@ -3,7 +3,6 @@
 import json
 
 import frappe
-from frappe.tests import IntegrationTestCase
 from frappe.utils.response import json_handler
 
 from erpnext.erpnext_integrations.doctype.plaid_settings.plaid_settings import (
@@ -13,9 +12,10 @@ from erpnext.erpnext_integrations.doctype.plaid_settings.plaid_settings import (
 	get_plaid_configuration,
 	new_bank_transaction,
 )
+from erpnext.tests.utils import ERPNextTestSuite
 
 
-class TestPlaidSettings(IntegrationTestCase):
+class TestPlaidSettings(ERPNextTestSuite):
 	def setUp(self):
 		pass
 

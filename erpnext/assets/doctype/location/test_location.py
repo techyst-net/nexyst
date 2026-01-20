@@ -3,10 +3,11 @@
 import json
 
 import frappe
-from frappe.tests import IntegrationTestCase
+
+from erpnext.tests.utils import ERPNextTestSuite
 
 
-class TestLocation(IntegrationTestCase):
+class TestLocation(ERPNextTestSuite):
 	def runTest(self):
 		locations = ["Basil Farm", "Division 1", "Field 1", "Block 1"]
 		area = 0

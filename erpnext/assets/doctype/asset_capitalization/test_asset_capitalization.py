@@ -2,7 +2,6 @@
 # See license.txt
 
 import frappe
-from frappe.tests import IntegrationTestCase
 from frappe.utils import cint, flt, now_datetime
 
 from erpnext.assets.doctype.asset.depreciation import post_depreciation_entries
@@ -17,9 +16,10 @@ from erpnext.stock.doctype.purchase_receipt.test_purchase_receipt import make_pu
 from erpnext.stock.doctype.serial_and_batch_bundle.test_serial_and_batch_bundle import (
 	make_serial_batch_bundle,
 )
+from erpnext.tests.utils import ERPNextTestSuite
 
 
-class TestAssetCapitalization(IntegrationTestCase):
+class TestAssetCapitalization(ERPNextTestSuite):
 	def setUp(self):
 		set_depreciation_settings_in_company()
 		create_asset_data()

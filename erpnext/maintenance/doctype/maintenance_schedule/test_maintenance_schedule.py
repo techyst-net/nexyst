@@ -2,7 +2,6 @@
 # See license.txt
 
 import frappe
-from frappe.tests import IntegrationTestCase
 from frappe.utils import format_date
 from frappe.utils.data import add_days, formatdate, today
 
@@ -12,9 +11,10 @@ from erpnext.maintenance.doctype.maintenance_schedule.maintenance_schedule impor
 )
 from erpnext.stock.doctype.item.test_item import create_item
 from erpnext.stock.doctype.stock_entry.test_stock_entry import make_serialized_item
+from erpnext.tests.utils import ERPNextTestSuite
 
 
-class TestMaintenanceSchedule(IntegrationTestCase):
+class TestMaintenanceSchedule(ERPNextTestSuite):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()

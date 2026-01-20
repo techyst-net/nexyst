@@ -115,7 +115,7 @@ class TestQueries(ERPNextTestSuite):
 			}
 		)
 
-		with self.set_user(user.name):
+		with ERPNextTestSuite.set_user(user.name):
 			params = {
 				"doctype": "Employee",
 				"txt": "",

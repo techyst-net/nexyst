@@ -2,7 +2,6 @@
 # See license.txt
 
 import frappe
-from frappe.tests import IntegrationTestCase
 from frappe.utils import cstr, flt, getdate
 
 from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
@@ -18,9 +17,10 @@ from erpnext.assets.doctype.asset_repair.test_asset_repair import create_asset_r
 from erpnext.assets.doctype.asset_value_adjustment.test_asset_value_adjustment import (
 	make_asset_value_adjustment,
 )
+from erpnext.tests.utils import ERPNextTestSuite
 
 
-class TestAssetDepreciationSchedule(IntegrationTestCase):
+class TestAssetDepreciationSchedule(ERPNextTestSuite):
 	def setUp(self):
 		create_asset_data()
 
