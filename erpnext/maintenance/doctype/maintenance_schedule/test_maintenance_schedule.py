@@ -140,8 +140,6 @@ class TestMaintenanceSchedule(ERPNextTestSuite):
 		serial_nos = get_serial_nos_from_schedule(mvi.item_name, ms.name)
 		self.assertEqual(serial_nos, ["TEST001", "TEST002"])
 
-		frappe.db.rollback()
-
 	def test_schedule_with_serials(self):
 		# Checks whether serials are automatically updated when changing in items table.
 		# Also checks if other fields trigger generate schdeule if changed in items table.
@@ -169,8 +167,6 @@ class TestMaintenanceSchedule(ERPNextTestSuite):
 		self.assertEqual(len(ms.schedules), 1)
 		ms.save()
 		self.assertEqual(len(ms.schedules), 2)
-
-		frappe.db.rollback()
 
 
 def make_serial_item_with_serial(self, item_code):
