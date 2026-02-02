@@ -9,6 +9,9 @@ from erpnext.tests.utils import ERPNextTestSuite
 
 
 class TestMapper(ERPNextTestSuite):
+	def setUp(self):
+		self.load_test_records("Sales Order")
+
 	def test_map_docs(self):
 		"""Test mapping of multiple source docs on a single target doc"""
 
@@ -36,6 +39,7 @@ class TestMapper(ERPNextTestSuite):
 				"order_type": "Sales",
 				"transaction_date": nowdate(),
 				"valid_till": add_months(nowdate(), 1),
+				"company": self.companies[0].name,
 			}
 		)
 		for item in item_list:
@@ -62,6 +66,6 @@ class TestMapper(ERPNextTestSuite):
 				"uom": "_Test UOM",
 			}
 		)
-		so = frappe.get_doc(frappe.get_test_records("Sales Order")[0])
+		so = frappe.get_doc(self.globalTestRecords["Sales Order"][0])
 		so.insert(ignore_permissions=True)
 		return so, [item.item_code]
