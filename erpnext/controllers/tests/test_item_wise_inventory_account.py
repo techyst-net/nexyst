@@ -273,7 +273,7 @@ class TestItemWiseInventoryAccount(ERPNextTestSuite):
 		}
 
 		for row in items:
-			self.make_item_group(items[row]["item_group"])
+			self._make_item_group(items[row]["item_group"])
 
 		inventory_account_dict = frappe._dict()
 		for item_name, item_data in items.items():
@@ -357,7 +357,7 @@ class TestItemWiseInventoryAccount(ERPNextTestSuite):
 		}
 
 		for row in items:
-			self.make_item_group(items[row]["item_group"])
+			self._make_item_group(items[row]["item_group"])
 
 		inventory_account_dict = frappe._dict()
 		for item_name, item_data in items.items():
@@ -451,7 +451,7 @@ class TestItemWiseInventoryAccount(ERPNextTestSuite):
 
 			self.assertEqual(sle_value[0].value, gl_value, f"GL Entry not created for {item_code} correctly")
 
-	def make_item_group(self, item_name):
+	def _make_item_group(self, item_name):
 		if not frappe.db.exists("Item Group", item_name):
 			item_group = frappe.get_doc(
 				{
