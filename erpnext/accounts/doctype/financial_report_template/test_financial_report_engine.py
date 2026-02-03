@@ -1791,6 +1791,9 @@ class TestFinancialQueryBuilder(FinancialReportTemplateTestCase):
 
 		pcv = None
 		jv_2024 = None
+		original_pcv_setting = frappe.db.get_single_value(
+			"Accounts Settings", "use_legacy_controller_for_pcv"
+		)
 
 		try:
 			# Create Period Closing Voucher for 2023
@@ -1935,6 +1938,10 @@ class TestFinancialQueryBuilder(FinancialReportTemplateTestCase):
 
 		finally:
 			# Clean up
+			frappe.db.set_single_value(
+				"Accounts Settings", "use_legacy_controller_for_pcv", original_pcv_setting or 0
+			)
+
 			if jv_2024:
 				jv_2024.cancel()
 
