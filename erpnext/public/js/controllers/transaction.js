@@ -1748,6 +1748,7 @@ erpnext.TransactionController = class TransactionController extends erpnext.taxe
 				"base_raw_material_cost",
 				"base_total_cost",
 				"base_scrap_material_cost",
+				"base_rounding_adjustment",
 				"base_totals_section",
 			],
 			company_currency
