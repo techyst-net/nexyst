@@ -609,7 +609,7 @@ class AssetCapitalization(StockController):
 
 
 @frappe.whitelist()
-def get_target_item_details(item_code=None, company=None):
+def get_target_item_details(item_code: str | None = None, company: str | None = None) -> frappe._dict:
 	out = frappe._dict()
 
 	# Get Item Details
@@ -635,7 +635,7 @@ def get_target_item_details(item_code=None, company=None):
 
 
 @frappe.whitelist()
-def get_target_asset_details(asset=None, company=None):
+def get_target_asset_details(asset: str | None = None, company: str | None = None) -> frappe._dict:
 	out = frappe._dict()
 
 	# Get Asset Details
