@@ -130,33 +130,64 @@ class AssetCategory(Document):
 			"accumulated_depreciation_account": "Accumulated Depreciation Account",
 			"depreciation_expense_account": "Depreciation Expense Account",
 		}
-		missing_depreciation_account_msg = []
-		for row in self.accounts:
-			if not has_depreciable_asset(self.name, row.company_name):
-				continue
+
+		error_msg = []
+		companies_with_accounts = set()
+
+		def validate_company_accounts(company, acc_row=None):
 			default_accounts = frappe.get_cached_value(
 				"Company",
-				row.company_name,
+				company,
 				["accumulated_depreciation_account", "depreciation_expense_account"],
 				as_dict=True,
 			)
 			for fieldname, label in depreciation_account_map.items():
-				if not row.get(fieldname) and not default_accounts.get(fieldname):
-					missing_depreciation_account_msg.append(
-						_("Row #{0}: Missing <b>{1}</b> for company <b>{2}</b>.").format(
-							row.idx,
-							label,
-							get_link_to_form("Company", row.company_name),
+				row_value = acc_row.get(fieldname) if acc_row else None
+				if not row_value and not default_accounts.get(fieldname):
+					if acc_row:
+						error_msg.append(
+							_("Row #{0}: Missing <b>{1}</b> for company <b>{2}</b>.").format(
+								acc_row.idx,
+								label,
+								get_link_to_form("Company", company),
+							)
 						)
-					)
-		if missing_depreciation_account_msg:
+					else:
+						msg = _("Missing account configuration for company <b>{0}</b>.").format(
+							get_link_to_form("Company", company),
+						)
+						if msg not in error_msg:
+							error_msg.append(msg)
+
+		companies_with_assets = frappe.db.get_all(
+			"Asset",
+			{
+				"calculate_depreciation": 1,
+				"asset_category": self.name,
+				"status": ["in", ("Submitted", "Partially Depreciated")],
+			},
+			pluck="company",
+			distinct=True,
+		)
+
+		for acc_row in self.accounts:
+			companies_with_accounts.add(acc_row.company_name)
+			if acc_row.company_name in companies_with_assets:
+				validate_company_accounts(acc_row.company_name, acc_row)
+
+		for company in companies_with_assets:
+			if company not in companies_with_accounts:
+				validate_company_accounts(company)
+
+		if error_msg:
 			msg = _(
 				"Since there are active depreciable assets under this category, the following accounts are required. <br><br>"
 			)
 			msg += _(
 				"You can either configure default depreciation accounts in the Company or set the required accounts in the following rows: <br><br>"
 			)
-			msg += "<br>".join(missing_depreciation_account_msg)
+			msg += "<br>".join(error_msg)
+
 			frappe.throw(msg, title=_("Missing Accounts"))
 
 
@@ -182,17 +213,3 @@ def get_asset_category_account(
 	)
 
 	return account
-
-
-def has_depreciable_asset(asset_category, company):
-	return bool(
-		frappe.db.count(
-			"Asset",
-			{
-				"calculate_depreciation": 1,
-				"asset_category": asset_category,
-				"company": company,
-				"status": ["in", ("Submitted", "Partially Depreciated")],
-			},
-		)
-	)

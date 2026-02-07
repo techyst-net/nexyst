@@ -98,19 +98,21 @@ class TestAssetCategory(IntegrationTestCase):
 				"depreciation_expense_account": "",
 			},
 		)
-		asset_category = frappe.get_doc("Asset Category", asset.asset_category)
-		asset_category.enable_cwip_accounting = 0
-		for row in asset_category.accounts:
-			if row.company_name == asset.company and (
-				row.accumulated_depreciation_account or row.depreciation_expense_account
-			):
-				row.accumulated_depreciation_account = None
-				row.depreciation_expense_account = None
-		with self.assertRaises(frappe.ValidationError) as err:
-			asset_category.save()
+		try:
+			asset_category = frappe.get_doc("Asset Category", asset.asset_category)
+			asset_category.enable_cwip_accounting = 0
+			for row in asset_category.accounts:
+				if row.company_name == asset.company and (
+					row.accumulated_depreciation_account or row.depreciation_expense_account
+				):
+					row.accumulated_depreciation_account = None
+					row.depreciation_expense_account = None
+			with self.assertRaises(frappe.ValidationError) as err:
+				asset_category.save()
 
-		self.assertTrue(
-			"Since there are active depreciable assets under this category, the following accounts are required."
-			in str(err.exception)
-		)
-		frappe.db.set_value("Company", asset.company, company_acccount_depreciation)
+			self.assertTrue(
+				"Since there are active depreciable assets under this category, the following accounts are required."
+				in str(err.exception)
+			)
+		finally:
+			frappe.db.set_value("Company", asset.company, company_acccount_depreciation)
