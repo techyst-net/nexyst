@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: frappe\n"
 "Report-Msgid-Bugs-To: hello@frappe.io\n"
 "POT-Creation-Date: 2026-02-08 09:43+0000\n"
-"PO-Revision-Date: 2026-02-09 11:59\n"
+"PO-Revision-Date: 2026-02-14 13:41\n"
 "Last-Translator: hello@frappe.io\n"
 "Language-Team: Persian\n"
 "MIME-Version: 1.0\n"
@@ -1182,7 +1182,7 @@ msgstr "تراز حساب"
 #: erpnext/accounts/doctype/account/account_tree.js:167
 #: erpnext/accounts/doctype/account_category/account_category.json
 msgid "Account Category"
-msgstr "دسته بندی حساب"
+msgstr "دسته‌بندی حساب"
 
 #. Label of the account_category_name (Data) field in DocType 'Account
 #. Category'
@@ -5508,7 +5508,7 @@ msgstr "وضعیت دارایی"
 #. Label of the asset_type (Select) field in DocType 'Asset'
 #: erpnext/assets/doctype/asset/asset.json
 msgid "Asset Type"
-msgstr ""
+msgstr "نوع دارایی"
 
 #. Label of the asset_value (Currency) field in DocType 'Asset Capitalization
 #. Asset Item'
@@ -17905,7 +17905,7 @@ msgstr "نمایشگاه"
 #. Option for the 'Asset Type' (Select) field in DocType 'Asset'
 #: erpnext/assets/doctype/asset/asset.json
 msgid "Existing Asset"
-msgstr ""
+msgstr "دارایی موجود"
 
 #. Option for the 'Create Chart Of Accounts Based On' (Select) field in DocType
 #. 'Company'
@@ -31772,7 +31772,7 @@ msgstr "مالک"
 #. Label of the asset_owner_section (Section Break) field in DocType 'Asset'
 #: erpnext/assets/doctype/asset/asset.json
 msgid "Ownership"
-msgstr ""
+msgstr "مالکیت"
 
 #. Label of the p_l_closing_balance (JSON) field in DocType 'Process Period
 #. Closing Voucher'
@@ -33245,7 +33245,7 @@ msgstr "حالت پرداخت"
 #. 'Accounts Settings'
 #: erpnext/accounts/doctype/accounts_settings/accounts_settings.json
 msgid "Payment Options"
-msgstr ""
+msgstr "گزینه‌های پرداخت"
 
 #. Label of the payment_order (Link) field in DocType 'Journal Entry'
 #. Label of the payment_order (Link) field in DocType 'Payment Entry'
@@ -36010,7 +36010,7 @@ msgstr "لیست قیمت"
 #. DocType 'POS Profile'
 #: erpnext/accounts/doctype/pos_profile/pos_profile.json
 msgid "Price List & Currency"
-msgstr ""
+msgstr "لیست قیمت و واحد پول"
 
 #. Name of a DocType
 #: erpnext/stock/doctype/price_list_country/price_list_country.json
