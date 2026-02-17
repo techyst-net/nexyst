@@ -610,7 +610,7 @@ class AssetCapitalization(StockController):
 
 
 @frappe.whitelist()
-def get_target_item_details(item_code: str | None = None, company: str | None = None) -> frappe._dict:
+def get_target_item_details(item_code: str | None = None, company: str | None = None):
 	out = frappe._dict()
 
 	# Get Item Details
@@ -636,7 +636,7 @@ def get_target_item_details(item_code: str | None = None, company: str | None = 
 
 
 @frappe.whitelist()
-def get_target_asset_details(asset: str | None = None, company: str | None = None) -> frappe._dict:
+def get_target_asset_details(asset: str | None = None, company: str | None = None):
 	out = frappe._dict()
 
 	# Get Asset Details
@@ -711,7 +711,7 @@ def get_consumed_stock_item_details(ctx: ItemDetailsCtx):
 
 
 @frappe.whitelist()
-def get_warehouse_details(args: dict[str, Any]) -> frappe._dict:
+def get_warehouse_details(args: dict | str):
 	if isinstance(args, str):
 		args = json.loads(args)
 
@@ -798,7 +798,7 @@ def get_service_item_details(ctx: ItemDetailsCtx) -> frappe._dict:
 
 
 @frappe.whitelist()
-def get_items_tagged_to_wip_composite_asset(params: dict[str, Any]):
+def get_items_tagged_to_wip_composite_asset(params: dict | str):
 	if isinstance(params, str):
 		params = json.loads(params)
 

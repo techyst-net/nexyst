@@ -6,7 +6,6 @@ from typing import Any
 
 import frappe
 from frappe import _
-from frappe.model.document import Document
 from frappe.query_builder import Order
 from frappe.query_builder.functions import Max, Min
 from frappe.utils import (
@@ -169,8 +168,8 @@ def make_depreciation_entry(
 	date: DateTimeLikeObject | None = None,
 	sch_start_idx: int | None = None,
 	sch_end_idx: int | None = None,
-	accounting_dimensions: dict[str, Any] | None = None,
-) -> Document:
+	accounting_dimensions: list[dict] | None = None,
+):
 	frappe.has_permission("Journal Entry", throw=True)
 	date = date or today()
 
@@ -776,7 +775,7 @@ def get_profit_gl_entries(
 
 
 @frappe.whitelist()
-def get_disposal_account_and_cost_center(company: str) -> tuple[str, str]:
+def get_disposal_account_and_cost_center(company: str):
 	disposal_account, depreciation_cost_center = frappe.get_cached_value(
 		"Company", company, ["disposal_account", "depreciation_cost_center"]
 	)
@@ -792,9 +791,9 @@ def get_disposal_account_and_cost_center(company: str) -> tuple[str, str]:
 @frappe.whitelist()
 def get_value_after_depreciation_on_disposal_date(
 	asset: str,
-	disposal_date: str,
+	disposal_date: DateTimeLikeObject,
 	finance_book: str | None = None,
-) -> float:
+):
 	asset_doc = frappe.get_doc("Asset", asset)
 
 	if asset_doc.asset_type == "Composite Component":

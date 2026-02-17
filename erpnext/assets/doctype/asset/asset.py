@@ -8,7 +8,6 @@ from typing import Any
 
 import frappe
 from frappe import _
-from frappe.model.document import Document
 from frappe.query_builder.functions import IfNull, Sum
 from frappe.utils import (
 	cint,
@@ -1133,7 +1132,7 @@ def create_asset_maintenance(
 	item_name: str,
 	asset_category: str,
 	company: str,
-) -> Document:
+):
 	asset_maintenance = frappe.new_doc("Asset Maintenance")
 	asset_maintenance.update(
 		{
@@ -1152,7 +1151,7 @@ def create_asset_repair(
 	company: str,
 	asset: str,
 	asset_name: str,
-) -> Document:
+):
 	asset_repair = frappe.new_doc("Asset Repair")
 	asset_repair.update({"company": company, "asset": asset, "asset_name": asset_name})
 	return asset_repair
@@ -1164,7 +1163,7 @@ def create_asset_capitalization(
 	asset: str,
 	asset_name: str,
 	item_code: str,
-) -> Document:
+):
 	asset_capitalization = frappe.new_doc("Asset Capitalization")
 	asset_capitalization.update(
 		{
@@ -1182,7 +1181,7 @@ def create_asset_value_adjustment(
 	asset: str,
 	asset_category: str,
 	company: str,
-) -> Document:
+):
 	asset_value_adjustment = frappe.new_doc("Asset Value Adjustment")
 	asset_value_adjustment.update({"asset": asset, "company": company, "asset_category": asset_category})
 	return asset_value_adjustment
@@ -1193,7 +1192,7 @@ def get_item_details(
 	item_code: str,
 	asset_category: str,
 	net_purchase_amount: float,
-) -> list[dict[str, Any]]:
+):
 	asset_category_doc = frappe.get_cached_doc("Asset Category", asset_category)
 	books = []
 	for d in asset_category_doc.finance_books:
@@ -1243,7 +1242,7 @@ def get_asset_account(account_name, asset=None, asset_category=None, company=Non
 
 
 @frappe.whitelist()
-def make_journal_entry(asset_name: str) -> Document:
+def make_journal_entry(asset_name: str):
 	asset = frappe.get_doc("Asset", asset_name)
 	(
 		fixed_asset_account,
@@ -1286,9 +1285,9 @@ def make_journal_entry(asset_name: str) -> Document:
 
 @frappe.whitelist()
 def make_asset_movement(
-	assets: list[dict[str, Any]],
+	assets: list[dict] | str,
 	purpose: str = "Transfer",
-) -> dict[str, Any]:
+):
 	import json
 
 	if isinstance(assets, str):
@@ -1323,7 +1322,7 @@ def is_cwip_accounting_enabled(asset_category):
 def get_asset_value_after_depreciation(
 	asset_name: str,
 	finance_book: str | None = None,
-) -> float:
+):
 	asset = frappe.get_doc("Asset", asset_name)
 	if not asset.calculate_depreciation:
 		return flt(asset.value_after_depreciation)
@@ -1332,7 +1331,7 @@ def get_asset_value_after_depreciation(
 
 
 @frappe.whitelist()
-def has_active_capitalization(asset: str) -> bool:
+def has_active_capitalization(asset: str):
 	active_capitalizations = frappe.db.count(
 		"Asset Capitalization", filters={"target_asset": asset, "docstatus": 1}
 	)
@@ -1344,7 +1343,7 @@ def get_values_from_purchase_doc(
 	purchase_doc_name: str,
 	item_code: str,
 	doctype: str,
-) -> dict[str, Any]:
+):
 	purchase_doc = frappe.get_doc(doctype, purchase_doc_name)
 	matching_items = [item for item in purchase_doc.items if item.item_code == item_code]
 
@@ -1366,7 +1365,7 @@ def get_values_from_purchase_doc(
 
 
 @frappe.whitelist()
-def split_asset(asset_name: str, split_qty: int) -> Document:
+def split_asset(asset_name: str, split_qty: int):
 	"""Split an asset into two based on the given quantity."""
 	existing_asset = frappe.get_doc("Asset", asset_name)
 	split_qty = cint(split_qty)

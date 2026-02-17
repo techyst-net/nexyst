@@ -448,7 +448,7 @@ class AssetRepair(AccountsController):
 
 
 @frappe.whitelist()
-def get_downtime(failure_date: DateTimeLikeObject, completion_date: DateTimeLikeObject) -> float:
+def get_downtime(failure_date: DateTimeLikeObject, completion_date: DateTimeLikeObject):
 	downtime = time_diff_in_hours(completion_date, failure_date)
 	return round(downtime, 2)
 
@@ -461,8 +461,8 @@ def get_purchase_invoice(
 	searchfield: str,
 	start: int,
 	page_len: int,
-	filters: dict[str, str],
-) -> list[list[str]]:
+	filters: dict,
+):
 	"""
 	Get Purchase Invoices that have expense accounts for non-stock items.
 	Only returns invoices with at least one non-stock, non-fixed-asset item with an expense account.
@@ -503,8 +503,8 @@ def get_expense_accounts(
 	searchfield: str,
 	start: int,
 	page_len: int,
-	filters: dict[str, str],
-) -> list[list[str]]:
+	filters: dict,
+):
 	"""
 	Get expense accounts for non-stock (service) items from the purchase invoice.
 	Used as a query function for link fields.
@@ -562,7 +562,7 @@ def _get_expense_accounts_for_purchase_invoice(purchase_invoice: str) -> list[st
 @frappe.whitelist()
 def get_unallocated_repair_cost(
 	purchase_invoice: str, expense_account: str, exclude_asset_repair: str | None = None
-) -> float:
+):
 	"""
 	Calculate the unused repair cost for a purchase invoice and expense account.
 	"""

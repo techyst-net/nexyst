@@ -97,7 +97,7 @@ def calculate_next_due_date(
 	end_date: DateTimeLikeObject | None = None,
 	last_completion_date: DateTimeLikeObject | None = None,
 	next_due_date: DateTimeLikeObject | None = None,
-) -> str:
+):
 	if not start_date and not last_completion_date:
 		start_date = frappe.utils.now()
 
@@ -186,7 +186,7 @@ def get_team_members(
 
 
 @frappe.whitelist()
-def get_maintenance_log(asset_name: str) -> list[dict[str, Any]]:
+def get_maintenance_log(asset_name: str):
 	return frappe.db.sql(
 		"""
         select maintenance_status, count(asset_name) as count, asset_name
