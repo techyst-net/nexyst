@@ -36,21 +36,6 @@ from erpnext.tests.utils import ERPNextTestSuite
 
 
 class TestSalesOrder(AccountsTestMixin, ERPNextTestSuite):
-	@classmethod
-	def setUpClass(cls):
-		super().setUpClass()
-		cls.unlink_setting = int(
-			frappe.db.get_single_value("Accounts Settings", "unlink_advance_payment_on_cancelation_of_order")
-		)
-
-	@classmethod
-	def tearDownClass(cls) -> None:
-		# reset config to previous state
-		frappe.db.set_single_value(
-			"Accounts Settings", "unlink_advance_payment_on_cancelation_of_order", cls.unlink_setting
-		)
-		super().tearDownClass()
-
 	def setUp(self):
 		self.create_customer("_Test Customer Credit")
 
@@ -141,7 +126,9 @@ class TestSalesOrder(AccountsTestMixin, ERPNextTestSuite):
 		so.reload()
 		self.assertEqual(so.status, "Completed")
 
-	@ERPNextTestSuite.change_settings("Selling Settings", {"allow_multiple_items": 1, "allow_negative_rates_for_items": 1})
+	@ERPNextTestSuite.change_settings(
+		"Selling Settings", {"allow_multiple_items": 1, "allow_negative_rates_for_items": 1}
+	)
 	def test_sales_order_with_negative_rate(self):
 		"""
 		Test if negative rate is allowed in Sales Order via doc submission and update items
