@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import json
+from typing import Any
 
 import frappe
 
@@ -710,24 +711,26 @@ def get_consumed_stock_item_details(ctx: ItemDetailsCtx):
 
 
 @frappe.whitelist()
-def get_warehouse_details(args):
+def get_warehouse_details(args: dict[str, Any]) -> frappe._dict:
 	if isinstance(args, str):
 		args = json.loads(args)
 
 	args = frappe._dict(args)
 
-	out = {}
+	out = frappe._dict()
 	if args.warehouse and args.item_code:
-		out = {
-			"actual_qty": get_previous_sle(args).get("qty_after_transaction") or 0,
-			"valuation_rate": get_incoming_rate(args, raise_error_if_no_rate=False),
-		}
+		out = frappe._dict(
+			{
+				"actual_qty": get_previous_sle(args).get("qty_after_transaction") or 0,
+				"valuation_rate": get_incoming_rate(args, raise_error_if_no_rate=False),
+			}
+		)
 	return out
 
 
 @frappe.whitelist()
 @erpnext.normalize_ctx_input(ItemDetailsCtx)
-def get_consumed_asset_details(ctx):
+def get_consumed_asset_details(ctx: ItemDetailsCtx) -> frappe._dict:
 	out = frappe._dict()
 
 	asset_details = frappe._dict()
@@ -773,7 +776,7 @@ def get_consumed_asset_details(ctx):
 
 @frappe.whitelist()
 @erpnext.normalize_ctx_input(ItemDetailsCtx)
-def get_service_item_details(ctx):
+def get_service_item_details(ctx: ItemDetailsCtx) -> frappe._dict:
 	out = frappe._dict()
 
 	item = frappe._dict()
@@ -795,7 +798,7 @@ def get_service_item_details(ctx):
 
 
 @frappe.whitelist()
-def get_items_tagged_to_wip_composite_asset(params):
+def get_items_tagged_to_wip_composite_asset(params: dict[str, Any]):
 	if isinstance(params, str):
 		params = json.loads(params)
 

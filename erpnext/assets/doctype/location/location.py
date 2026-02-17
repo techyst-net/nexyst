@@ -211,7 +211,9 @@ def _ring_area(coords):
 
 
 @frappe.whitelist()
-def get_children(doctype, parent=None, location=None, is_root=False):
+def get_children(
+	doctype: str, parent: str | None = None, location: str | None = None, is_root: bool = False
+) -> list[dict]:
 	if parent is None or parent == "All Locations":
 		parent = ""
 
