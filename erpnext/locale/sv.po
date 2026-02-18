@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: frappe\n"
 "Report-Msgid-Bugs-To: hello@frappe.io\n"
 "POT-Creation-Date: 2026-02-15 09:44+0000\n"
-"PO-Revision-Date: 2026-02-16 14:51\n"
+"PO-Revision-Date: 2026-02-18 14:56\n"
 "Last-Translator: hello@frappe.io\n"
 "Language-Team: Swedish\n"
 "MIME-Version: 1.0\n"
@@ -41811,7 +41811,7 @@ msgstr "Kontroll & Åtgärd"
 #: erpnext/quality_management/doctype/quality_procedure/quality_procedure.json
 #: erpnext/quality_management/doctype/quality_review/quality_review.json
 msgid "Reviews"
-msgstr "Recension "
+msgstr "Recensioner"
 
 #: erpnext/accounts/doctype/budget/budget.js:37
 msgid "Revise Budget"
@@ -54552,7 +54552,7 @@ msgstr "Moms på Försäljning och Alla Andra utgifter"
 #: erpnext/stock/doctype/item_tax/item_tax.json
 #: erpnext/support/doctype/service_level_agreement/service_level_agreement.json
 msgid "Valid From"
-msgstr "Gäller Från"
+msgstr "Giltig Från"
 
 #: erpnext/regional/doctype/lower_deduction_certificate/lower_deduction_certificate.py:45
 msgid "Valid From date not in Fiscal Year {0}"
