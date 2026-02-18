@@ -4,7 +4,6 @@
 
 import json
 import math
-from typing import Any
 
 import frappe
 from frappe import _

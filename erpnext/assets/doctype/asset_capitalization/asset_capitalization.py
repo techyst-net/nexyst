@@ -711,18 +711,14 @@ def get_consumed_stock_item_details(ctx: ItemDetailsCtx):
 
 
 @frappe.whitelist()
-def get_warehouse_details(args: dict | str):
-	if isinstance(args, str):
-		args = json.loads(args)
-
-	args = frappe._dict(args)
-
+@erpnext.normalize_ctx_input(ItemDetailsCtx)
+def get_warehouse_details(ctx: ItemDetailsCtx) -> frappe._dict:
 	out = frappe._dict()
-	if args.warehouse and args.item_code:
+	if ctx.warehouse and ctx.item_code:
 		out = frappe._dict(
 			{
-				"actual_qty": get_previous_sle(args).get("qty_after_transaction") or 0,
-				"valuation_rate": get_incoming_rate(args, raise_error_if_no_rate=False),
+				"actual_qty": get_previous_sle(ctx).get("qty_after_transaction") or 0,
+				"valuation_rate": get_incoming_rate(ctx, raise_error_if_no_rate=False),
 			}
 		)
 	return out
