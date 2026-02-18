@@ -2694,6 +2694,7 @@ def create_pick_list(source_name: str, target_doc: str | None = None, for_qty: f
 		target_doc,
 	)
 
+	doc.purpose = "Material Transfer for Manufacture"
 	doc.for_qty = for_qty
 
 	doc.set_item_locations()
