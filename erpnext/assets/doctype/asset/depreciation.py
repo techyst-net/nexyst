@@ -164,7 +164,7 @@ def get_depr_cost_center_and_series():
 
 @frappe.whitelist()
 def make_depreciation_entry(
-	depr_schedule_name: str,
+	depr_schedule_name: str | list[dict],
 	date: DateTimeLikeObject | None = None,
 	sch_start_idx: int | None = None,
 	sch_end_idx: int | None = None,
