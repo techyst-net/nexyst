@@ -2,8 +2,6 @@
 # For license information, please see license.txt
 
 
-from typing import Any
-
 import frappe
 from frappe import _
 from frappe.query_builder import Order
