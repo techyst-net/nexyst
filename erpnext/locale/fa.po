@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: frappe\n"
 "Report-Msgid-Bugs-To: hello@frappe.io\n"
 "POT-Creation-Date: 2026-02-15 09:44+0000\n"
-"PO-Revision-Date: 2026-02-17 14:56\n"
+"PO-Revision-Date: 2026-02-18 14:57\n"
 "Last-Translator: hello@frappe.io\n"
 "Language-Team: Persian\n"
 "MIME-Version: 1.0\n"
@@ -16021,7 +16021,7 @@ msgstr "آدرس اعزام"
 #. 'Purchase Order'
 #: erpnext/buying/doctype/purchase_order/purchase_order.json
 msgid "Dispatch Address Details"
-msgstr ""
+msgstr "جزئیات آدرس اعزام"
 
 #. Label of the dispatch_address_name (Link) field in DocType 'Sales Invoice'
 #. Label of the dispatch_address_name (Link) field in DocType 'Sales Order'
@@ -16035,7 +16035,7 @@ msgstr "نام آدرس اعزام"
 #. Label of the dispatch_address (Link) field in DocType 'Purchase Receipt'
 #: erpnext/stock/doctype/purchase_receipt/purchase_receipt.json
 msgid "Dispatch Address Template"
-msgstr ""
+msgstr "الگوی آدرس اعزام"
 
 #. Label of the section_break_9 (Section Break) field in DocType 'Delivery
 #. Stop'
@@ -18460,7 +18460,7 @@ msgstr "خطای واکشی"
 
 #: erpnext/manufacturing/doctype/master_production_schedule/master_production_schedule.js:198
 msgid "Fetching Material Requests..."
-msgstr ""
+msgstr "واکشی درخواست‌های مواد..."
 
 #: erpnext/manufacturing/doctype/master_production_schedule/master_production_schedule.js:145
 msgid "Fetching Sales Orders..."
@@ -20269,7 +20269,7 @@ msgstr "دریافت درخواست مواد"
 #: erpnext/manufacturing/doctype/master_production_schedule/master_production_schedule.js:183
 #: erpnext/manufacturing/doctype/master_production_schedule/master_production_schedule.json
 msgid "Get Material Requests"
-msgstr ""
+msgstr "دریافت درخواست‌های مواد"
 
 #. Label of the get_outstanding_invoices (Button) field in DocType 'Journal
 #. Entry'
@@ -44563,7 +44563,7 @@ msgstr "Dimension را انتخاب کنید"
 #. Label of the dispatch_address (Link) field in DocType 'Purchase Invoice'
 #: erpnext/accounts/doctype/purchase_invoice/purchase_invoice.json
 msgid "Select Dispatch Address "
-msgstr ""
+msgstr "انتخاب آدرس اعزام "
 
 #: erpnext/manufacturing/doctype/job_card/job_card.js:221
 msgid "Select Employees"
