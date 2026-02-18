@@ -770,7 +770,7 @@ def make_purchase_receipt(
 
 @frappe.whitelist()
 def make_purchase_invoice(
-	source_name: str, target_doc: str | Document | None = None, args: str | None = None
+	source_name: str, target_doc: str | Document | None = None, args: str | dict | None = None
 ):
 	return get_mapped_purchase_invoice(source_name, target_doc, args=args)
 
@@ -904,7 +904,11 @@ def make_inter_company_sales_order(source_name: str, target_doc: str | Document 
 
 @frappe.whitelist()
 def make_subcontracting_order(
-	source_name: str, target_doc=None, save=False, submit: bool = False, notify: bool = False
+	source_name: str,
+	target_doc: str | Document | None = None,
+	save: bool = False,
+	submit: bool = False,
+	notify: bool = False,
 ):
 	if not is_po_fully_subcontracted(source_name):
 		target_doc = get_mapped_subcontracting_order(source_name, target_doc)
