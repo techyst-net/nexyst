@@ -258,6 +258,7 @@ class StockEntry(StockController, SubcontractingInwardController):
 		self.validate_job_card_item()
 		self.set_purpose_for_stock_entry()
 		self.clean_serial_nos()
+		self.validate_repack_entry()
 
 		if not self.from_bom:
 			self.fg_completed_qty = 0.0
@@ -278,8 +279,43 @@ class StockEntry(StockController, SubcontractingInwardController):
 
 		self.validate_closed_subcontracting_order()
 		self.validate_subcontract_order()
+		self.validate_raw_materials_exists()
 
 		super().validate_subcontracting_inward()
+
+	def validate_repack_entry(self):
+		if self.purpose != "Repack":
+			return
+
+		fg_items = {row.item_code: row for row in self.items if row.is_finished_item}
+
+		if len(fg_items) > 1 and not all(row.set_basic_rate_manually for row in fg_items.values()):
+			frappe.throw(
+				_(
+					"When there are multiple finished goods ({0}) in a Repack stock entry, the basic rate for all finished goods must be set manually. To set rate manually, enable the checkbox 'Set Basic Rate Manually' in the respective finished good row."
+				).format(", ".join(fg_items)),
+				title=_("Set Basic Rate Manually"),
+			)
+
+	def validate_raw_materials_exists(self):
+		if self.purpose not in ["Manufacture", "Repack", "Disassemble"]:
+			return
+
+		if frappe.db.get_single_value("Manufacturing Settings", "material_consumption"):
+			return
+
+		raw_materials = []
+		for row in self.items:
+			if row.s_warehouse:
+				raw_materials.append(row.item_code)
+
+		if not raw_materials:
+			frappe.throw(
+				_(
+					"At least one raw material item must be present in the stock entry for the type {0}"
+				).format(bold(self.purpose)),
+				title=_("Raw Materials Missing"),
+			)
 
 	def set_serial_batch_for_disassembly(self):
 		if self.purpose != "Disassemble":
@@ -413,12 +449,12 @@ class StockEntry(StockController, SubcontractingInwardController):
 	def set_job_card_data(self):
 		if self.job_card and not self.work_order:
 			data = frappe.db.get_value(
-				"Job Card", self.job_card, ["for_quantity", "work_order", "bom_no"], as_dict=1
+				"Job Card", self.job_card, ["for_quantity", "work_order", "bom_no", "semi_fg_bom"], as_dict=1
 			)
 			self.fg_completed_qty = data.for_quantity
 			self.work_order = data.work_order
 			self.from_bom = 1
-			self.bom_no = data.bom_no
+			self.bom_no = data.semi_fg_bom or data.bom_no
 
 	def validate_job_card_fg_item(self):
 		if not self.job_card:
@@ -935,10 +971,13 @@ class StockEntry(StockController, SubcontractingInwardController):
 
 		precision = frappe.get_precision("Stock Entry Detail", "qty")
 		for item_code, details in raw_materials.items():
+			item_code = item_code[0] if type(item_code) == tuple else item_code
 			if matched_item := self.get_matched_items(item_code):
 				if flt(details.get("qty"), precision) != flt(matched_item.qty, precision):
 					frappe.throw(
-						_("For the item {0}, the quantity should be {1} according to the BOM {2}.").format(
+						_(
+							"For the item {0}, the consumed quantity should be {1} according to the BOM {2}."
+						).format(
 							frappe.bold(item_code),
 							flt(details.get("qty")),
 							get_link_to_form("BOM", self.bom_no),
@@ -1003,11 +1042,36 @@ class StockEntry(StockController, SubcontractingInwardController):
 								)
 
 	def get_matched_items(self, item_code):
-		for row in self.items:
+		items = [item for item in self.items if item.s_warehouse]
+		for row in items or self.get_consumed_items():
 			if row.item_code == item_code or row.original_item == item_code:
 				return row
 
 		return {}
+
+	def get_consumed_items(self):
+		"""Get all raw materials consumed through consumption entries"""
+		parent = frappe.qb.DocType("Stock Entry")
+		child = frappe.qb.DocType("Stock Entry Detail")
+
+		query = (
+			frappe.qb.from_(parent)
+			.join(child)
+			.on(parent.name == child.parent)
+			.select(
+				child.item_code,
+				Sum(child.qty).as_("qty"),
+				child.original_item,
+			)
+			.where(
+				(parent.docstatus == 1)
+				& (parent.purpose == "Material Consumption for Manufacture")
+				& (parent.work_order == self.work_order)
+			)
+			.groupby(child.item_code, child.original_item)
+		)
+
+		return query.run(as_dict=True)
 
 	@frappe.whitelist()
 	def get_stock_and_rate(self):
@@ -1942,6 +2006,7 @@ class StockEntry(StockController, SubcontractingInwardController):
 			else:
 				job_doc.set_consumed_qty_in_job_card_item(self)
 				job_doc.set_manufactured_qty()
+				job_doc.update_work_order()
 
 		if self.work_order:
 			pro_doc = frappe.get_doc("Work Order", self.work_order)

@@ -187,9 +187,8 @@ class AccountsController(TransactionBase):
 
 			msg = ""
 			if self.get("update_outstanding_for_self"):
-				msg = (
-					"We can see {0} is made against {1}. If you want {1}'s outstanding to be updated, "
-					"uncheck '{2}' checkbox. <br><br>Or"
+				msg = _(
+					"We can see {0} is made against {1}. If you want {1}'s outstanding to be updated, uncheck the '{2}' checkbox."
 				).format(
 					frappe.bold(document_type),
 					get_link_to_form(self.doctype, self.get("return_against")),
@@ -200,8 +199,8 @@ class AccountsController(TransactionBase):
 				abs(flt(self.rounded_total) or flt(self.grand_total)) > flt(against_voucher_outstanding)
 			):
 				self.update_outstanding_for_self = 1
-				msg = (
-					"The outstanding amount {} in {} is lesser than {}. Updating the outstanding to this invoice. <br><br>And"
+				msg = _(
+					"The outstanding amount {0} in {1} is lesser than {2}. Updating the outstanding to this invoice."
 				).format(
 					against_voucher_outstanding,
 					get_link_to_form(self.doctype, self.get("return_against")),
@@ -209,11 +208,11 @@ class AccountsController(TransactionBase):
 				)
 
 			if msg:
-				msg += " you can use {} tool to reconcile against {} later.".format(
+				msg += "<br><br>" + _("You can use {0} to reconcile against {1} later.").format(
 					get_link_to_form("Payment Reconciliation"),
 					get_link_to_form(self.doctype, self.get("return_against")),
 				)
-				frappe.msgprint(_(msg))
+				frappe.msgprint(msg)
 
 	def validate(self):
 		if not self.get("is_return") and not self.get("is_debit_note"):
@@ -4078,6 +4077,12 @@ def update_child_qty_rate(parent_doctype, trans_items, parent_doctype_name, chil
 			)
 			child_item.conversion_factor = (
 				flt(d.get("conversion_factor"), conv_fac_precision) or conversion_factor
+			)
+
+		if child_item.get("total_weight") and child_item.get("weight_per_unit"):
+			child_item.total_weight = flt(
+				child_item.weight_per_unit * child_item.qty * child_item.conversion_factor,
+				child_item.precision("total_weight"),
 			)
 
 		if d.get("delivery_date") and parent_doctype == "Sales Order":
