@@ -544,7 +544,8 @@ class TestPurchaseOrder(IntegrationTestCase):
 	def test_make_purchase_invoice_with_terms(self):
 		po = create_purchase_order(do_not_save=True)
 
-		self.assertRaises(frappe.ValidationError, make_pi_from_po, po.name)
+		with self.assertRaises(frappe.ValidationError):
+			make_pi_from_po(po.name)
 
 		po.update({"payment_terms_template": "_Test Payment Term Template"})
 
