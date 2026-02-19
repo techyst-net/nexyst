@@ -133,7 +133,12 @@ def get_parent_item_group(pos_profile: str):
 
 @frappe.whitelist()
 def get_items(
-	start: str, page_length: str, price_list: str, item_group: str, pos_profile: str, search_term: str = ""
+	start: str | int,
+	page_length: str | int,
+	price_list: str | None,
+	item_group: str,
+	pos_profile: str,
+	search_term: str = "",
 ):
 	warehouse, hide_unavailable_items = frappe.db.get_value(
 		"POS Profile", pos_profile, ["warehouse", "hide_unavailable_items"]

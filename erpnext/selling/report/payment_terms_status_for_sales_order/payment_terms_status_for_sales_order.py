@@ -94,7 +94,7 @@ def get_descendants_of(doctype, group_name):
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def get_customers_or_items(
-	doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: list
+	doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: list | None
 ):
 	filter_list = []
 	if isinstance(filters, list):

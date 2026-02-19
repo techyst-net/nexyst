@@ -356,7 +356,9 @@ def get_list_context(context=None):
 
 
 @frappe.whitelist()
-def make_sales_order(source_name: str, target_doc: Document | None = None, args: str | dict | None = None):
+def make_sales_order(
+	source_name: str, target_doc: str | Document | None = None, args: str | dict | None = None
+):
 	if not frappe.db.get_singles_value(
 		"Selling Settings", "allow_sales_order_creation_for_expired_quotation"
 	):
