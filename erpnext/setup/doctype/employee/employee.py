@@ -451,9 +451,6 @@ def create_user(employee, user=None, email=None, create_user_permission=0):
 
 	first_name = employee_name[0]
 
-	frappe.db.set_value("Employee", emp.name, "user_id", email, update_modified=False)
-	frappe.db.commit()
-
 	user = frappe.new_doc("User")
 	user.update(
 		{
@@ -469,8 +466,9 @@ def create_user(employee, user=None, email=None, create_user_permission=0):
 			"bio": emp.bio,
 		}
 	)
+	frappe.db.set_value("Employee", emp.name, "user_id", email)
 	user.append_roles("Employee")
-	user.insert(ignore_permissions=True)
+	user.insert()
 
 	emp.reload()
 	emp.company_email = email
@@ -479,17 +477,8 @@ def create_user(employee, user=None, email=None, create_user_permission=0):
 	emp.save()
 
 	if cint(create_user_permission):
-		if not frappe.db.exists(
-			"User Permission",
-			{"allow": "Employee", "for_value": emp.name, "user": user.name},
-		):
-			add_user_permission("Employee", emp.name, user.name)
-
-		if not frappe.db.exists(
-			"User Permission",
-			{"allow": "Company", "for_value": emp.company, "user": user.name},
-		):
-			add_user_permission("Company", emp.company, user.name)
+		add_user_permission("Employee", emp.name, user.name)
+		add_user_permission("Company", emp.company, user.name)
 
 	return user.name
 
