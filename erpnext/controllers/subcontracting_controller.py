@@ -1368,7 +1368,10 @@ def get_pending_subcontracted_quantity(doctype, name):
 
 @frappe.whitelist()
 def make_rm_stock_entry(
-	subcontract_order, rm_items=None, order_doctype="Subcontracting Order", target_doc=None
+	subcontract_order: str,
+	rm_items: str | list[dict],
+	order_doctype: str = "Subcontracting Order",
+	target_doc: dict | None = None,
 ):
 	if subcontract_order:
 		subcontract_order = frappe.get_doc(order_doctype, subcontract_order)
@@ -1555,7 +1558,9 @@ def make_return_stock_entry_for_subcontract(
 
 
 @frappe.whitelist()
-def get_materials_from_supplier(subcontract_order, rm_details, order_doctype="Subcontracting Order"):
+def get_materials_from_supplier(
+	subcontract_order: str, rm_details: str | list[dict], order_doctype: str = "Subcontracting Order"
+):
 	if isinstance(rm_details, str):
 		rm_details = json.loads(rm_details)
 
