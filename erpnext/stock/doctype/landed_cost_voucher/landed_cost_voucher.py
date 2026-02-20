@@ -2,6 +2,8 @@
 # For license information, please see license.txt
 
 
+from typing import Any
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -221,7 +223,7 @@ class LandedCostVoucher(Document):
 			)
 
 	@frappe.whitelist()
-	def get_receipt_document_details(self, receipt_document_type, receipt_document):
+	def get_receipt_document_details(self, receipt_document_type: str, receipt_document: str):
 		if receipt_document_type in [
 			"Purchase Invoice",
 			"Purchase Receipt",
@@ -356,7 +358,7 @@ class LandedCostVoucher(Document):
 					)
 
 	@frappe.whitelist()
-	def get_vendor_invoice_amount(self, vendor_invoice):
+	def get_vendor_invoice_amount(self, vendor_invoice: str):
 		filters = frappe._dict(
 			{
 				"name": vendor_invoice,
@@ -427,7 +429,9 @@ def get_pr_items(purchase_receipt):
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def get_vendor_invoices(doctype, txt, searchfield, start, page_len, filters):
+def get_vendor_invoices(
+	doctype: str, txt: str | None, searchfield: Any, start: int, page_len: int, filters: dict
+):
 	if not frappe.has_permission("Purchase Invoice", "read"):
 		return []
 
