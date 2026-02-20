@@ -27,7 +27,7 @@ def employee_query(
 	searchfield: str,
 	start: int,
 	page_len: int,
-	filters: dict,
+	filters: dict | str | None = None,
 	reference_doctype: str | None = None,
 	ignore_user_permissions: bool = False,
 ):
@@ -91,7 +91,9 @@ def has_ignored_field(reference_doctype, doctype):
 # searches for leads which are not converted
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def lead_query(doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict):
+def lead_query(
+	doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict | None = None
+):
 	doctype = "Lead"
 	fields = get_fields(doctype, ["name", "lead_name", "company_name"])
 
@@ -175,7 +177,13 @@ def tax_account_query(doctype: str, txt: str, searchfield: str, start: int, page
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def item_query(
-	doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict, as_dict: bool = False
+	doctype: str,
+	txt: str,
+	searchfield: str,
+	start: int,
+	page_len: int,
+	filters: dict | str | None = None,
+	as_dict: bool = False,
 ):
 	doctype = "Item"
 	conditions = []
@@ -282,7 +290,9 @@ def item_query(
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def bom(doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict):
+def bom(
+	doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict | str | None = None
+):
 	doctype = "BOM"
 	conditions = []
 	fields = get_fields(doctype, ["name", "item"])
@@ -314,7 +324,9 @@ def bom(doctype: str, txt: str, searchfield: str, start: int, page_len: int, fil
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def get_project_name(doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict):
+def get_project_name(
+	doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict | None = None
+):
 	proj = qb.DocType("Project")
 	qb_filter_and_conditions = []
 	qb_filter_or_conditions = []
@@ -563,7 +575,9 @@ def get_batches_from_serial_and_batch_bundle(searchfields, txt, filters, start=0
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def get_account_list(doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict):
+def get_account_list(
+	doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict | list
+):
 	doctype = "Account"
 	filter_list = []
 
@@ -740,7 +754,7 @@ def get_expense_account(doctype: str, txt: str, searchfield: str, start: int, pa
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def warehouse_query(doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict):
+def warehouse_query(doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: list):
 	# Should be used when item code is passed in filters.
 	doctype = "Warehouse"
 	conditions, bin_conditions = [], []

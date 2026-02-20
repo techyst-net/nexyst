@@ -2087,7 +2087,7 @@ def check_item_quality_inspection(doctype: str, items: str | list[dict]):
 
 
 @frappe.whitelist()
-def make_quality_inspections(doctype: str, docname: str, items: str | list[dict], inspection_type: str):
+def make_quality_inspections(doctype: str, docname: str, items: str | list, inspection_type: str):
 	if isinstance(items, str):
 		items = json.loads(items)
 

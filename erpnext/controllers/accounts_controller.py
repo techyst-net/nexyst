@@ -3139,7 +3139,7 @@ def get_default_taxes_and_charges(
 
 
 @frappe.whitelist()
-def get_taxes_and_charges(master_doctype: str, master_name: str):
+def get_taxes_and_charges(master_doctype: str, master_name: str | None = None):
 	if not master_name:
 		return
 	from frappe.model import child_table_fields, default_fields
@@ -3564,6 +3564,7 @@ def get_payment_terms(
 
 	schedule = []
 	for d in terms_doc.get("terms"):
+		d = frappe._dict(d.as_dict())
 		term_details = get_payment_term_details(d, posting_date, grand_total, base_grand_total, bill_date)
 		schedule.append(term_details)
 
@@ -3612,7 +3613,7 @@ def get_payment_term_details(
 		term_details.due_date = get_due_date(term, posting_date)
 		term_details.discount_date = get_discount_date(term, posting_date)
 
-	if getdate(term_details.due_date) < getdate(posting_date):
+	if posting_date and getdate(term_details.due_date) < getdate(posting_date):
 		term_details.due_date = posting_date
 
 	return term_details
