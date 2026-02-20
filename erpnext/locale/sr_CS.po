@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: frappe\n"
 "Report-Msgid-Bugs-To: hello@frappe.io\n"
 "POT-Creation-Date: 2026-02-15 09:44+0000\n"
-"PO-Revision-Date: 2026-02-16 14:51\n"
+"PO-Revision-Date: 2026-02-19 16:02\n"
 "Last-Translator: hello@frappe.io\n"
 "Language-Team: Serbian (Latin)\n"
 "MIME-Version: 1.0\n"
@@ -4023,7 +4023,7 @@ msgstr "Dozvoli negativno stanje zaliha"
 #. Settings'
 #: erpnext/stock/doctype/stock_settings/stock_settings.json
 msgid "Allow Negative Stock for Batch"
-msgstr ""
+msgstr "Dozvoli negativno stanje zaliha za šaržu"
 
 #. Label of the allow_negative_rates_for_items (Check) field in DocType
 #. 'Selling Settings'
@@ -8781,7 +8781,7 @@ msgstr "Raspored kampanje"
 
 #: erpnext/crm/doctype/email_campaign/email_campaign.py:113
 msgid "Campaign {0} not found"
-msgstr ""
+msgstr "Kampanja {0} nije pronađena"
 
 #: erpnext/setup/doctype/authorization_control/authorization_control.py:60
 msgid "Can be approved by {0}"
@@ -16976,7 +16976,7 @@ msgstr "Imejl kampanja"
 #: erpnext/crm/doctype/email_campaign/email_campaign.py:149
 #: erpnext/crm/doctype/email_campaign/email_campaign.py:157
 msgid "Email Campaign Error"
-msgstr ""
+msgstr "Greška u imejl kampanji"
 
 #. Label of the email_campaign_for (Select) field in DocType 'Email Campaign'
 #: erpnext/crm/doctype/email_campaign/email_campaign.json
@@ -16985,7 +16985,7 @@ msgstr "Imejl kampanja za "
 
 #: erpnext/crm/doctype/email_campaign/email_campaign.py:125
 msgid "Email Campaign Send Error"
-msgstr ""
+msgstr "Greška pri slanju imejl kampanje"
 
 #. Label of the supplier_response_section (Section Break) field in DocType
 #. 'Request for Quotation'
@@ -17386,12 +17386,12 @@ msgstr "Omogući rezervaciju zaliha"
 #. Label of the enable_utm (Check) field in DocType 'Selling Settings'
 #: erpnext/selling/doctype/selling_settings/selling_settings.json
 msgid "Enable UTM"
-msgstr ""
+msgstr "Omogući UTM"
 
 #. Description of the 'Enable UTM' (Check) field in DocType 'Selling Settings'
 #: erpnext/selling/doctype/selling_settings/selling_settings.json
 msgid "Enable Urchin Tracking Module parameters in Quotation, Sales Order, Sales Invoice, POS Invoice, Lead,  and Delivery Note."
-msgstr ""
+msgstr "Omogući Urchin Tracking Model parametre u ponudi, prodajnoj porudžbini, izlaznoj fakturi, fiskalnom računu, potencijalnom klijentu i otpremnici."
 
 #. Label of the enable_youtube_tracking (Check) field in DocType 'Video
 #. Settings'
@@ -18436,7 +18436,7 @@ msgstr "Neuspešno knjiženje unosa amortizacije"
 
 #: erpnext/crm/doctype/email_campaign/email_campaign.py:126
 msgid "Failed to send email for campaign {0} to {1}"
-msgstr ""
+msgstr "Slanje imejla za kampanju {0} ka {1} nije uspelo"
 
 #: erpnext/setup/setup_wizard/setup_wizard.py:30
 #: erpnext/setup/setup_wizard/setup_wizard.py:31
@@ -20672,7 +20672,7 @@ msgstr "Ukupno (valuta kompanije)"
 
 #: erpnext/accounts/report/tax_withholding_details/tax_withholding_details.py:175
 msgid "Grand Total (Transaction Currency)"
-msgstr ""
+msgstr "Ukupno (valuta transakcije)"
 
 #. Label of the grant_commission (Check) field in DocType 'POS Invoice Item'
 #. Label of the grant_commission (Check) field in DocType 'Sales Invoice Item'
@@ -21604,7 +21604,7 @@ msgstr "Ukoliko je omogućeno, izvorno i ciljno skladište u unosu zaliha prenos
 #. 'Stock Settings'
 #: erpnext/stock/doctype/stock_settings/stock_settings.json
 msgid "If enabled, the system will allow negative stock entries for the batch, but this could calculate the valuation rate incorrectly, so avoid using this option."
-msgstr ""
+msgstr "Ukoliko je omogućeno, sistem će dozvoliti unose negativnog stanja zaliha za šaržu, ali to može nepravilno izračunati stopu vrednovanja, pa se preporučuje da se ova opcija izbegava."
 
 #. Description of the 'Allow UOM with Conversion Rate Defined in Item' (Check)
 #. field in DocType 'Stock Settings'
@@ -23059,7 +23059,7 @@ msgstr "Nedostaje referenca za internu prodaju"
 #. 'Supplier'
 #: erpnext/buying/doctype/supplier/supplier.json
 msgid "Internal Supplier Accounting"
-msgstr ""
+msgstr "Interno računovodstvo dobavljača"
 
 #: erpnext/buying/doctype/supplier/supplier.py:181
 msgid "Internal Supplier for company {0} already exists"
@@ -29908,7 +29908,7 @@ msgstr "Nije pronađena razlika za račun zaliha {0}"
 
 #: erpnext/crm/doctype/email_campaign/email_campaign.py:150
 msgid "No email found for {0} {1}"
-msgstr ""
+msgstr "Nije pronađen imejl za {0} {1}"
 
 #: erpnext/telephony/doctype/call_log/call_log.py:117
 msgid "No employee was scheduled for call popup"
@@ -30063,7 +30063,7 @@ msgstr "Nisu pronađene nedavne transakcije"
 
 #: erpnext/crm/doctype/email_campaign/email_campaign.py:158
 msgid "No recipients found for campaign {0}"
-msgstr ""
+msgstr "Nisu pronađeni primaoci za kampanju {0}"
 
 #: erpnext/accounts/report/purchase_register/purchase_register.py:44
 #: erpnext/accounts/report/sales_register/sales_register.py:45
@@ -36977,7 +36977,7 @@ msgstr "Stavka u proizvodnji"
 #: erpnext/manufacturing/doctype/bom/bom.json
 #: erpnext/manufacturing/doctype/work_order/work_order.json
 msgid "Production Item Info"
-msgstr ""
+msgstr "Informacije o proizvodnoj stavci"
 
 #. Label of the production_plan (Link) field in DocType 'Purchase Order Item'
 #. Name of a DocType
@@ -39083,7 +39083,7 @@ msgstr "Iznos ponude"
 #. in DocType 'Supplier'
 #: erpnext/buying/doctype/supplier/supplier.json
 msgid "RFQ and Purchase Order Settings"
-msgstr ""
+msgstr "Podešavanje zahteva za ponudu i nabavnih porudžbina"
 
 #: erpnext/buying/doctype/request_for_quotation/request_for_quotation.py:119
 msgid "RFQs are not allowed for {0} due to a scorecard standing of {1}"
@@ -45139,7 +45139,7 @@ msgstr "Podešavanje stavke serije i šarže"
 #. Label of the section_break_jcmx (Section Break) field in DocType 'Job Card'
 #: erpnext/manufacturing/doctype/job_card/job_card.json
 msgid "Serial / Batch"
-msgstr ""
+msgstr "Serija / Šarža"
 
 #. Label of the serial_and_batch_bundle (Link) field in DocType 'Stock
 #. Reconciliation Item'
@@ -47396,7 +47396,7 @@ msgstr "Ilustracija statusa"
 #. Label of the section_break_dfoc (Section Break) field in DocType 'Job Card'
 #: erpnext/manufacturing/doctype/job_card/job_card.json
 msgid "Status and Reference"
-msgstr ""
+msgstr "Status i referenca"
 
 #: erpnext/projects/doctype/project/project.py:712
 msgid "Status must be Cancelled or Completed"
@@ -52662,7 +52662,7 @@ msgstr "Ukupno poreza"
 
 #: erpnext/accounts/report/tds_computation_summary/tds_computation_summary.py:109
 msgid "Total Taxable Amount"
-msgstr ""
+msgstr "Ukupan oporezivi iznos"
 
 #. Label of the total_taxes_and_charges (Currency) field in DocType 'Payment
 #. Entry'
@@ -53070,7 +53070,7 @@ msgstr "Valuta transakcije: {0} ne može biti različita od valute tekućeg rač
 
 #: erpnext/assets/doctype/asset_movement/asset_movement.py:65
 msgid "Transaction date can't be earlier than previous movement date"
-msgstr ""
+msgstr "Datum transakcije ne može biti pre datuma prethodnog kretanja"
 
 #. Description of the 'Applicable For' (Section Break) field in DocType 'Tax
 #. Withholding Entry'
@@ -53626,7 +53626,7 @@ msgstr "URL može biti samo string"
 #: erpnext/selling/doctype/sales_order/sales_order.json
 #: erpnext/stock/doctype/delivery_note/delivery_note.json
 msgid "UTM Analytics"
-msgstr ""
+msgstr "UTM analitika"
 
 #. Option for the 'Data Fetch Method' (Select) field in DocType 'Accounts
 #. Settings'
@@ -54478,7 +54478,7 @@ msgstr "Korisnici mogu omogućiti izbor ukoliko žele da prilagode ulaznu cenu (
 #. 'BOM'
 #: erpnext/manufacturing/doctype/bom/bom.json
 msgid "Users can make manufacture entry against Job Cards"
-msgstr ""
+msgstr "Korisnici mogu uneti proizvodnju putem radnih kartica"
 
 #. Description of the 'Role Allowed to Over Bill ' (Link) field in DocType
 #. 'Accounts Settings'
