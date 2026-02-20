@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: frappe\n"
 "Report-Msgid-Bugs-To: hello@frappe.io\n"
 "POT-Creation-Date: 2026-02-15 09:44+0000\n"
-"PO-Revision-Date: 2026-02-16 14:51\n"
+"PO-Revision-Date: 2026-02-19 16:02\n"
 "Last-Translator: hello@frappe.io\n"
 "Language-Team: Swedish\n"
 "MIME-Version: 1.0\n"
@@ -39242,7 +39242,7 @@ msgstr "Pris på Material baserad på"
 #. Label of the rate (Percent) field in DocType 'Lower Deduction Certificate'
 #: erpnext/regional/doctype/lower_deduction_certificate/lower_deduction_certificate.json
 msgid "Rate Of TDS As Per Certificate"
-msgstr "TDS Pris enligt Certifikat"
+msgstr "Källskatt sats enligt Certifikat"
 
 #. Label of the section_break_6 (Section Break) field in DocType 'Serial and
 #. Batch Entry'
@@ -41811,7 +41811,7 @@ msgstr "Kontroll & Åtgärd"
 #: erpnext/quality_management/doctype/quality_procedure/quality_procedure.json
 #: erpnext/quality_management/doctype/quality_review/quality_review.json
 msgid "Reviews"
-msgstr "Recension "
+msgstr "Recensioner"
 
 #: erpnext/accounts/doctype/budget/budget.js:37
 msgid "Revise Budget"
@@ -49537,15 +49537,15 @@ msgstr "System meddelar att öka eller minska Kvantitet eller Belopp"
 #. Name of a report
 #: erpnext/accounts/report/tds_computation_summary/tds_computation_summary.json
 msgid "TDS Computation Summary"
-msgstr "TDS Beräkning Översikt"
+msgstr "Källskatt Beräknad Översikt"
 
 #: erpnext/accounts/doctype/purchase_invoice/purchase_invoice.py:1534
 msgid "TDS Deducted"
-msgstr "TDS Avdragen"
+msgstr "Avdragen Källskatt"
 
 #: erpnext/accounts/doctype/account/chart_of_accounts/verified/standard_chart_of_accounts_with_account_number.py:287
 msgid "TDS Payable"
-msgstr "TDS Betalbar"
+msgstr "Källskatt"
 
 #. Description of a DocType
 #: erpnext/stock/doctype/item_website_specification/item_website_specification.json
@@ -49811,7 +49811,7 @@ msgstr "Moms Konto"
 #: erpnext/accounts/report/tax_withholding_details/tax_withholding_details.py:163
 #: erpnext/accounts/report/tds_computation_summary/tds_computation_summary.py:115
 msgid "Tax Amount"
-msgstr "Momspliktig Belopp"
+msgstr "Momsbelopp"
 
 #. Label of the tax_amount_after_discount_amount (Currency) field in DocType
 #. 'Purchase Taxes and Charges'
@@ -54552,7 +54552,7 @@ msgstr "Moms på Försäljning och Alla Andra utgifter"
 #: erpnext/stock/doctype/item_tax/item_tax.json
 #: erpnext/support/doctype/service_level_agreement/service_level_agreement.json
 msgid "Valid From"
-msgstr "Gäller Från"
+msgstr "Giltig Från"
 
 #: erpnext/regional/doctype/lower_deduction_certificate/lower_deduction_certificate.py:45
 msgid "Valid From date not in Fiscal Year {0}"
@@ -56223,7 +56223,7 @@ msgstr "Arbetsdag {0} är upprepad."
 #: erpnext/projects/web_form/tasks/tasks.json
 #: erpnext/templates/pages/task_info.html:73
 msgid "Working"
-msgstr "Arbetande "
+msgstr "Pågående"
 
 #. Label of the working_hours_section (Tab Break) field in DocType
 #. 'Workstation'
