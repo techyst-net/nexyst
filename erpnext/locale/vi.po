@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: frappe\n"
 "Report-Msgid-Bugs-To: hello@frappe.io\n"
 "POT-Creation-Date: 2026-02-15 09:44+0000\n"
-"PO-Revision-Date: 2026-02-16 14:51\n"
+"PO-Revision-Date: 2026-02-21 16:17\n"
 "Last-Translator: hello@frappe.io\n"
 "Language-Team: Vietnamese\n"
 "MIME-Version: 1.0\n"
@@ -13899,7 +13899,7 @@ msgstr ""
 #. 'Accounts Settings'
 #: erpnext/accounts/doctype/accounts_settings/accounts_settings.json
 msgid "Days"
-msgstr ""
+msgstr "Ngày"
 
 #: erpnext/accounts/report/inactive_sales_items/inactive_sales_items.py:51
 #: erpnext/selling/report/inactive_customers/inactive_customers.js:8
@@ -21164,7 +21164,7 @@ msgstr ""
 #: erpnext/projects/report/daily_timesheet_summary/daily_timesheet_summary.py:31
 #: erpnext/templates/pages/timelog_info.html:37
 msgid "Hours"
-msgstr ""
+msgstr "Giờ"
 
 #: erpnext/templates/pages/projects.html:26
 msgid "Hours Spent"
@@ -28586,7 +28586,7 @@ msgstr ""
 #. Label of the minutes (Table) field in DocType 'Quality Meeting'
 #: erpnext/quality_management/doctype/quality_meeting/quality_meeting.json
 msgid "Minutes"
-msgstr ""
+msgstr "Phút"
 
 #. Label of the section_break_19 (Section Break) field in DocType 'POS Profile'
 #: erpnext/accounts/doctype/pos_profile/pos_profile.json
@@ -29992,7 +29992,7 @@ msgstr ""
 
 #: erpnext/assets/doctype/asset/asset.js:370
 msgid "No."
-msgstr ""
+msgstr "Không."
 
 #. Label of the no_of_employees (Select) field in DocType 'Prospect'
 #: erpnext/crm/doctype/prospect/prospect.json
