@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: frappe\n"
 "Report-Msgid-Bugs-To: hello@frappe.io\n"
 "POT-Creation-Date: 2026-02-15 09:44+0000\n"
-"PO-Revision-Date: 2026-02-19 16:02\n"
+"PO-Revision-Date: 2026-02-21 16:17\n"
 "Last-Translator: hello@frappe.io\n"
 "Language-Team: Swedish\n"
 "MIME-Version: 1.0\n"
@@ -6406,12 +6406,12 @@ msgstr "Genomsnittlig Rabatt"
 #. Label of a number card in the Selling Workspace
 #: erpnext/selling/workspace/selling/selling.json
 msgid "Average Order Value"
-msgstr "Genomsnittlig Ordervärde"
+msgstr "Genomsnittligt Order Värde"
 
 #. Label of a number card in the Buying Workspace
 #: erpnext/buying/workspace/buying/buying.json
 msgid "Average Order Values"
-msgstr "Genomsnittlig Ordervärde"
+msgstr "Genomsnittligt Order Värde"
 
 #: erpnext/accounts/report/share_balance/share_balance.py:60
 msgid "Average Rate"
@@ -16795,7 +16795,7 @@ msgstr "EMU of current"
 #. Name of a Workspace
 #: erpnext/setup/workspace/erpnext_settings/erpnext_settings.json
 msgid "ERPNext Settings"
-msgstr "Affärssystem Inställningar"
+msgstr "Inställningar"
 
 #. Label of the user_id (Data) field in DocType 'Employee Group Table'
 #: erpnext/setup/doctype/employee_group_table/employee_group_table.json
@@ -25681,7 +25681,7 @@ msgstr "Artiklar Erfodrade"
 #: erpnext/buying/workspace/buying/buying.json
 #: erpnext/stock/report/items_to_be_requested/items_to_be_requested.json
 msgid "Items To Be Requested"
-msgstr "Inköp Artiklar"
+msgstr "Inköp Artiklar som ska Begäras"
 
 #. Label of a Card Break in the Selling Workspace
 #: erpnext/selling/workspace/selling/selling.json
@@ -25721,7 +25721,7 @@ msgstr "Artiklar som ska produceras erfordras för att hämta tilldelad Råmater
 #. Label of a Link in the Buying Workspace
 #: erpnext/buying/workspace/buying/buying.json
 msgid "Items to Order and Receive"
-msgstr "Inköp Artiklar"
+msgstr "Artiklar att Beställa och Ta emot"
 
 #: erpnext/public/js/stock_reservation.js:72
 #: erpnext/selling/doctype/sales_order/sales_order.js:327
@@ -40941,7 +40941,7 @@ msgstr "Begärda Artiklar att Överföra"
 #. Name of a report
 #: erpnext/buying/report/requested_items_to_order_and_receive/requested_items_to_order_and_receive.json
 msgid "Requested Items to Order and Receive"
-msgstr "Inköp Artiklar"
+msgstr "Inköp Artiklar Begärda att Beställa och Ta emot"
 
 #. Label of the requested_qty (Float) field in DocType 'Job Card'
 #. Label of the requested_qty (Float) field in DocType 'Material Request Plan
