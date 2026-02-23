@@ -320,7 +320,7 @@ class PricingRule(Document):
 
 
 @frappe.whitelist()
-def apply_pricing_rule(args, doc=None):
+def apply_pricing_rule(args: str | dict, doc: str | None = None):
 	"""
 	args = {
 	        "items": [{"doctype": "", "name": "", "item_code": "", "brand": "", "item_group": ""}, ...],
@@ -618,7 +618,12 @@ def apply_price_discount_rule(pricing_rule, item_details, args):
 
 
 @frappe.whitelist()
-def remove_pricing_rule_for_item(pricing_rules, item_details, item_code=None, rate=None):
+def remove_pricing_rule_for_item(
+	pricing_rules: str | None,
+	item_details: str | frappe._dict,
+	item_code: str | None = None,
+	rate: float | None = None,
+):
 	from erpnext.accounts.doctype.pricing_rule.utils import (
 		get_applied_pricing_rules,
 		get_pricing_rule_items,
@@ -666,7 +671,7 @@ def remove_pricing_rule_for_item(pricing_rules, item_details, item_code=None, ra
 
 
 @frappe.whitelist()
-def remove_pricing_rules(item_list):
+def remove_pricing_rules(item_list: str | list):
 	if isinstance(item_list, str):
 		item_list = json.loads(item_list)
 
@@ -704,7 +709,7 @@ def set_transaction_type(args):
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def get_item_uoms(doctype, txt, searchfield, start, page_len, filters):
+def get_item_uoms(doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict):
 	items = [filters.get("value")]
 	if filters.get("apply_on") != "Item Code":
 		field = frappe.scrub(filters.get("apply_on"))
