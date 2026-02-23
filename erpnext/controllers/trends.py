@@ -303,7 +303,7 @@ def get_period_wise_query(bet_dates, trans_date, query_details):
 	return query_details
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_period_date_ranges(
 	period: str, fiscal_year: str | None = None, year_start_date: DateTimeLikeObject | None = None
 ):
