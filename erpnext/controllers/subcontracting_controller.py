@@ -1369,7 +1369,7 @@ def get_pending_subcontracted_quantity(doctype, name):
 @frappe.whitelist()
 def make_rm_stock_entry(
 	subcontract_order: str,
-	rm_items: str | list | None = None,
+	rm_items: list | None = None,
 	order_doctype: str = "Subcontracting Order",
 	target_doc: dict | None = None,
 ):
