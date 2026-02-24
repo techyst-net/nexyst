@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: frappe\n"
 "Report-Msgid-Bugs-To: hello@frappe.io\n"
 "POT-Creation-Date: 2026-02-22 09:43+0000\n"
-"PO-Revision-Date: 2026-02-22 16:38\n"
+"PO-Revision-Date: 2026-02-24 16:58\n"
 "Last-Translator: hello@frappe.io\n"
 "Language-Team: Portuguese, Brazilian\n"
 "MIME-Version: 1.0\n"
@@ -32947,7 +32947,7 @@ msgstr ""
 #. Label of the parent_territory (Link) field in DocType 'Territory'
 #: erpnext/setup/doctype/territory/territory.json
 msgid "Parent Territory"
-msgstr ""
+msgstr "Território Superior"
 
 #. Label of the parent_warehouse (Link) field in DocType 'Master Production
 #. Schedule'
@@ -51374,12 +51374,12 @@ msgstr ""
 #. Label of the territory_manager (Link) field in DocType 'Territory'
 #: erpnext/setup/doctype/territory/territory.json
 msgid "Territory Manager"
-msgstr ""
+msgstr "Gestor do Território"
 
 #. Label of the territory_name (Data) field in DocType 'Territory'
 #: erpnext/setup/doctype/territory/territory.json
 msgid "Territory Name"
-msgstr ""
+msgstr "Nome do Território"
 
 #. Name of a report
 #. Label of a Link in the Selling Workspace
