@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: frappe\n"
 "Report-Msgid-Bugs-To: hello@frappe.io\n"
 "POT-Creation-Date: 2026-02-22 09:43+0000\n"
-"PO-Revision-Date: 2026-02-22 16:38\n"
+"PO-Revision-Date: 2026-02-24 16:58\n"
 "Last-Translator: hello@frappe.io\n"
 "Language-Team: Swedish\n"
 "MIME-Version: 1.0\n"
@@ -2137,7 +2137,7 @@ msgstr "Bokföring Inställningar"
 #: erpnext/desktop_icon/accounts_setup.json
 #: erpnext/workspace_sidebar/accounts_setup.json
 msgid "Accounts Setup"
-msgstr "Bokföring"
+msgstr "Inställningar"
 
 #: erpnext/accounts/doctype/journal_entry/journal_entry.py:1319
 msgid "Accounts table cannot be blank."
@@ -26088,7 +26088,7 @@ msgstr "Artiklar som ska produceras erfordras för att hämta tilldelad Råmater
 #. Label of a Link in the Buying Workspace
 #: erpnext/buying/workspace/buying/buying.json
 msgid "Items to Order and Receive"
-msgstr "Artiklar att Beställa och Ta emot"
+msgstr "Inköp Artiklar Begärda att Beställa och Ta emot"
 
 #: erpnext/public/js/stock_reservation.js:72
 #: erpnext/selling/doctype/sales_order/sales_order.js:327
@@ -46981,7 +46981,7 @@ msgstr "Aktie Register"
 #: erpnext/desktop_icon/share_management.json
 #: erpnext/workspace_sidebar/share_management.json
 msgid "Share Management"
-msgstr "Aktie Hantering"
+msgstr "Aktier"
 
 #. Name of a DocType
 #. Label of a Link in the Invoicing Workspace
