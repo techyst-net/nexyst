@@ -99,7 +99,7 @@ def identify_is_group(child):
 
 
 @frappe.whitelist()
-def get_chart(chart_template: str, existing_company: str | None = None):
+def get_chart(chart_template: str | None, existing_company: str | None = None):
 	chart = {}
 	if existing_company:
 		return get_account_tree_from_existing_company(existing_company)

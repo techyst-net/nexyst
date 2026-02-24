@@ -1,8 +1,8 @@
 # Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
 # License: GNU General Public License v3. See license.txt
 
-
 import json
+from datetime import date
 
 import frappe
 from frappe import _, msgprint, scrub
@@ -1379,7 +1379,7 @@ def get_payment_entry_against_order(
 	dt: str,
 	dn: str,
 	amount: float | None = None,
-	debit_in_account_currency: str | None = None,
+	debit_in_account_currency: str | float | None = None,
 	journal_entry: bool = False,
 	bank_account: str | None = None,
 ):
@@ -1652,9 +1652,9 @@ def get_account_details_and_party_type(
 	account: str,
 	date: str,
 	company: str,
-	debit: str | None = None,
-	credit: str | None = None,
-	exchange_rate: str | None = None,
+	debit: float | str | None = None,
+	credit: float | str | None = None,
+	exchange_rate: float | str | None = None,
 ):
 	"""Returns dict of account details and party type to be set in Journal Entry on selection of account."""
 	if not frappe.has_permission("Account"):
@@ -1704,7 +1704,7 @@ def get_account_details_and_party_type(
 
 @frappe.whitelist()
 def get_exchange_rate(
-	posting_date: str,
+	posting_date: str | date,
 	account: str | None = None,
 	account_currency: str | None = None,
 	company: str | None = None,
@@ -1712,7 +1712,7 @@ def get_exchange_rate(
 	reference_name: str | None = None,
 	debit: float | str | None = None,
 	credit: float | str | None = None,
-	exchange_rate: str | None = None,
+	exchange_rate: str | float | None = None,
 ):
 	# Ensure exchange_rate is always numeric to avoid calculation errors
 	if isinstance(exchange_rate, str):

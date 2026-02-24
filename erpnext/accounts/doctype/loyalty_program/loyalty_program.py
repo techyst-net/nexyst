@@ -1,6 +1,7 @@
 # Copyright (c) 2018, Frappe Technologies Pvt. Ltd. and contributors
 # For license information, please see license.txt
 
+from datetime import date
 
 import frappe
 from frappe import _
@@ -90,7 +91,7 @@ def get_loyalty_details(
 def get_loyalty_program_details_with_points(
 	customer: str,
 	loyalty_program: str | None = None,
-	expiry_date: str | None = None,
+	expiry_date: str | date | None = None,
 	company: str | None = None,
 	silent: bool = False,
 	include_expired_entry: bool = False,
@@ -121,7 +122,7 @@ def get_loyalty_program_details_with_points(
 def get_loyalty_program_details(
 	customer: str,
 	loyalty_program: str | None = None,
-	expiry_date: str | None = None,
+	expiry_date: str | date | None = None,
 	company: str | None = None,
 	silent: bool = False,
 	include_expired_entry: bool = False,

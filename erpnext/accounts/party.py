@@ -1,6 +1,7 @@
 # Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
 # License: GNU General Public License v3. See license.txt
 
+from datetime import date
 
 import frappe
 from frappe import _, msgprint, qb, scrub
@@ -64,7 +65,7 @@ def get_party_details(
 	price_list: str | None = None,
 	currency: str | None = None,
 	doctype: str | None = None,
-	ignore_permissions: bool = False,
+	ignore_permissions: bool | None = False,
 	fetch_payment_terms_template: bool = True,
 	party_address: str | None = None,
 	company_address: str | None = None,
@@ -622,9 +623,9 @@ def validate_party_accounts(doc):
 
 @frappe.whitelist()
 def get_due_date(
-	posting_date: str,
-	party_type: str,
-	party: str,
+	posting_date: str | date | None,
+	party_type: str | None,
+	party: str | None,
 	company: str | None = None,
 	bill_date: str | None = None,
 	template_name: str | None = None,
@@ -730,8 +731,8 @@ def get_address_tax_category(
 def set_taxes(
 	party: str,
 	party_type: str,
-	posting_date: str | None,
-	company: str,
+	posting_date: str | date | None,
+	company: str | None,
 	customer_group: str | None = None,
 	supplier_group: str | None = None,
 	tax_category: str | None = None,

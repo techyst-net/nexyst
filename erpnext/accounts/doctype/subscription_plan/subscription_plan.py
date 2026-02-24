@@ -1,6 +1,7 @@
 # Copyright (c) 2018, Frappe Technologies Pvt. Ltd. and contributors
 # For license information, please see license.txt
 
+from datetime import date
 
 import frappe
 from dateutil import relativedelta
@@ -46,8 +47,8 @@ def get_plan_rate(
 	plan: str,
 	quantity: int = 1,
 	customer: str | None = None,
-	start_date: str | None = None,
-	end_date: str | None = None,
+	start_date: str | date | None = None,
+	end_date: str | date | None = None,
 	prorate_factor: float = 1,
 	party: str | None = None,
 ):

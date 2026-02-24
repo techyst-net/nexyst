@@ -1942,7 +1942,7 @@ def make_regional_gl_entries(gl_entries, doc):
 
 
 @frappe.whitelist()
-def make_debit_note(source_name: str, target_doc: Document | None = None):
+def make_debit_note(source_name: str, target_doc: str | Document | None = None):
 	from erpnext.controllers.sales_and_purchase_return import make_return_doc
 
 	return make_return_doc("Purchase Invoice", source_name, target_doc)

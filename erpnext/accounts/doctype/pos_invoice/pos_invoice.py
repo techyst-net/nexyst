@@ -898,7 +898,7 @@ class POSInvoice(SalesInvoice):
 
 
 @frappe.whitelist()
-def get_stock_availability(item_code: str, warehouse: str):
+def get_stock_availability(item_code: str | None, warehouse: str):
 	if frappe.db.get_value("Item", item_code, "is_stock_item"):
 		is_stock_item = True
 		bin_qty = get_bin_qty(item_code, warehouse)
@@ -1084,7 +1084,7 @@ def item_query(
 	searchfield: str,
 	start: int,
 	page_len: int,
-	filters: str | dict,
+	filters: dict,
 	as_dict: bool = False,
 ):
 	if pos_profile := filters.get("pos_profile")[1]:

@@ -1,6 +1,7 @@
 # Copyright (c) 2018, Frappe Technologies Pvt. Ltd. and contributors
 # For license information, please see license.txt
 
+from datetime import date
 
 import frappe
 from frappe import _, qb
@@ -615,7 +616,7 @@ def calculate_exchange_rate_using_last_gle(company, account, party_type, party):
 @frappe.whitelist()
 def get_account_details(
 	company: str,
-	posting_date: str,
+	posting_date: str | date,
 	account: str,
 	party_type: str | None = None,
 	party: str | None = None,

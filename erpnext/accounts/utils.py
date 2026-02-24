@@ -3,7 +3,7 @@
 
 
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime
 from json import loads
 from typing import TYPE_CHECKING, Optional
 
@@ -61,13 +61,13 @@ OUTSTANDING_DOCTYPES = frozenset(["Sales Invoice", "Purchase Invoice", "Fees"])
 
 @frappe.whitelist()
 def get_fiscal_year(
-	date: str | date | None = None,
+	date: str | datetime | None = None,
 	fiscal_year: str | None = None,
 	label: str = "Date",
 	verbose: int = 1,
 	company: str | None = None,
 	as_dict: bool = False,
-	boolean: str | None = None,
+	boolean: str | bool | None = None,
 	raise_on_missing: bool = True,
 	truncate: bool = False,
 ):
@@ -201,7 +201,7 @@ def validate_fiscal_year(date, fiscal_year, company, label="Date", doc=None):
 @frappe.whitelist()
 def get_balance_on(
 	account: str | None = None,
-	date: str | None = None,
+	date: str | date | None = None,
 	party_type: str | None = None,
 	party: str | None = None,
 	company: str | None = None,

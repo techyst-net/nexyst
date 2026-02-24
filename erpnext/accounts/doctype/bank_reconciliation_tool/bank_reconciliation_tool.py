@@ -1,8 +1,8 @@
 # Copyright (c) 2020, Frappe Technologies Pvt. Ltd. and contributors
 # For license information, please see license.txt
 
-
 import json
+from datetime import date
 
 import frappe
 from frappe import _
@@ -47,7 +47,9 @@ class BankReconciliationTool(Document):
 
 
 @frappe.whitelist()
-def get_bank_transactions(bank_account: str, from_date: str | None = None, to_date: str | None = None):
+def get_bank_transactions(
+	bank_account: str, from_date: str | date | None = None, to_date: str | date | None = None
+):
 	# returns bank transactions for a bank account
 	filters = []
 	filters.append(["bank_account", "=", bank_account])
@@ -80,7 +82,7 @@ def get_bank_transactions(bank_account: str, from_date: str | None = None, to_da
 
 
 @frappe.whitelist()
-def get_account_balance(bank_account: str, till_date: str, company: str):
+def get_account_balance(bank_account: str, till_date: str | date, company: str):
 	# returns account balance till the specified date
 	account = frappe.db.get_value("Bank Account", bank_account, "account")
 	filters = frappe._dict(
@@ -140,7 +142,7 @@ def create_journal_entry_bts(
 	bank_transaction_name: str,
 	reference_number: str | None = None,
 	reference_date: str | None = None,
-	posting_date: str | None = None,
+	posting_date: str | date | None = None,
 	entry_type: str | None = None,
 	second_account: str | None = None,
 	mode_of_payment: str | None = None,
@@ -374,10 +376,10 @@ def create_payment_entry_bts(
 @frappe.whitelist()
 def auto_reconcile_vouchers(
 	bank_account: str,
-	from_date: str | None = None,
-	to_date: str | None = None,
-	filter_by_reference_date: str | None = None,
-	from_reference_date: str | None = None,
+	from_date: str | date | None = None,
+	to_date: str | date | None = None,
+	filter_by_reference_date: bool | None = None,
+	from_reference_date: bool | None = None,
 	to_reference_date: str | None = None,
 ):
 	bank_transactions = get_bank_transactions(bank_account)
@@ -491,10 +493,10 @@ def reconcile_vouchers(bank_transaction_name: str, vouchers: str):
 def get_linked_payments(
 	bank_transaction_name: str,
 	document_types: list[str] | None = None,
-	from_date: str | None = None,
-	to_date: str | None = None,
-	filter_by_reference_date: str | None = None,
-	from_reference_date: str | None = None,
+	from_date: str | date | None = None,
+	to_date: str | date | None = None,
+	filter_by_reference_date: bool | None = None,
+	from_reference_date: bool | None = None,
 	to_reference_date: str | None = None,
 ):
 	# get all matching payments for a bank transaction

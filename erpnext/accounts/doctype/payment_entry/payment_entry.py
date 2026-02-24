@@ -1,12 +1,13 @@
 # Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and contributors
 # For license information, please see license.txt
 
-
 import json
+from datetime import date
 from functools import reduce
 
 import frappe
 from frappe import ValidationError, _, qb, scrub, throw
+from frappe.model.document import Document
 from frappe.model.meta import get_field_precision
 from frappe.query_builder import Tuple
 from frappe.query_builder.functions import Count
@@ -2698,7 +2699,7 @@ def get_party_details(company: str, party_type: str, party: str, date: str, cost
 
 
 @frappe.whitelist()
-def get_account_details(account: str, date: str, cost_center: str | None = None):
+def get_account_details(account: str, date: str | date, cost_center: str | None = None):
 	frappe.has_permission("Payment Entry", throw=True)
 
 	# to check if the passed account is accessible under reference doctype Payment Entry
@@ -2854,13 +2855,13 @@ def get_reference_details(
 def get_payment_entry(
 	dt: str,
 	dn: str,
-	party_amount: str | None = None,
+	party_amount: int | float | None = None,
 	bank_account: str | None = None,
-	bank_amount: float | None = None,
+	bank_amount: int | float | None = None,
 	party_type: str | None = None,
 	payment_type: str | None = None,
-	reference_date: str | None = None,
-	created_from_payment_request: str | None = None,
+	reference_date: str | date | None = None,
+	created_from_payment_request: bool | None = None,
 ):
 	doc = frappe.get_doc(dt, dn)
 	over_billing_allowance = frappe.get_single_value("Accounts Settings", "over_billing_allowance")
@@ -3526,7 +3527,7 @@ def get_paid_amount(dt, dn, party_type, party, account, due_date):
 
 
 @frappe.whitelist()
-def make_payment_order(source_name: str, target_doc: str | None = None):
+def make_payment_order(source_name: str, target_doc: str | Document | None = None):
 	from frappe.model.mapper import get_mapped_doc
 
 	def set_missing_values(source, target):
