@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: frappe\n"
 "Report-Msgid-Bugs-To: hello@frappe.io\n"
 "POT-Creation-Date: 2026-02-22 09:43+0000\n"
-"PO-Revision-Date: 2026-02-22 16:38\n"
+"PO-Revision-Date: 2026-02-24 16:58\n"
 "Last-Translator: hello@frappe.io\n"
 "Language-Team: Persian\n"
 "MIME-Version: 1.0\n"
@@ -47882,7 +47882,7 @@ msgstr "شرح استاندارد"
 
 #: erpnext/regional/report/uae_vat_201/uae_vat_201.py:115
 msgid "Standard Rated Expenses"
-msgstr "هزینه های رتبه بندی استاندارد"
+msgstr "هزینه های رتبه‌بندی استاندارد"
 
 #: erpnext/setup/setup_wizard/operations/defaults_setup.py:70
 #: erpnext/setup/setup_wizard/operations/install_fixtures.py:484
@@ -50037,7 +50037,7 @@ msgstr "معیارهای امتیازدهی کارت امتیازی تامین �
 #. Name of a DocType
 #: erpnext/buying/doctype/supplier_scorecard_scoring_standing/supplier_scorecard_scoring_standing.json
 msgid "Supplier Scorecard Scoring Standing"
-msgstr "رتبه بندی کارت امتیازی تامین کننده"
+msgstr "رتبه‌بندی کارت امتیازی تامین کننده"
 
 #. Name of a DocType
 #: erpnext/buying/doctype/supplier_scorecard_scoring_variable/supplier_scorecard_scoring_variable.json
@@ -57764,7 +57764,7 @@ msgstr "quotation_item"
 
 #: erpnext/templates/includes/macros.html:202
 msgid "ratings"
-msgstr "رتبه بندی ها"
+msgstr "رتبه‌بندی ها"
 
 #: erpnext/accounts/doctype/payment_entry/payment_entry.py:1228
 msgid "received from"
