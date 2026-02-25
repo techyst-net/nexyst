@@ -937,7 +937,7 @@ def get_payment_gateway_account(filter):
 
 
 @frappe.whitelist()
-def get_print_format_list(ref_doctype):
+def get_print_format_list(ref_doctype: str):
 	print_format_list = ["Standard"]
 
 	print_format_list.extend(
@@ -948,12 +948,12 @@ def get_print_format_list(ref_doctype):
 
 
 @frappe.whitelist()
-def resend_payment_email(docname):
+def resend_payment_email(docname: str):
 	return frappe.get_doc("Payment Request", docname).send_email()
 
 
 @frappe.whitelist()
-def make_payment_entry(docname):
+def make_payment_entry(docname: str):
 	doc = frappe.get_doc("Payment Request", docname)
 	return doc.create_payment_entry(submit=False).as_dict()
 
@@ -1046,7 +1046,7 @@ def get_dummy_message(doc):
 
 
 @frappe.whitelist()
-def get_subscription_details(reference_doctype, reference_name):
+def get_subscription_details(reference_doctype: str, reference_name: str):
 	if reference_doctype == "Sales Invoice":
 		subscriptions = frappe.db.sql(
 			"""SELECT parent as sub_name FROM `tabSubscription Invoice` WHERE invoice=%s""",
@@ -1062,7 +1062,7 @@ def get_subscription_details(reference_doctype, reference_name):
 
 
 @frappe.whitelist()
-def make_payment_order(source_name, target_doc=None):
+def make_payment_order(source_name: str, target_doc: str | Document | None = None):
 	from frappe.model.mapper import get_mapped_doc
 
 	def set_missing_values(source, target):
@@ -1110,7 +1110,9 @@ def validate_payment(doc, method=None):
 
 
 @frappe.whitelist()
-def get_open_payment_requests_query(doctype, txt, searchfield, start, page_len, filters):
+def get_open_payment_requests_query(
+	doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict
+):
 	# permission checks in `get_list()`
 	filters = frappe._dict(filters)
 
