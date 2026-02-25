@@ -1991,7 +1991,7 @@ def get_reference_serial_and_batch_bundle(child_row):
 def add_serial_batch_ledgers(
 	entries: list | str,
 	child_row: PurchaseReceiptItem | dict | str,
-	doc: Document,
+	doc: Document | str,
 	warehouse: str | None = None,
 	do_not_save: bool = False,
 ):
