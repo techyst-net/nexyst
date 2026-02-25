@@ -56,7 +56,7 @@ def _preprocess_ctx(ctx):
 @frappe.whitelist()
 @erpnext.normalize_ctx_input(ItemDetailsCtx)
 def get_item_details(
-	ctx: ItemDetailsCtx,
+	ctx: ItemDetailsCtx | str,
 	doc: Document | str | None = None,
 	for_validate: bool = False,
 	overwrite_warehouse: bool = True,
@@ -1495,7 +1495,7 @@ def get_batch_qty(batch_no: str, warehouse: str, item_code: str):
 
 @frappe.whitelist()
 @erpnext.normalize_ctx_input(ItemDetailsCtx)
-def apply_price_list(ctx: ItemDetailsCtx, as_doc: bool = False, doc: Document | None = None):
+def apply_price_list(ctx: ItemDetailsCtx | str, as_doc: bool = False, doc: Document | str | None = None):
 	"""Apply pricelist on a document-like dict object and return as
 	{'parent': dict, 'children': list}
 
