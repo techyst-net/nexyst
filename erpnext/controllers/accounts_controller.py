@@ -13,6 +13,7 @@ from frappe.query_builder import Criterion, DocType
 from frappe.query_builder.custom import ConstantColumn
 from frappe.query_builder.functions import Abs, Sum
 from frappe.utils import (
+	DateTimeLikeObject,
 	add_days,
 	add_months,
 	cint,
@@ -3113,12 +3114,14 @@ class AccountsController(TransactionBase):
 
 
 @frappe.whitelist()
-def get_tax_rate(account_head):
+def get_tax_rate(account_head: str):
 	return frappe.get_cached_value("Account", account_head, ["tax_rate", "account_name"], as_dict=True)
 
 
 @frappe.whitelist()
-def get_default_taxes_and_charges(master_doctype, tax_template=None, company=None):
+def get_default_taxes_and_charges(
+	master_doctype: str, tax_template: str | None = None, company: str | None = None
+):
 	if not company:
 		return {}
 
@@ -3136,7 +3139,7 @@ def get_default_taxes_and_charges(master_doctype, tax_template=None, company=Non
 
 
 @frappe.whitelist()
-def get_taxes_and_charges(master_doctype, master_name):
+def get_taxes_and_charges(master_doctype: str, master_name: str | None = None):
 	if not master_name:
 		return
 	from frappe.model import child_table_fields, default_fields
@@ -3548,7 +3551,11 @@ def update_invoice_status():
 
 @frappe.whitelist()
 def get_payment_terms(
-	terms_template, posting_date=None, grand_total=None, base_grand_total=None, bill_date=None
+	terms_template: str,
+	posting_date: DateTimeLikeObject | None = None,
+	grand_total: float | None = None,
+	base_grand_total: float | None = None,
+	bill_date: DateTimeLikeObject | None = None,
 ):
 	if not terms_template:
 		return
@@ -3557,6 +3564,7 @@ def get_payment_terms(
 
 	schedule = []
 	for d in terms_doc.get("terms"):
+		d = frappe._dict(d.as_dict())
 		term_details = get_payment_term_details(d, posting_date, grand_total, base_grand_total, bill_date)
 		schedule.append(term_details)
 
@@ -3565,7 +3573,11 @@ def get_payment_terms(
 
 @frappe.whitelist()
 def get_payment_term_details(
-	term, posting_date=None, grand_total=None, base_grand_total=None, bill_date=None
+	term: str | frappe._dict,
+	posting_date: DateTimeLikeObject | None = None,
+	grand_total: float | None = None,
+	base_grand_total: float | None = None,
+	bill_date: DateTimeLikeObject | None = None,
 ):
 	term_details = frappe._dict()
 	if isinstance(term, str):
@@ -3601,7 +3613,7 @@ def get_payment_term_details(
 		term_details.due_date = get_due_date(term, posting_date)
 		term_details.discount_date = get_discount_date(term, posting_date)
 
-	if getdate(term_details.due_date) < getdate(posting_date):
+	if posting_date and getdate(term_details.due_date) < getdate(posting_date):
 		term_details.due_date = posting_date
 
 	return term_details
@@ -3820,7 +3832,9 @@ def validate_and_delete_children(parent, data, ordered_item=None) -> bool:
 
 
 @frappe.whitelist()
-def update_child_qty_rate(parent_doctype, trans_items, parent_doctype_name, child_docname="items"):
+def update_child_qty_rate(
+	parent_doctype: str, trans_items: str, parent_doctype_name: str, child_docname: str = "items"
+):
 	from erpnext.buying.doctype.supplier_quotation.supplier_quotation import get_purchased_items
 	from erpnext.selling.doctype.quotation.quotation import get_ordered_items
 
@@ -4122,7 +4136,7 @@ def update_child_qty_rate(parent_doctype, trans_items, parent_doctype_name, chil
 			child_item.idx = len(parent.items) + 1
 			child_item.insert()
 		else:
-			child_item.save()
+			child_item.save(ignore_permissions=True)
 
 	parent.reload()
 	parent.flags.ignore_validate_update_after_submit = True
@@ -4292,11 +4306,11 @@ def update_gl_dict_with_app_based_fields(doc, gl_dict):
 
 
 @frappe.whitelist()
-def get_missing_company_details(doctype, docname):
+def get_missing_company_details(doctype: str, docname: str):
 	from frappe.contacts.doctype.address.address import get_address_display_list
 
 	company = frappe.db.get_value(doctype, docname, "company")
-	if doctype == "Purchase Order":
+	if doctype in ["Purchase Order", "Purchase Invoice"]:
 		company_address = frappe.db.get_value(doctype, docname, "billing_address")
 	else:
 		company_address = frappe.db.get_value(doctype, docname, "company_address")
@@ -4348,7 +4362,7 @@ def get_missing_company_details(doctype, docname):
 
 
 @frappe.whitelist()
-def update_company_master_and_address(current_doctype, name, company, details):
+def update_company_master_and_address(current_doctype: str, name: str, company: str, details: dict | str):
 	from frappe.utils import validate_email_address
 
 	if isinstance(details, str):
@@ -4392,6 +4406,8 @@ def update_doc_company_address(current_doctype, docname, company_address, detail
 
 	address_field_map = {
 		"Purchase Order": ("billing_address", "billing_address_display"),
+		"Purchase Invoice": ("billing_address", "billing_address_display"),
+		"Sales Order": ("company_address", "company_address_display"),
 		"Sales Invoice": ("company_address", "company_address_display"),
 		"Delivery Note": ("company_address", "company_address_display"),
 		"POS Invoice": ("company_address", "company_address_display"),
