@@ -438,7 +438,8 @@ def get_serial_nos_from_schedule(item_code: str, schedule: str):
 		"Maintenance Schedule Item", {"parent": schedule, "item_code": item_code}, "serial_no"
 	)
 
-	serial_nos = get_serial_nos(serial_nos) if serial_nos else []
+	if serial_nos:
+		serial_nos = get_serial_nos(serial_nos)
 
 	return serial_nos
 
