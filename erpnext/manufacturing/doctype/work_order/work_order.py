@@ -557,7 +557,7 @@ class WorkOrder(Document):
 			if status != self.status:
 				self.db_set("status", status)
 
-			self.update_required_items()
+		self.update_required_items()
 
 		return status or self.status
 
@@ -780,7 +780,6 @@ class WorkOrder(Document):
 		self.db_set("status", "Cancelled")
 
 		self.on_close_or_cancel()
-		self.delete_job_card()
 
 	def on_close_or_cancel(self):
 		if self.production_plan and frappe.db.exists(
@@ -794,7 +793,6 @@ class WorkOrder(Document):
 		self.update_planned_qty()
 		self.update_ordered_qty()
 		self.update_reserved_qty_for_production()
-		self.delete_auto_created_batch_and_serial_no()
 
 		if self.reserve_stock:
 			self.update_stock_reservation()
@@ -925,13 +923,6 @@ class WorkOrder(Document):
 					}
 				)
 			)
-
-	def delete_auto_created_batch_and_serial_no(self):
-		for row in frappe.get_all("Serial No", filters={"work_order": self.name}):
-			frappe.delete_doc("Serial No", row.name)
-
-		for row in frappe.get_all("Batch", filters={"reference_name": self.name}):
-			frappe.delete_doc("Batch", row.name)
 
 	def make_serial_nos(self, args):
 		item_details = frappe.get_cached_value(
@@ -1384,10 +1375,6 @@ class WorkOrder(Document):
 		if self.actual_start_date and self.actual_end_date:
 			self.lead_time = flt(time_diff_in_hours(self.actual_end_date, self.actual_start_date) * 60)
 
-	def delete_job_card(self):
-		for d in frappe.get_all("Job Card", ["name"], {"work_order": self.name}):
-			frappe.delete_doc("Job Card", d.name)
-
 	def validate_production_item(self):
 		if frappe.get_cached_value("Item", self.production_item, "has_variants"):
 			frappe.throw(_("Work Order cannot be raised against a Item Template"), ItemHasVariantError)
@@ -1543,6 +1530,7 @@ class WorkOrder(Document):
 							"operation": item.operation or operation,
 							"item_code": item.item_code,
 							"item_name": item.item_name,
+							"stock_uom": item.stock_uom,
 							"description": item.description,
 							"allow_alternative_item": item.allow_alternative_item,
 							"required_qty": item.qty,
@@ -1580,7 +1568,7 @@ class WorkOrder(Document):
 			.select(
 				ste_child.item_code,
 				ste_child.original_item,
-				fn.Sum(ste_child.qty).as_("qty"),
+				fn.Sum(ste_child.transfer_qty).as_("qty"),
 			)
 			.where(
 				(ste.docstatus == 1)
@@ -1653,7 +1641,7 @@ class WorkOrder(Document):
 			.select(
 				ste_child.item_code,
 				ste_child.original_item,
-				fn.Sum(ste_child.qty).as_("qty"),
+				fn.Sum(ste_child.transfer_qty).as_("qty"),
 			)
 			.where(
 				(ste.docstatus == 1)
@@ -2165,7 +2153,7 @@ def get_consumed_qty(work_order, item_code):
 		frappe.qb.from_(stock_entry)
 		.inner_join(stock_entry_detail)
 		.on(stock_entry_detail.parent == stock_entry.name)
-		.select(fn.Sum(stock_entry_detail.qty).as_("qty"))
+		.select(fn.Sum(stock_entry_detail.transfer_qty).as_("qty"))
 		.where(
 			(stock_entry.work_order == work_order)
 			& (stock_entry.purpose.isin(["Manufacture", "Material Consumption for Manufacture"]))
@@ -2523,8 +2511,8 @@ def close_work_order(work_order: str, status: str):
 				)
 			)
 
-	work_order.on_close_or_cancel()
 	work_order.update_status(status)
+	work_order.on_close_or_cancel()
 	frappe.msgprint(_("Work Order has been {0}").format(status))
 	work_order.notify_update()
 	return work_order.status

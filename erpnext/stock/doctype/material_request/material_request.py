@@ -6,10 +6,12 @@
 
 
 import json
+from typing import Any
 
 import frappe
 import frappe.defaults
 from frappe import _, msgprint
+from frappe.model.document import Document
 from frappe.model.mapper import get_mapped_doc
 from frappe.query_builder import Order
 from frappe.query_builder.functions import Sum
@@ -332,7 +334,8 @@ class MaterialRequest(BuyingController):
 
 					if mr_qty_allowance:
 						allowed_qty = flt(
-							(d.qty + (d.qty * (mr_qty_allowance / 100))), d.precision("ordered_qty")
+							(d.stock_qty + (d.stock_qty * (mr_qty_allowance / 100))),
+							d.precision("ordered_qty"),
 						)
 
 						if d.ordered_qty and flt(d.ordered_qty, precision) > flt(allowed_qty, precision):
@@ -481,14 +484,16 @@ def get_list_context(context=None):
 
 
 @frappe.whitelist()
-def update_status(name, status):
+def update_status(name: str, status: str):
 	material_request = frappe.get_doc("Material Request", name)
 	material_request.check_permission("write")
 	material_request.update_status(status)
 
 
 @frappe.whitelist()
-def make_purchase_order(source_name, target_doc=None, args=None):
+def make_purchase_order(
+	source_name: str, target_doc: str | Document | None = None, args: dict | str | None = None
+):
 	if args is None:
 		args = {}
 	if isinstance(args, str):
@@ -565,7 +570,7 @@ def make_purchase_order(source_name, target_doc=None, args=None):
 
 
 @frappe.whitelist()
-def make_request_for_quotation(source_name, target_doc=None):
+def make_request_for_quotation(source_name: str, target_doc: str | Document | None = None):
 	doclist = get_mapped_doc(
 		"Material Request",
 		source_name,
@@ -590,7 +595,9 @@ def make_request_for_quotation(source_name, target_doc=None):
 
 
 @frappe.whitelist()
-def make_purchase_order_based_on_supplier(source_name, target_doc=None, args=None):
+def make_purchase_order_based_on_supplier(
+	source_name: str, target_doc: str | Document | None = None, args: dict | None = None
+):
 	mr = source_name
 
 	supplier_items = get_items_based_on_default_supplier(args.get("supplier"))
@@ -633,7 +640,7 @@ def make_purchase_order_based_on_supplier(source_name, target_doc=None, args=Non
 
 
 @frappe.whitelist()
-def get_items_based_on_default_supplier(supplier):
+def get_items_based_on_default_supplier(supplier: str):
 	supplier_items = [
 		d.parent
 		for d in frappe.db.get_all(
@@ -646,7 +653,9 @@ def get_items_based_on_default_supplier(supplier):
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def get_material_requests_based_on_supplier(doctype, txt, searchfield, start, page_len, filters):
+def get_material_requests_based_on_supplier(
+	doctype: Any, txt: str, searchfield: Any, start: int, page_len: int, filters: dict
+):
 	supplier = filters.get("supplier")
 	supplier_items = get_items_based_on_default_supplier(supplier)
 
@@ -690,7 +699,9 @@ def get_material_requests_based_on_supplier(doctype, txt, searchfield, start, pa
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def get_default_supplier_query(doctype, txt, searchfield, start, page_len, filters):
+def get_default_supplier_query(
+	doctype: Any, txt: str, searchfield: str, start: int, page_len: int, filters: dict
+):
 	doc = frappe.get_doc("Material Request", filters.get("doc"))
 	item_list = []
 	for d in doc.items:
@@ -720,7 +731,7 @@ def get_default_supplier_query(doctype, txt, searchfield, start, page_len, filte
 
 
 @frappe.whitelist()
-def make_supplier_quotation(source_name, target_doc=None):
+def make_supplier_quotation(source_name: str, target_doc: str | Document | None = None):
 	def postprocess(source, target_doc):
 		set_missing_values(source, target_doc)
 
@@ -750,7 +761,7 @@ def make_supplier_quotation(source_name, target_doc=None):
 
 
 @frappe.whitelist()
-def make_stock_entry(source_name, target_doc=None):
+def make_stock_entry(source_name: str, target_doc: str | Document | None = None):
 	def update_item(obj, target, source_parent):
 		qty = (
 			flt(flt(obj.stock_qty) - flt(obj.ordered_qty)) / target.conversion_factor
@@ -843,7 +854,7 @@ def make_stock_entry(source_name, target_doc=None):
 
 
 @frappe.whitelist()
-def raise_work_orders(material_request, company):
+def raise_work_orders(material_request: str, company: str):
 	mr = frappe.get_doc("Material Request", material_request)
 	errors = []
 	work_orders = []
@@ -914,7 +925,7 @@ def raise_work_orders(material_request, company):
 
 
 @frappe.whitelist()
-def create_pick_list(source_name, target_doc=None):
+def create_pick_list(source_name: str, target_doc: str | Document | None = None):
 	def update_item(obj, target, source_parent):
 		qty = flt((obj.stock_qty - obj.picked_qty) / target.conversion_factor, obj.precision("qty"))
 		target.qty = qty
@@ -953,7 +964,7 @@ def create_pick_list(source_name, target_doc=None):
 
 
 @frappe.whitelist()
-def make_in_transit_stock_entry(source_name, in_transit_warehouse):
+def make_in_transit_stock_entry(source_name: str, in_transit_warehouse: str):
 	ste_doc = make_stock_entry(source_name)
 	ste_doc.add_to_transit = 1
 	ste_doc.to_warehouse = in_transit_warehouse

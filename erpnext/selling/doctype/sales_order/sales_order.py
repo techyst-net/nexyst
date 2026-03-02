@@ -187,6 +187,7 @@ class SalesOrder(SellingController):
 		total_qty: DF.Float
 		total_taxes_and_charges: DF.Currency
 		transaction_date: DF.Date
+		transaction_time: DF.Time | None
 		utm_campaign: DF.Link | None
 		utm_content: DF.Data | None
 		utm_medium: DF.Link | None
@@ -531,7 +532,7 @@ class SalesOrder(SellingController):
 			"Unreconcile Payment Entries",
 		)
 		super().on_cancel()
-
+		super().update_prevdoc_status()
 		# Cannot cancel closed SO
 		if self.status == "Closed":
 			frappe.throw(_("Closed order cannot be cancelled. Unclose to cancel."))
