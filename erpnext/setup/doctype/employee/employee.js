@@ -89,8 +89,8 @@ frappe.ui.form.on("Employee", {
 				let years = today.year() - doj.year();
 				if (years > 0) {
 					content += `<div class="mb-1"><span class="indicator green"></span> ${__(
-						"Today is their {0} Year Work Anniversary!",
-						[years]
+						"Today is their {0} Work Anniversary!",
+						[years === 1 ? __("{0} Year", [years]) : __("{0} Years", [years])]
 					)}</div>`;
 				}
 			}
