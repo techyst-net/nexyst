@@ -410,7 +410,7 @@ def is_holiday(employee, date=None, raise_exception=True, only_non_weekly=False,
 
 
 @frappe.whitelist()
-def deactivate_sales_person(status=None, employee=None):
+def deactivate_sales_person(status: str | None = None, employee: str | None = None):
 	if status == "Left":
 		sales_person = frappe.db.get_value("Sales Person", {"Employee": employee})
 		if sales_person:
@@ -519,7 +519,13 @@ def get_employee_emails(employee_list):
 
 
 @frappe.whitelist()
-def get_children(doctype, parent=None, company=None, is_root=False, is_tree=False):
+def get_children(
+	doctype: str,
+	parent: str | None = None,
+	company: str | None = None,
+	is_root: bool = False,
+	is_tree: bool = False,
+):
 	filters = [["status", "=", "Active"]]
 	if company and company != "All Companies":
 		filters.append(["company", "=", company])
