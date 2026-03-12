@@ -57,23 +57,20 @@ frappe.ui.form.on("Employee", {
 		frm.trigger("add_anniversary_indicator");
 	},
 
-	is_employee_birthday: function (frm) {
+	is_employee_birthday: function (frm, today) {
 		if (!frm.doc.date_of_birth) return false;
-		let today = moment().startOf("day");
 		let dob = moment(frm.doc.date_of_birth);
 		return dob.date() === today.date() && dob.month() === today.month();
 	},
 
-	is_work_anniversary: function (frm) {
+	is_work_anniversary: function (frm, today) {
 		if (!frm.doc.date_of_joining) return false;
-		let today = moment().startOf("day");
 		let doj = moment(frm.doc.date_of_joining);
 		let years = today.year() - doj.year();
 		return doj.date() === today.date() && doj.month() === today.month() && years > 0;
 	},
 
-	get_work_anniversary_years: function (frm) {
-		let today = moment().startOf("day");
+	get_work_anniversary_years: function (frm, today) {
 		let doj = moment(frm.doc.date_of_joining);
 		return today.year() - doj.year();
 	},
@@ -94,8 +91,9 @@ frappe.ui.form.on("Employee", {
 	},
 
 	build_anniversary_content: function (frm) {
+		let today = moment();
 		let items = [];
-		if (frm.events.is_employee_birthday(frm)) {
+		if (frm.events.is_employee_birthday(frm, today)) {
 			items.push(`
 				<div class="form-sidebar-items milestone-item mb-2">
 					<span class="form-sidebar-label">
@@ -104,8 +102,8 @@ frappe.ui.form.on("Employee", {
 					</span>
 				</div>`);
 		}
-		if (frm.events.is_work_anniversary(frm)) {
-			let years = frm.events.get_work_anniversary_years(frm);
+		if (frm.events.is_work_anniversary(frm, today)) {
+			let years = frm.events.get_work_anniversary_years(frm, today);
 			let label =
 				years === 1
 					? __("{0} Year Work Anniversary", [years])
@@ -122,7 +120,7 @@ frappe.ui.form.on("Employee", {
 	},
 
 	add_anniversary_indicator: function (frm) {
-		if (!frm.sidebar || !frm.sidebar.sidebar) return;
+		if (!frm.sidebar?.sidebar) return;
 
 		let $sidebar = frm.sidebar.sidebar;
 		let $indicator_section = frm.events.create_milestone_section($sidebar);
