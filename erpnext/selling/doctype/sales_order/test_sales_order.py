@@ -39,7 +39,7 @@ class TestSalesOrder(AccountsTestMixin, ERPNextTestSuite):
 	def setUp(self):
 		self.create_customer("_Test Customer Credit")
 
-	@IntegrationTestCase.change_settings(
+	@ERPNextTestSuite.change_settings(
 		"Stock Settings",
 		{
 			"auto_insert_price_list_rate_if_missing": 1,
