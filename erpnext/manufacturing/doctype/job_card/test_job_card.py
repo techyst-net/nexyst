@@ -96,6 +96,7 @@ class TestJobCard(ERPNextTestSuite):
 				"workstation": "_Test Workstation 1",
 				"bom_no": cut_bom,
 				"skip_material_transfer": 1,
+				"time_in_mins": 60,
 			},
 		)
 		final_bom.append(
@@ -105,6 +106,7 @@ class TestJobCard(ERPNextTestSuite):
 				"workstation": "_Test Workstation 1",
 				"bom_no": stitch_bom,
 				"skip_material_transfer": 1,
+				"time_in_mins": 60,
 			},
 		)
 		final_bom.append(
@@ -115,6 +117,7 @@ class TestJobCard(ERPNextTestSuite):
 				"bom_no": final_bom.name,
 				"is_final_finished_good": 1,
 				"skip_material_transfer": 1,
+				"time_in_mins": 60,
 			},
 		)
 		final_bom.append("items", {"item_code": stitch_fg.name, "qty": 1, "operation_row_id": 3})
@@ -927,6 +930,7 @@ class TestJobCard(ERPNextTestSuite):
 			"bom_no": sfg_bom.name,
 			"finished_good_qty": 1,
 			"sequence_id": 1,
+			"time_in_mins": 60,
 		}
 		operation2 = {
 			"operation": "Test Operation B",
@@ -936,6 +940,7 @@ class TestJobCard(ERPNextTestSuite):
 			"finished_good_qty": 1,
 			"is_final_finished_good": 1,
 			"sequence_id": 2,
+			"time_in_mins": 60,
 		}
 
 		make_workstation(operation1)
