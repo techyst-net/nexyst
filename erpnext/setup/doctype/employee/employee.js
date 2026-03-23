@@ -79,11 +79,8 @@ frappe.ui.form.on("Employee", {
 		let $indicator_section = $sidebar.find(".anniversary-indicator-section");
 		if (!$indicator_section.length) {
 			$indicator_section = $(`
-				<div class="sidebar-section anniversary-indicator-section border-bottom pb-3">
-					<div class="sidebar-label" style="font-weight: var(--weight-regular); color: var(--text-muted);">${__(
-						"Milestones"
-					)}</div>
-					<div class="anniversary-content mt-3"></div>
+				<div class="sidebar-section anniversary-indicator-section border-bottom">
+					<div class="anniversary-content d-flex flex-column" style="gap: 0.5rem;"></div>
 				</div>
 			`).insertAfter($sidebar.find(".sidebar-meta-details"));
 		}
@@ -95,7 +92,7 @@ frappe.ui.form.on("Employee", {
 		let items = [];
 		if (frm.events.is_employee_birthday(frm, today)) {
 			items.push(`
-				<div class="form-sidebar-items milestone-item mb-2">
+				<div class="form-sidebar-items milestone-item">
 					<span class="form-sidebar-label">
 						${frappe.utils.icon("cake", "sm")}
 						<span class="ellipsis">${__("Birthday")}</span>
@@ -109,7 +106,7 @@ frappe.ui.form.on("Employee", {
 					? __("{0} Year Work Anniversary", [years])
 					: __("{0} Years Work Anniversary", [years]);
 			items.push(`
-				<div class="form-sidebar-items milestone-item mb-2">
+				<div class="form-sidebar-items milestone-item">
 					<span class="form-sidebar-label">
 						${frappe.utils.icon("briefcase", "sm")}
 						<span class="ellipsis">${label}</span>
