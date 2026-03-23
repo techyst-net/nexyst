@@ -69,7 +69,7 @@ class TestEmployee(ERPNextTestSuite):
 				{
 					"doctype": "Employee",
 					"first_name": "Test Auto User 1",
-					"company": erpnext.get_default_company(),
+					"company": "_Test Company",
 					"date_of_birth": "2000-05-08",
 					"date_of_joining": "2013-01-01",
 					"gender": "Female",
@@ -114,9 +114,6 @@ class TestEmployee(ERPNextTestSuite):
 				"User Permission", {"allow": "Company", "for_value": employee2.company, "user": user2}
 			)
 		)
-
-	def tearDown(self):
-		frappe.db.rollback()
 
 
 def make_employee(user, company=None, **kwargs):
