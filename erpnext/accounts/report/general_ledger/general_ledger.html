@@ -11,7 +11,7 @@
     }
 
     .title-letter-spacing {
-		font-size: 14px;
+		font-size: 15px;
 		font-weight: 600;
 		color: #171717;
     }
@@ -117,7 +117,7 @@
 
     <div class="text-center" style="margin-bottom: 12px;">
         <div class="title-letter-spacing">
-            {%= __("STATEMENT OF ACCOUNTS") %}
+            {%= __("Statement Of Accounts") %}
         </div>
     </div>
 
@@ -156,7 +156,7 @@
                     <th style="text-align: left;">{%= __("Voucher Details") %}</th>
 
                     {% if(filters.show_remarks) { %}
-                        <th>{%= __("Remarks") %}</th>
+                        <th style="text-align: left;">{%= __("Remarks") %}</th>
                     {% } %}
 
                     <th style="width: 10em; text-align: right;">{%= __("Debit") %}</th>
@@ -166,86 +166,93 @@
             </thead>
 
             <tbody>
-                {% for(var i=0, l=data.length; i<l; i++) { %}
-                    {% var row = data[i]; %}
-                    <tr>
+				{% for(var i=0, l=data.length; i<l; i++) { %}
+					{% var row = data[i]; %}
+					{% var is_entry = row.posting_date; %}
+					{% var is_last = i == l-1; %}
+					{% var is_second_last = i == l-2; %}
 
-                        <td class="text-left date-col">
-                            {% if(row.posting_date) { %}
-                                {%= frappe.datetime.str_to_user(row.posting_date) %}
-                            {% } else if(i == 0) { %}
-                                {%= frappe.datetime.str_to_user(filters.from_date) %}
-                            {% } %}
-                        </td>
+					<tr>
 
-                        <td class="{% if(!row.posting_date) { %}text-left text-bold{% } %}">
-                            {% if(row.posting_date) { %}
-                                {%= row.voucher_type %} {%= row.voucher_no %}
+						<td class="text-left date-col">
+							{% if(is_entry) { %}
+								{%= frappe.datetime.str_to_user(row.posting_date) %}
+							{% } else if(i == 0) { %}
+								{%= frappe.datetime.str_to_user(filters.from_date) %}
+							{% } %}
+						</td>
 
-                                {% if(!(filters.party || filters.account)) { %}
-                                    <div style="margin-top: 2px;">
-                                        {%= row.party || row.account %}
-                                    </div>
-                                {% } %}
+						<td class="{% if(!is_entry) { %}text-left text-bold{% } %}">
+							{% if(is_entry) { %}
 
-                                {% if(row.bill_no) { %}
-                                    <div style="margin-top: 2px;">
-                                        {%= __("Supplier Invoice No") %}: {%= row.bill_no %}
-                                    </div>
-                                {% } %}
+								{%= row.voucher_type %} {%= row.voucher_no %}
 
-                            {% } else { %}
-                                {% if(i == l-2) { %}
-                                    {%= __("Total") %}
-                                {% } else if(i == l-1) { %}
-                                    {%= __("Closing [Opening + Total] ") %}
-                                {% } else { %}
-                                    {%= frappe.format(row.account, {fieldtype: "Link"}) || "&nbsp;" %}
-                                {% } %}
-                            {% } %}
-                        </td>
+								{% if(!(filters.party || filters.account)) { %}
+									<div style="margin-top: 2px;">
+										{%= row.party || row.account %}
+									</div>
+								{% } %}
 
-                        {% if(filters.show_remarks) { %}
-                            <td class="text-left">
-                                {% if(row.posting_date && row.remarks && row.remarks != "No Remarks") { %}
-                                    {%= row.remarks %}
-                                {% } %}
-                            </td>
-                        {% } %}
+								{% if(row.bill_no) { %}
+									<div style="margin-top: 2px;">
+										{%= __("Supplier Invoice No") %}: {%= row.bill_no %}
+									</div>
+								{% } %}
 
-                        <td class="text-right">
-                            {% if(row.posting_date) { %}
-                                {% if(row.debit != 0) { %}
-                                    {%= format_currency(row.debit, filters.presentation_currency) %}
-                                {% } %}
-                            {% } else if(i != 0 && i != l-1) { %}
-                                {%= row.account && format_currency(row.debit, filters.presentation_currency) %}
-                            {% } %}
-                        </td>
+							{% } else { %}
 
-                        <td class="text-right">
-                            {% if(row.posting_date) { %}
-                                {% if(row.credit != 0) { %}
-                                    {%= format_currency(row.credit, filters.presentation_currency) %}
-                                {% } %}
-                            {% } else if(i != 0 && i != l-1) { %}
-                                {%= row.account && format_currency(row.credit, filters.presentation_currency) %}
-                            {% } %}
-                        </td>
+								{% if(is_second_last) { %}
+									{%= __("Total") %}
+								{% } else if(is_last) { %}
+									{%= __("Closing [Opening + Total] ") %}
+								{% } else { %}
+									{%= frappe.format(row.account, {fieldtype: "Link"}) || "&nbsp;" %}
+								{% } %}
 
-                        <td class="text-right {% if(i == l-1) { %}text-bold{% } %}">
-                            {% if(i == l-1) { %}
-                                {%= format_currency(row.balance, filters.presentation_currency) %}
-                                {% if(row.balance < 0){ %} Cr{% } %}
-                                {% if(row.balance > 0){ %} Dr{% } %}
-                            {% } else { %}
-                                {%= format_currency(row.balance, filters.presentation_currency) %}
-                            {% } %}
-                        </td>
+							{% } %}
+						</td>
 
-                    </tr>
-                {% endfor %}
-            </tbody>
+						{% if(filters.show_remarks) { %}
+						<td class="text-left">
+							{% if(is_entry && row.remarks && row.remarks != "No Remarks") { %}
+								{%= row.remarks %}
+							{% } %}
+						</td>
+						{% } %}
+
+						<td class="text-right">
+							{% if(is_entry) { %}
+								{% if(row.debit != 0) { %}
+									{%= format_currency(row.debit, filters.presentation_currency) %}
+								{% } %}
+							{% } else if(i != 0 && !is_last) { %}
+								{%= row.account && format_currency(row.debit, filters.presentation_currency) %}
+							{% } %}
+						</td>
+
+						<td class="text-right">
+							{% if(is_entry) { %}
+								{% if(row.credit != 0) { %}
+									{%= format_currency(row.credit, filters.presentation_currency) %}
+								{% } %}
+							{% } else if(i != 0 && !is_last) { %}
+								{%= row.account && format_currency(row.credit, filters.presentation_currency) %}
+							{% } %}
+						</td>
+
+						<td class="text-right {% if(is_last) { %}text-bold{% } %}">
+							{% if(is_last) { %}
+								{%= format_currency(row.balance, filters.presentation_currency) %}
+								{% if(row.balance < 0) { %} Cr{% } %}
+								{% if(row.balance > 0) { %} Dr{% } %}
+							{% } else { %}
+								{%= format_currency(row.balance, filters.presentation_currency) %}
+							{% } %}
+						</td>
+
+					</tr>
+				{% } %}
+			</tbody>
         </table>
     </div>
 
