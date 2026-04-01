@@ -117,7 +117,6 @@
         </div>
     </div>
 
-    <!-- Summary Table -->
     <div class="report-table">
         <table>
             <thead>
@@ -125,7 +124,7 @@
                     <th class="text-left">{%= __("Customer") %}</th>
                     <th class="text-right">{%= __("Total Invoiced Amount") %}</th>
                     <th class="text-right">{%= __("Total Paid Amount") %}</th>
-                    <th class="text-right">{%= __("Debit Note Amount") %}</th>
+                    <th class="text-right">{%= __("Credit Note Amount") %}</th>
                     <th class="text-right">{%= __("Total Outstanding Amount") %}</th>
                 </tr>
                 </thead>
@@ -136,7 +135,6 @@
                     if (!(row.party || row.is_total_row)) continue;
                 %}
                     <tr>
-                        <!-- Supplier / Total -->
                         <td class="{% if (row.is_total_row) { %}text-bold{% } %}">
                             {% if (row.is_total_row) { %}
                                 {%= __("Total") %}

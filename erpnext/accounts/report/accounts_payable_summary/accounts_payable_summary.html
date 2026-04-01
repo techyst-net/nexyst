@@ -117,7 +117,6 @@
         </div>
     </div>
 
-    <!-- Summary Table -->
     <div class="report-table">
         <table>
             <thead>
@@ -136,7 +135,6 @@
                     if (!(row.party || row.is_total_row)) continue;
                 %}
                     <tr>
-                        <!-- Supplier / Total -->
                         <td class="{% if (row.is_total_row) { %}text-bold{% } %}">
                             {% if (row.is_total_row) { %}
                                 {%= __("Total") %}
