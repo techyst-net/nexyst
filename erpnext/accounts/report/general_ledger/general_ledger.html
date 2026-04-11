@@ -91,6 +91,10 @@
         font-weight: 500;
     }
 
+    .report-subtitle {
+        margin: 10px 0 14px;
+    }
+
     @media print {
         @page {
             size: A4;
@@ -122,7 +126,7 @@
     </div>
 
     {% if (subtitle && subtitle.trim()) { %}
-        <div class="report-meta">
+        <div class="report-subtitle">
             {{ subtitle }}
         </div>
     {% } else { %}
