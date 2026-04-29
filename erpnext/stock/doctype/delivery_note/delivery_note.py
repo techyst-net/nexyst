@@ -480,22 +480,26 @@ class DeliveryNote(SellingController):
 
 		for item in self.items:
 			if item.get("against_sales_invoice"):
-				continue
-			is_stock_item = frappe.get_cached_value("Item", item.item_code, "is_stock_item")
-			# Only stock items
-			if not is_stock_item or item.get("is_fixed_asset") or item.get("is_subcontracted"):
-				continue
-			# Sales Return handling
-			if self.is_return and disable_sdbnb_in_sr:
-				if default_expense_account and (
-					not item.expense_account or item.expense_account == sdbnb_account
-				):
-					item.expense_account = default_expense_account
-				continue
+				if sdbnb_account and item.expense_account == sdbnb_account:
+					frappe.throw(
+						_(
+							"Row #{0}: Stock Delivered But Not Billed account cannot be used for items linked to a Sales Invoice"
+						).format(item.idx)
+					)
+			else:
+				is_stock_item = frappe.get_cached_value("Item", item.item_code, "is_stock_item")
+				# Only stock items
+				if is_stock_item and not item.get("is_fixed_asset") and not item.get("is_subcontracted"):
+					# Sales Return handling
+					if self.is_return and disable_sdbnb_in_sr:
+						if default_expense_account and (
+							not item.expense_account or item.expense_account == sdbnb_account
+						):
+							item.expense_account = default_expense_account
 
-			if sdbnb_account:
-				item.expense_account = sdbnb_account
-			elif not item.expense_account and default_expense_account:
+					elif sdbnb_account:
+						item.expense_account = sdbnb_account
+			if not item.expense_account and default_expense_account:
 				item.expense_account = default_expense_account
 
 	def on_submit(self):
