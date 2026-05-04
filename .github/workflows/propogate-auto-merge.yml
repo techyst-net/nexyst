@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Detect backport and original PR (metadata)
         id: extract
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const pr = context.payload.pull_request;
