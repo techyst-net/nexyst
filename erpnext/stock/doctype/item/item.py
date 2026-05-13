@@ -312,9 +312,6 @@ class Item(Document):
 		if self.valuation_rate is None and not self.is_customer_provided_item:
 			frappe.throw(_("Valuation Rate is mandatory if Opening Stock entered"))
 
-		from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
-
-		# default warehouse, or Stores
 		for default in self.item_defaults or [
 			frappe._dict({"company": frappe.defaults.get_defaults().company})
 		]:
@@ -329,39 +326,54 @@ class Item(Document):
 					"Warehouse", {"warehouse_name": _("Stores"), "company": default.company}
 				)
 
-			if default_warehouse:
-				stock_entry = make_stock_entry(
-					item_code=self.name,
-					target=default_warehouse,
-					qty=self.opening_stock,
-					rate=self.valuation_rate,
-					company=default.company,
-					posting_date=getdate(),
-					posting_time=nowtime(),
-					do_not_save=True,
+			opening_account = frappe.db.get_value(
+				"Account",
+				{"company": default.company, "account_type": "Temporary", "is_group": 0},
+				"name",
+			)
+
+			if not opening_account:
+				frappe.throw(
+					_(
+						"Please set a Temporary Opening account for company {0} to create an Opening Stock entry."
+					).format(frappe.bold(default.company))
 				)
 
-				if self.valuation_rate == 0:
-					for item in stock_entry.items:
-						item.allow_zero_valuation_rate = 1
+			if default_warehouse:
+				stock_reco = frappe.get_doc(
+					{
+						"doctype": "Stock Reconciliation",
+						"purpose": "Opening Stock",
+						"company": default.company,
+						"expense_account": opening_account,
+						"items": [
+							{
+								"item_code": self.name,
+								"warehouse": default_warehouse,
+								"qty": self.opening_stock,
+								"valuation_rate": self.valuation_rate,
+								"allow_zero_valuation_rate": 1 if flt(self.valuation_rate) == 0 else 0,
+							}
+						],
+					}
+				)
 
-				stock_entry.insert()
-				stock_entry.submit()
-				stock_entry.load_from_db()
-				stock_entry.add_comment("Comment", _("Opening Stock"))
+				stock_reco.insert()
+				stock_reco.submit()
+				stock_reco.add_comment("Comment", _("Opening Stock"))
 
-				stock_entry_link = frappe.utils.get_link_to_form("Stock Entry", stock_entry.name)
+				stock_reco_link = frappe.utils.get_link_to_form("Stock Reconciliation", stock_reco.name)
 				if self.valuation_rate == 0:
 					frappe.msgprint(
 						_("Opening Stock entry created with zero valuation rate: {0}").format(
-							stock_entry_link
+							stock_reco_link
 						),
 						indicator="orange",
 						alert=True,
 					)
 				else:
 					frappe.msgprint(
-						_("Opening Stock entry created: {0}").format(stock_entry_link),
+						_("Opening Stock entry created: {0}").format(stock_reco_link),
 						indicator="green",
 						alert=True,
 					)
