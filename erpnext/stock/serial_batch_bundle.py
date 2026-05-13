@@ -11,6 +11,7 @@ from erpnext.stock.deprecated_serial_batch import (
 	DeprecatedBatchNoValuation,
 	DeprecatedSerialNoValuation,
 )
+from erpnext.stock.utils import get_combine_datetime
 from erpnext.stock.valuation import round_off_if_near_zero
 
 CONSUMED_SERIAL_NO_STOCK_ENTRY_PURPOSES = (
@@ -1071,6 +1072,10 @@ class SerialBatchCreation:
 
 	def set_other_details(self):
 		from erpnext.stock.utils import get_combine_datetime
+
+		if not self.get("posting_datetime"):
+			if self.get("posting_date") and self.get("posting_time"):
+				self.posting_datetime = get_combine_datetime(self.posting_date, self.posting_time)
 
 		if not self.get("posting_datetime"):
 			if self.get("posting_date") and self.get("posting_time"):
