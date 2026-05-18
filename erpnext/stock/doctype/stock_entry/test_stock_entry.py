@@ -909,6 +909,7 @@ class TestStockEntry(ERPNextTestSuite):
 				rm_cost += d.amount
 		fg_cost = next(filter(lambda x: x.item_code == "_Test FG Item", s.get("items"))).amount
 		secondary_item_cost = next(filter(lambda x: x.type or x.is_legacy_scrap_item, s.get("items"))).amount
+
 		self.assertEqual(fg_cost, flt(rm_cost - secondary_item_cost, 2))
 
 		# When Stock Entry has only FG + Scrap
@@ -1783,7 +1784,7 @@ class TestStockEntry(ERPNextTestSuite):
 
 	def test_use_serial_and_batch_fields(self):
 		item = make_item(
-			"Test Use Serial and Batch Item SN Item",
+			"Test Use Serial and Batch Item SN Item - A",
 			{"has_serial_no": 1, "is_stock_item": 1},
 		)
 
@@ -2266,7 +2267,7 @@ class TestStockEntry(ERPNextTestSuite):
 		make_stock_entry(item_code=rm_item2, target=warehouse, qty=5, purpose="Material Receipt")
 
 		bom_no = make_bom(item=fg_item, raw_materials=[rm_item1, rm_item2]).name
-		se = make_stock_entry(item_code=fg_item, qty=1, purpose="Manufacture", do_not_save=True)
+		se = make_stock_entry(item_code=fg_item, qty=1, purpose="Repack", do_not_save=True)
 		se.from_bom = 1
 		se.use_multi_level_bom = 1
 		se.bom_no = bom_no
@@ -2304,7 +2305,6 @@ class TestStockEntry(ERPNextTestSuite):
 		se.to_warehouse = warehouse
 
 		se.get_items()
-
 		# Verify FG as source (being consumed)
 		fg_items = [d for d in se.items if d.is_finished_item]
 		self.assertEqual(len(fg_items), 1)
@@ -2331,7 +2331,9 @@ class TestStockEntry(ERPNextTestSuite):
 		"Stock Settings", {"sample_retention_warehouse": "_Test Warehouse 1 - _TC"}
 	)
 	def test_sample_retention_stock_entry(self):
-		from erpnext.stock.doctype.stock_entry.stock_entry import move_sample_to_retention_warehouse
+		from erpnext.stock.doctype.stock_entry.stock_entry_handler.manufacturing import (
+			move_sample_to_retention_warehouse,
+		)
 
 		warehouse = "_Test Warehouse - _TC"
 		retain_sample_item = make_item(

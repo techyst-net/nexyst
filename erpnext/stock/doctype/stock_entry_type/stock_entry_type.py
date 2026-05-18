@@ -122,6 +122,7 @@ class ManufactureEntry:
 			if backflush_based_on != "BOM":
 				available_serial_batches = self.get_transferred_serial_batches()
 
+			items_list = []
 			for item_code, _dict in item_dict.items():
 				_dict.from_warehouse = self.source_wh.get(item_code) or self.wip_warehouse
 				_dict.to_warehouse = ""
@@ -138,7 +139,9 @@ class ManufactureEntry:
 					_dict.qty = calculated_qty
 					self.update_available_serial_batches(_dict, available_serial_batches)
 
-			self.stock_entry.add_to_stock_entry_detail(item_dict)
+				items_list.append(_dict)
+
+			self.stock_entry.append("items", items_list)
 
 	def parse_available_serial_batches(self, item_dict, available_serial_batches):
 		key = (item_dict.item_code, item_dict.from_warehouse)
@@ -320,4 +323,4 @@ class ManufactureEntry:
 			"is_finished_item": 1,
 		}
 
-		self.stock_entry.add_to_stock_entry_detail({self.production_item: args}, bom_no=self.bom_no)
+		self.stock_entry.append("items", args)

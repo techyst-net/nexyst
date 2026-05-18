@@ -1426,7 +1426,7 @@ def make_rm_stock_entry(
 								}
 							}
 
-							target_doc.add_to_stock_entry_detail(items_dict)
+							target_doc.append("items", items_dict[rm_item_code])
 
 			stock_entry = get_mapped_doc(
 				order_doctype,

@@ -378,7 +378,7 @@ class SubcontractingInwardOrder(SubcontractingController):
 				}
 			}
 
-			stock_entry.add_to_stock_entry_detail(items_dict)
+			stock_entry.append("items", items_dict[rm_item.get("rm_item_code")])
 
 		if target_doc:
 			return stock_entry
@@ -419,7 +419,7 @@ class SubcontractingInwardOrder(SubcontractingController):
 				}
 			}
 
-			stock_entry.add_to_stock_entry_detail(items_dict)
+			stock_entry.append("items", items_dict[rm_item.get("rm_item_code")])
 
 		if target_doc:
 			return stock_entry
@@ -472,7 +472,7 @@ class SubcontractingInwardOrder(SubcontractingController):
 				}
 			}
 
-			stock_entry.add_to_stock_entry_detail(items_dict)
+			stock_entry.append("items", items_dict[fg_item.item_code])
 
 		if (
 			frappe.get_single_value("Selling Settings", "deliver_secondary_items")
@@ -497,7 +497,7 @@ class SubcontractingInwardOrder(SubcontractingController):
 						}
 					}
 
-					stock_entry.add_to_stock_entry_detail(items_dict)
+					stock_entry.append("items", items_dict[secondary_item.item_code])
 
 		if target_doc:
 			return stock_entry
@@ -542,7 +542,7 @@ class SubcontractingInwardOrder(SubcontractingController):
 				}
 			}
 
-			stock_entry.add_to_stock_entry_detail(items_dict)
+			stock_entry.append("items", items_dict[fg_item.item_code])
 
 		if target_doc:
 			return stock_entry
