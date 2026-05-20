@@ -72,8 +72,8 @@ class ProcessPeriodClosingVoucher(Document):
 		pcv = frappe.get_doc("Period Closing Voucher", self.parent_pcv)
 		if pcv.is_first_period_closing_voucher():
 			gl = qb.DocType("GL Entry")
-			min = qb.from_(gl).select(Min(gl.posting_date)).where(gl.company.eq(pcv.company)).run()[0][0]
-			max = qb.from_(gl).select(Max(gl.posting_date)).where(gl.company.eq(pcv.company)).run()[0][0]
+			min = qb.from_(gl).select(Min(gl.posting_date)).run()[0][0]
+			max = qb.from_(gl).select(Max(gl.posting_date)).run()[0][0]
 
 			dates = self.get_dates(get_datetime(min), get_datetime(max))
 			for x in dates:
