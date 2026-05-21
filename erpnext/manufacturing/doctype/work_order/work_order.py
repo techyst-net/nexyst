@@ -2087,8 +2087,9 @@ class WorkOrder(Document):
 
 		additional_items = frappe._dict()
 		for row in stock_entry.items:
-			if row.item_code not in required_items:
-				additional_items.setdefault(row.item_code, []).append(row)
+			item_code = row.original_item if row.original_item else row.item_code
+			if item_code not in required_items:
+				additional_items.setdefault(item_code, []).append(row)
 
 		self.flags.ignore_validate_update_after_submit = True
 
@@ -2453,10 +2454,6 @@ def make_stock_entry(
 	stock_entry.set_stock_entry_type()
 	stock_entry.is_additional_transfer_entry = is_additional_transfer_entry
 	stock_entry.get_items()
-	stock_entry.set_secondary_items_from_job_card()
-
-	if purpose != "Disassemble":
-		stock_entry.set_serial_no_batch_for_finished_good()
 
 	return stock_entry.as_dict()
 
@@ -2817,11 +2814,9 @@ def get_reserved_qty_for_production(
 
 @frappe.whitelist()
 def make_stock_return_entry(work_order: str):
-	from erpnext.stock.doctype.stock_entry.stock_entry import get_available_materials
-
-	non_consumed_items = get_available_materials(work_order)
-	if not non_consumed_items:
-		return
+	from erpnext.stock.doctype.stock_entry.stock_entry_handler.manufacturing import (
+		ManufactureStockEntry,
+	)
 
 	wo_doc = frappe.get_cached_doc("Work Order", work_order)
 
@@ -2831,9 +2826,11 @@ def make_stock_return_entry(work_order: str):
 	stock_entry.work_order = work_order
 	stock_entry.purpose = "Material Transfer for Manufacture"
 	stock_entry.bom_no = wo_doc.bom_no
-	stock_entry.add_transfered_raw_materials_in_items()
 	stock_entry.set_stock_entry_type()
 
+	ste_cls = ManufactureStockEntry(stock_entry)
+	ste_cls.add_raw_materials_based_on_transfer()
+	ste_cls.return_available_materials_in_source_wh()
 	return stock_entry
 
 
