@@ -62,6 +62,11 @@ def get():
 						"account_number": "1410",
 						"account_category": "Stock Assets",
 					},
+					_("Stock Delivered But Not Billed"): {
+						"account_type": "Stock Delivered But Not Billed",
+						"account_number": "1420",
+						"account_category": "Stock Assets",
+					},
 					"account_type": "Stock",
 					"account_number": "1400",
 					"account_category": "Stock Assets",
@@ -279,11 +284,6 @@ def get():
 					_("Asset Received But Not Billed"): {
 						"account_type": "Asset Received But Not Billed",
 						"account_number": "2211",
-						"account_category": "Trade Payables",
-					},
-					_("Stock Delivered But Not Billed"): {
-						"account_type": "Stock Delivered But Not Billed",
-						"account_number": "2212",
 						"account_category": "Trade Payables",
 					},
 					"account_number": "2200",
