@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: frappe\n"
 "Report-Msgid-Bugs-To: hello@frappe.io\n"
 "POT-Creation-Date: 2026-05-17 10:04+0000\n"
-"PO-Revision-Date: 2026-05-18 20:21\n"
+"PO-Revision-Date: 2026-05-22 21:18\n"
 "Last-Translator: hello@frappe.io\n"
 "Language-Team: Swedish\n"
 "MIME-Version: 1.0\n"
@@ -1799,7 +1799,7 @@ msgstr "Bokföring Dimension"
 #: erpnext/accounts/doctype/gl_entry/gl_entry.py:213
 #: erpnext/accounts/doctype/payment_ledger_entry/payment_ledger_entry.py:150
 msgid "Accounting Dimension <b>{0}</b> is required for 'Balance Sheet' account {1}."
-msgstr "Bokföring Dimension <b>{0}</b> erfordras för 'Saldo Rapport' konto {1}."
+msgstr "Bokföring Dimension <b>{0}</b> erfordras för 'Balans Rapport' konto {1}."
 
 #: erpnext/accounts/doctype/gl_entry/gl_entry.py:200
 #: erpnext/accounts/doctype/payment_ledger_entry/payment_ledger_entry.py:138
@@ -7265,7 +7265,7 @@ msgstr "Balans Rapport"
 #. Closing Voucher'
 #: erpnext/accounts/doctype/process_period_closing_voucher/process_period_closing_voucher.json
 msgid "Balance Sheet Closing Balance"
-msgstr "Balansräkning Stängning Saldo"
+msgstr "Balans Rapport Stängning Saldo"
 
 #. Label of the balance_sheet_summary (Heading) field in DocType 'Bisect
 #. Accounting Statements'
@@ -17705,7 +17705,7 @@ msgstr "Visa inte någon valuta symbol t.ex. $."
 #. Settings'
 #: erpnext/stock/doctype/item_variant_settings/item_variant_settings.json
 msgid "Do not update variants on save"
-msgstr "Uppdatera inte varianter vid spara"
+msgstr "Uppdatera inte Varianter vid Spara"
 
 #: erpnext/assets/doctype/asset/asset.js:955
 msgid "Do you really want to restore this scrapped asset?"
@@ -20217,7 +20217,7 @@ msgstr "Fält i Bank Transaktion"
 #. 'Item Variant Settings'
 #: erpnext/stock/doctype/item_variant_settings/item_variant_settings.json
 msgid "Fields will be copied over only at time of creation."
-msgstr "Fält kopieras över endast vid skapande tid."
+msgstr "Fält kopieras över endast när variant skapas."
 
 #: erpnext/setup/doctype/transaction_deletion_record/transaction_deletion_record.py:1068
 msgid "File does not belong to this Transaction Deletion Record"
@@ -20423,7 +20423,7 @@ msgstr "Finansiella Tjänster"
 #: erpnext/accounts/workspace/financial_reports/financial_reports.json
 #: erpnext/public/js/financial_statements.js:312
 msgid "Financial Statements"
-msgstr "Finans Rapporter"
+msgstr "Bokslut"
 
 #: erpnext/public/js/setup_wizard.js:48
 msgid "Financial Year Begins On"
@@ -35583,7 +35583,7 @@ msgstr "ID Handling Detaljer"
 #. Label of the passport_number (Data) field in DocType 'Employee'
 #: erpnext/setup/doctype/employee/employee.json
 msgid "Passport Number"
-msgstr "ID Handling Nummer"
+msgstr "Pass Nummer"
 
 #: erpnext/accounts/doctype/subscription/subscription_list.js:10
 msgid "Past Due Date"
@@ -36352,7 +36352,7 @@ msgstr "Betalningar uppdaterade."
 #. Account'
 #: erpnext/accounts/doctype/journal_entry_account/journal_entry_account.json
 msgid "Payroll Entry"
-msgstr "Lön Post"
+msgstr "Löneregistrering"
 
 #: erpnext/accounts/doctype/account/chart_of_accounts/verified/standard_chart_of_accounts.py:156
 #: erpnext/accounts/doctype/account/chart_of_accounts/verified/standard_chart_of_accounts_with_account_number.py:262
@@ -59194,7 +59194,7 @@ msgstr "Visa Stycklista Uppdatering Logg"
 #: erpnext/accounts/onboarding_step/view_balance_sheet/view_balance_sheet.json
 #: erpnext/assets/onboarding_step/view_balance_sheet/view_balance_sheet.json
 msgid "View Balance Sheet"
-msgstr "Visa Balans Räkning"
+msgstr "Visa Balans Rapport"
 
 #: erpnext/public/js/setup_wizard.js:47
 msgid "View Chart of Accounts"
