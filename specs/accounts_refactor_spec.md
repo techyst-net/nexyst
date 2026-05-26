@@ -1,0 +1,99 @@
+# Accounts / Controller Refactor — Spec
+
+## Motivation
+Move ERPNext away from the deep `AccountsController → SellingController/BuyingController → SalesInvoice`
+inheritance chain and the monolithic `sales_invoice.py` / god-object `accounts_controller.py`
+toward **composition**: per-doctype `services/` plus shared module-level `accounts/services/`.
+Goal is testability, readability, and factoring shared domain logic out so Sales/Purchase
+voucher logic is not duplicated.
+
+## Target structure
+```
+erpnext
+├── controllers
+│   └── transaction_controller.py        # thin lifecycle base, delegates to services
+├── accounts
+│   ├── general_ledger.py                # the SINK (unchanged): post / merge / round-off / reverse
+│   ├── services
+│   │   ├── base_gl_composer.py          # BaseGLComposer — shared GL helpers
+│   │   ├── gl_validator.py              # list-level validation (functions, stateless)
+│   │   ├── advances.py
+│   │   ├── taxes.py
+│   │   └── budget.py
+│   └── doctype
+│       └── sales_invoice
+│           ├── sales_invoice.py         # thin: delegates to services
+│           ├── services
+│           │   ├── gl_composer.py       # SalesInvoiceGLComposer(BaseGLComposer)
+│           │   ├── pos.py
+│           │   ├── loyalty.py
+│           │   ├── status.py
+│           │   ├── inter_company.py
+│           │   ├── fixed_assets.py
+│           │   └── timesheet_billing.py
+│           ├── mapper.py
+│           └── api.py
+```
+
+## GL layer — frozen design
+Pipeline:
+```
+SalesInvoiceGLComposer.compose()  →  gl_entries  →  gl_validator.validate(gl_entries)  →  general_ledger.make_gl_entries()
+```
+
+| Role | Location | Form | Responsibility |
+|---|---|---|---|
+| **Composer (base)** | `accounts/services/base_gl_composer.py` → `BaseGLComposer` | class (stateful, holds `self.doc`) | shared row factory + common entries |
+| **Composer (doctype)** | `sales_invoice/services/gl_composer.py` → `SalesInvoiceGLComposer(BaseGLComposer)` | class | voucher-specific rows via `.compose()` |
+| **Validator** | `accounts/services/gl_validator.py` | module functions (stateless) | assert the finished `gl_entries` list is legal to post |
+| **Sink** | `accounts/general_ledger.py` (unchanged) | module functions | merge / round-off / post / reverse |
+
+### Naming decisions (frozen)
+- Chose **`compose`** over `make`/`build` — the sink already owns the verb `make` (`make_gl_entries`); `compose` avoids a two-makers collision.
+- `base_` prefix on the shared/abstract file; the concrete subclass carries the specific name, no prefix.
+- Rejected: `gl_map` (it's a list, not a map — but it's an entrenched public param; rename to `gl_entries` later as its own deprecation pass), `gl_processor` (redundant with `general_ledger.py`), `gl_entries.py` (collides with the `gl_entry` doctype + the ubiquitous local var), `ledger_builder` (clashes with stock/payment ledger), `builder`/`maker` (generic; "maker" collides with `make_gl_entries`).
+
+## Bucketing `accounts_controller.py`
+- **Base composer (`BaseGLComposer`):** `get_gl_dict`, `get_value_in_transaction_currency`, `make_discount_gl_entries` (+ `get_amount_and_base_amount`, `get_tax_amounts`), `make_precision_loss_gl_entry`, `make_exchange_gain_loss_journal` (+ `gain_loss_journal_already_booked`), `set_transaction_currency_and_rate_in_gl_map`. Regional hooks `update_gl_dict_with_regional_fields` / `..._app_based_fields` stay free functions called inside `get_gl_dict`.
+- **Advances service:** `set_advances`, `get_advance_entries`, `clear_unallocated_advances`, `validate_advance_entries`, `set_advance_gain_or_loss`, `calculate_total_advance_from_ledger`, `set_total_advance_paid`, `set_advance_payment_status`, `delink_advance_entries`, `create_advance_and_reconcile`, `get_advance_payment_doctypes`, `_remove_advance_payment_ledger_entries`, module funcs `get_advance_journal_entries` / `get_advance_payment_entries`.
+- **Validator (from `general_ledger.py`):** `validate_disabled_accounts`, `validate_accounting_period`, `validate_cwip_accounts`, `check_freezing_date`, `validate_against_pcv`, `validate_allowed_dimensions`, balance assertion (`get_debit_credit_difference` / `get_debit_credit_allowance` / `raise_debit_credit_not_equal_error`).
+  - **Stays in compose (do NOT move to validator):** `process_debit_credit_difference` / `make_round_off_gle` — these *repair* balance by appending a round-off entry (mutation), not validation.
+  - **Stays in composer (not validator):** row-level checks (right account for a row, dimension applicability) — validator only validates the finished list.
+- **Leave in controller:** `validate_company_in_accounting_dimension`, `validate_company` (dimension validation, not GL).
+
+## Phases
+Each phase is behavior-preserving, one draft PR, gated by the Phase-0 snapshot suite + `bench run-tests --site test-site-ai`.
+
+### Phase 0 — Safety net (first, mandatory)
+Characterization tests snapshotting `gl_entries` output for representative transactions (SI/PI with taxes, multi-currency, advances, discounts, round-off, POS). Every later phase passes iff snapshots are byte-identical.
+
+### Phase 1 — Extract `gl_validator.py` (lowest risk)
+Move list-level validations out of `general_ledger.py`; `make_gl_entries` calls `gl_validator.validate(gl_entries)`. Near-pure move; proves the safety net.
+
+### Phase 2 — Pilot composer on Sales Invoice only
+Create `BaseGLComposer` + `SalesInvoiceGLComposer`; lift bucket-A helpers from `accounts_controller`; move SI's `get_gl_entries` body into `.compose()`; old method becomes a thin shim. Do not over-generalise the base from one example.
+
+### Phase 3 — Second doctype: Purchase Invoice (base earns its shape)
+Add `PurchaseInvoiceGLComposer`; reshape `BaseGLComposer` from what SI + PI *actually* share. Two real consumers is the minimum to size the abstraction — prevents premature abstraction.
+
+### Phase 4 — Roll out composer to remaining GL-posting doctypes
+Payment Entry, Journal Entry, Delivery Note, Stock Entry, etc. Mechanical now; one PR per doctype (or small batches), each snapshot-gated.
+
+### Phase 5 — Extract `advances.py`
+Move the advances cluster. After composers, because advances cross-calls the exchange-gain/loss helper now on `BaseGLComposer`.
+
+### Phase 6 — Extract remaining domain services from `accounts_controller`
+`taxes.py`, `budget.py`, etc. Shrink `accounts_controller` to a thin lifecycle base that delegates.
+
+### Phase 7 — Split the rest of the `sales_invoice.py` monolith
+Non-GL doctype services: `pos.py`, `loyalty.py`, `status.py`, `inter_company.py`, `fixed_assets.py`, `timesheet_billing.py`. Independent of GL work; can run parallel to 5–6.
+
+### Phase 8 — Collapse the inheritance chain
+Flatten `SellingController` / `BuyingController` layers that are now pass-through. Last, because only safe once the delegated-to services exist.
+
+**Dependencies:** 1→2→3 sequential; 4 and 7 can parallelize once 3 lands; 8 always last.
+
+## Cross-cutting rules
+- Public signatures stay stable — keep the `gl_map=` param and `make_gl_entries` intact. The `gl_map → gl_entries` rename is its own deprecation pass, deferred to the end (or excluded).
+- Composers are classes (stateful, per-document); sink and validator are stateless module functions.
+- Every phase: behavior-preserving, snapshot + `bench run-tests --site test-site-ai` green before merge, draft PR.
