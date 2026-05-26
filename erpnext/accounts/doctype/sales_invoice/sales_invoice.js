@@ -567,9 +567,7 @@ erpnext.accounts.SalesInvoiceController = class SalesInvoiceController extends (
 	set_dynamic_labels() {
 		super.set_dynamic_labels();
 		this.frm.events.hide_fields(this.frm);
-		if (this.frm.doc.is_debit_note) {
-			this.frm.set_df_property("update_stock", "hidden", 1);
-		}
+		this.frm.set_df_property("update_stock", "hidden", cint(this.frm.doc.is_debit_note));
 	}
 
 	items_on_form_rendered() {
@@ -1161,10 +1159,8 @@ frappe.ui.form.on("Sales Invoice", {
 	is_debit_note: function (frm) {
 		if (frm.doc.is_debit_note) {
 			frm.set_value("update_stock", 0);
-			frm.set_df_property("update_stock", "hidden", 1);
-		} else {
-			frm.set_df_property("update_stock", "hidden", 0);
 		}
+		frm.set_df_property("update_stock", "hidden", cint(frm.doc.is_debit_note));
 		frm.refresh_field("update_stock");
 	},
 
