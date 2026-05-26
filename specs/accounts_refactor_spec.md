@@ -56,7 +56,8 @@ SalesInvoiceGLComposer.compose()  →  gl_entries  →  gl_validator.validate(gl
 ## Bucketing `accounts_controller.py`
 - **Base composer (`BaseGLComposer`):** `get_gl_dict`, `get_value_in_transaction_currency`, `make_discount_gl_entries` (+ `get_amount_and_base_amount`, `get_tax_amounts`), `make_precision_loss_gl_entry`, `make_exchange_gain_loss_journal` (+ `gain_loss_journal_already_booked`), `set_transaction_currency_and_rate_in_gl_map`. Regional hooks `update_gl_dict_with_regional_fields` / `..._app_based_fields` stay free functions called inside `get_gl_dict`.
 - **Advances service:** `set_advances`, `get_advance_entries`, `clear_unallocated_advances`, `validate_advance_entries`, `set_advance_gain_or_loss`, `calculate_total_advance_from_ledger`, `set_total_advance_paid`, `set_advance_payment_status`, `delink_advance_entries`, `create_advance_and_reconcile`, `get_advance_payment_doctypes`, `_remove_advance_payment_ledger_entries`, module funcs `get_advance_journal_entries` / `get_advance_payment_entries`.
-- **Validator (from `general_ledger.py`):** `validate_disabled_accounts`, `validate_accounting_period`, `validate_cwip_accounts`, `check_freezing_date`, `validate_against_pcv`, `validate_allowed_dimensions`, balance assertion (`get_debit_credit_difference` / `get_debit_credit_allowance` / `raise_debit_credit_not_equal_error`).
+- **Validator (from `general_ledger.py`):** `validate_disabled_accounts`, `validate_accounting_period`, `validate_cwip_accounts`, `check_freezing_date`, `validate_against_pcv`, `validate_allowed_dimensions`. (Moved in Phase 1.)
+  - **Balance trio stays in `general_ledger.py` for now** (revised during Phase 1): `get_debit_credit_difference` / `get_debit_credit_allowance` / `raise_debit_credit_not_equal_error`. `get_debit_credit_difference` *mutates* entries (rounds debit/credit in place) and the trio is interleaved with `process_debit_credit_difference` → `make_round_off_gle` (the round-off *repair* run before and after balancing). It is not a standalone pre-post gate, so it can't move into a pure `validate(gl_entries)` without changing behavior. It travels with round-off when that moves compose-side (see below).
   - **Stays in compose (do NOT move to validator):** `process_debit_credit_difference` / `make_round_off_gle` — these *repair* balance by appending a round-off entry (mutation), not validation.
   - **Stays in composer (not validator):** row-level checks (right account for a row, dimension applicability) — validator only validates the finished list.
 - **Leave in controller:** `validate_company_in_accounting_dimension`, `validate_company` (dimension validation, not GL).
@@ -67,8 +68,8 @@ Each phase is behavior-preserving, one draft PR, gated by the Phase-0 snapshot s
 ### Phase 0 — Safety net (first, mandatory)
 Characterization tests snapshotting `gl_entries` output for representative transactions (SI/PI with taxes, multi-currency, advances, discounts, round-off, POS). Every later phase passes iff snapshots are byte-identical.
 
-### Phase 1 — Extract `gl_validator.py` (lowest risk)
-Move list-level validations out of `general_ledger.py`; `make_gl_entries` calls `gl_validator.validate(gl_entries)`. Near-pure move; proves the safety net.
+### Phase 1 — Extract `gl_validator.py` (lowest risk) — DONE
+Moved the 6 pure list-level validators to `erpnext/accounts/services/gl_validator.py`; `general_ledger.py` imports and calls them at the existing call sites (no behavior change). A consolidated `gl_validator.validate(gl_entries)` facade is deferred — the current checks run at different points (make_gl_entries / save_entries per-entry / make_reverse_gl_entries), so collapsing them into one call would alter ordering. Verified: all 12 Phase-0 snapshots byte-identical.
 
 ### Phase 2 — Pilot composer on Sales Invoice only
 Create `BaseGLComposer` + `SalesInvoiceGLComposer`; lift bucket-A helpers from `accounts_controller`; move SI's `get_gl_entries` body into `.compose()`; old method becomes a thin shim. Do not over-generalise the base from one example.
