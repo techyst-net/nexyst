@@ -1576,38 +1576,9 @@ class SalesInvoice(SellingController):
 			make_reverse_gl_entries(voucher_type=self.doctype, voucher_no=self.name)
 
 	def get_gl_entries(self, inventory_account_map=None):
-		from erpnext.accounts.general_ledger import merge_similar_entries
+		from erpnext.accounts.doctype.sales_invoice.services.gl_composer import SalesInvoiceGLComposer
 
-		gl_entries = []
-
-		self.make_customer_gl_entry(gl_entries)
-
-		self.make_tax_gl_entries(gl_entries)
-		self.make_internal_transfer_gl_entries(gl_entries)
-
-		self.make_item_gl_entries(gl_entries)
-
-		disable_sdbnb_in_sr = frappe.get_cached_value("Company", self.company, "disable_sdbnb_in_sr")
-
-		if not (self.is_return and disable_sdbnb_in_sr):
-			self.stock_delivered_but_not_billed_gl_entries(gl_entries)
-
-		self.make_precision_loss_gl_entry(gl_entries)
-		self.make_discount_gl_entries(gl_entries)
-
-		gl_entries = make_regional_gl_entries(gl_entries, self)
-
-		# merge gl entries before adding pos entries
-		gl_entries = merge_similar_entries(gl_entries)
-
-		self.make_loyalty_point_redemption_gle(gl_entries)
-		self.make_pos_gl_entries(gl_entries)
-
-		self.make_write_off_gl_entry(gl_entries)
-		self.make_gle_for_rounding_adjustment(gl_entries)
-
-		self.set_transaction_currency_and_rate_in_gl_map(gl_entries)
-		return gl_entries
+		return SalesInvoiceGLComposer(self).compose(inventory_account_map)
 
 	def stock_delivered_but_not_billed_gl_entries(self, gl_entries):
 		if self.update_stock or not cint(erpnext.is_perpetual_inventory_enabled(self.company)):
