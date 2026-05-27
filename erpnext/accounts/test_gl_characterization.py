@@ -65,6 +65,20 @@ def make_dated_payment_entry(**args):
 	return pe
 
 
+def make_dated_journal_entry(accounts, multi_currency=0):
+	"""Journal Entry on a fixed posting date built from explicit account rows.
+
+	Inlined rather than importing test_journal_entry.make_journal_entry, whose
+	import drags in test-record dependencies that conflict during discovery."""
+	jv = frappe.new_doc("Journal Entry")
+	jv.posting_date = POSTING_DATE
+	jv.company = COMPANY
+	jv.remark = "test"
+	jv.multi_currency = multi_currency
+	jv.set("accounts", accounts)
+	return jv
+
+
 class TestGLCharacterization(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
@@ -279,3 +293,72 @@ class TestGLCharacterization(IntegrationTestCase):
 		pe.save()
 		pe.submit()
 		assert_gl_snapshot(self, "pe_multi_currency", "Payment Entry", pe.name)
+
+	def test_je_basic(self):
+		jv = make_dated_journal_entry(
+			[
+				{
+					"account": "_Test Cash - _TC",
+					"cost_center": "_Test Cost Center - _TC",
+					"debit_in_account_currency": 1000,
+					"exchange_rate": 1,
+				},
+				{
+					"account": "_Test Bank - _TC",
+					"cost_center": "_Test Cost Center - _TC",
+					"credit_in_account_currency": 1000,
+					"exchange_rate": 1,
+				},
+			]
+		)
+		jv.insert()
+		jv.submit()
+		assert_gl_snapshot(self, "je_basic", "Journal Entry", jv.name)
+
+	def test_je_multi_currency(self):
+		jv = make_dated_journal_entry(
+			[
+				{
+					"account": "_Test Bank USD - _TC",
+					"cost_center": "_Test Cost Center - _TC",
+					"debit_in_account_currency": 100,
+					"exchange_rate": 75,
+				},
+				{
+					"account": "_Test Bank - _TC",
+					"cost_center": "_Test Cost Center - _TC",
+					"credit_in_account_currency": 7500,
+					"exchange_rate": 1,
+				},
+			],
+			multi_currency=1,
+		)
+		jv.insert()
+		jv.submit()
+		assert_gl_snapshot(self, "je_multi_currency", "Journal Entry", jv.name)
+
+	def test_je_against_si(self):
+		si = create_sales_invoice(posting_date=POSTING_DATE, qty=10, rate=100)
+		jv = make_dated_journal_entry(
+			[
+				{
+					"account": "Write Off - _TC",
+					"cost_center": "_Test Cost Center - _TC",
+					"debit_in_account_currency": 1000,
+					"exchange_rate": 1,
+				},
+				{
+					"account": "Debtors - _TC",
+					"party_type": "Customer",
+					"party": CUSTOMER,
+					"cost_center": "_Test Cost Center - _TC",
+					"credit_in_account_currency": 1000,
+					"exchange_rate": 1,
+					"reference_type": "Sales Invoice",
+					"reference_name": si.name,
+				},
+			]
+		)
+		jv.insert()
+		jv.submit()
+		assert_gl_snapshot(self, "je_against_si", "Journal Entry", jv.name)
