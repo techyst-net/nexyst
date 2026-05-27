@@ -1661,7 +1661,7 @@ class StockController(AccountsController):
 		item=None,
 		posting_date=None,
 	):
-		from erpnext.accounts.services.gl_entry_builder import add_gl_entry
+		from erpnext.accounts.services.base_gl_composer import add_gl_entry
 
 		add_gl_entry(
 			self,

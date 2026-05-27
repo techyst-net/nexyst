@@ -19,6 +19,7 @@ from frappe.utils import (
 	comma_and,
 	flt,
 	fmt_money,
+	formatdate,
 	get_last_day,
 	get_link_to_form,
 	getdate,
@@ -50,6 +51,7 @@ from erpnext.accounts.utils import (
 	create_gain_loss_journal,
 	get_account_currency,
 	get_currency_precision,
+	get_fiscal_years,
 	validate_fiscal_year,
 )
 from erpnext.accounts.utils import (
@@ -1291,17 +1293,17 @@ class AccountsController(TransactionBase):
 					)
 
 	def get_gl_dict(self, args, account_currency=None, item=None):
-		from erpnext.accounts.services.gl_entry_builder import get_gl_dict
+		from erpnext.accounts.services.base_gl_composer import get_gl_dict
 
 		return get_gl_dict(self, args, account_currency, item)
 
 	def get_voucher_subtype(self):
-		from erpnext.accounts.services.gl_entry_builder import get_voucher_subtype
+		from erpnext.accounts.services.base_gl_composer import get_voucher_subtype
 
 		return get_voucher_subtype(self)
 
 	def get_value_in_transaction_currency(self, account_currency, gl_dict, field):
-		from erpnext.accounts.services.gl_entry_builder import get_value_in_transaction_currency
+		from erpnext.accounts.services.base_gl_composer import get_value_in_transaction_currency
 
 		return get_value_in_transaction_currency(self, account_currency, gl_dict, field)
 
@@ -1335,7 +1337,7 @@ class AccountsController(TransactionBase):
 				)
 
 	def validate_account_currency(self, account, account_currency=None):
-		from erpnext.accounts.services.gl_entry_builder import validate_account_currency
+		from erpnext.accounts.services.base_gl_composer import validate_account_currency
 
 		return validate_account_currency(self, account, account_currency)
 
@@ -3492,7 +3494,7 @@ def validate_einvoice_fields(doc):
 	pass
 
 
-from erpnext.accounts.services.gl_entry_builder import (
+from erpnext.accounts.services.base_gl_composer import (
 	update_gl_dict_with_app_based_fields,
 	update_gl_dict_with_regional_fields,
 )
