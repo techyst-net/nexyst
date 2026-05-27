@@ -856,34 +856,11 @@ class PurchaseInvoice(BuyingController):
 			)
 
 	def get_gl_entries(self, inventory_account_map=None):
-		self.auto_accounting_for_stock = erpnext.is_perpetual_inventory_enabled(self.company)
+		from erpnext.accounts.doctype.purchase_invoice.services.gl_composer import (
+			PurchaseInvoiceGLComposer,
+		)
 
-		if self.auto_accounting_for_stock:
-			self.stock_received_but_not_billed = self.get_company_default("stock_received_but_not_billed")
-		else:
-			self.stock_received_but_not_billed = None
-
-		self.negative_expense_to_be_booked = 0.0
-		gl_entries = []
-
-		self.make_supplier_gl_entry(gl_entries)
-		self.make_item_gl_entries(gl_entries)
-		self.make_precision_loss_gl_entry(gl_entries)
-
-		self.make_tax_gl_entries(gl_entries)
-		self.make_internal_transfer_gl_entries(gl_entries)
-		self.make_gl_entries_for_tax_withholding(gl_entries)
-
-		gl_entries = make_regional_gl_entries(gl_entries, self)
-
-		gl_entries = merge_similar_entries(gl_entries)
-
-		self.make_payment_gl_entries(gl_entries)
-		self.make_write_off_gl_entry(gl_entries)
-		self.make_gle_for_rounding_adjustment(gl_entries)
-		self.set_transaction_currency_and_rate_in_gl_map(gl_entries)
-		self.set_gl_entry_for_purchase_expense(gl_entries)
-		return gl_entries
+		return PurchaseInvoiceGLComposer(self).compose(inventory_account_map)
 
 	def check_asset_cwip_enabled(self):
 		# Check if there exists any item with cwip accounting enabled in it's asset category
