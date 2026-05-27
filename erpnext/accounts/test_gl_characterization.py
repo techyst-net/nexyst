@@ -20,6 +20,7 @@ from erpnext.accounts.doctype.account.test_account import create_account
 from erpnext.accounts.doctype.mode_of_payment.test_mode_of_payment import (
 	set_default_account_for_mode_of_payment,
 )
+from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 from erpnext.accounts.doctype.purchase_invoice.purchase_invoice import make_debit_note
 from erpnext.accounts.doctype.purchase_invoice.test_purchase_invoice import make_purchase_invoice
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_sales_return
@@ -38,6 +39,30 @@ def make_dated_purchase_invoice(**args):
 	pi.set_posting_time = 1
 	pi.posting_date = POSTING_DATE
 	return pi
+
+
+def make_dated_payment_entry(**args):
+	"""Standalone Payment Entry (no invoice reference) on a fixed posting date.
+
+	Mirrors test_payment_entry.create_payment_entry without importing that test
+	module, whose import drags in test-record dependencies that conflict during
+	discovery."""
+	pe = frappe.new_doc("Payment Entry")
+	pe.company = COMPANY
+	pe.payment_type = args.get("payment_type") or "Pay"
+	pe.party_type = args.get("party_type") or "Supplier"
+	pe.party = args.get("party") or "_Test Supplier"
+	pe.paid_from = args.get("paid_from") or "_Test Bank - _TC"
+	pe.paid_to = args.get("paid_to") or "Creditors - _TC"
+	pe.paid_amount = args.get("paid_amount") or 1000
+	pe.setup_party_account_field()
+	pe.set_missing_values()
+	pe.set_exchange_rate()
+	pe.received_amount = pe.paid_amount / pe.target_exchange_rate
+	pe.reference_no = "Test001"
+	pe.posting_date = POSTING_DATE
+	pe.reference_date = POSTING_DATE
+	return pe
 
 
 class TestGLCharacterization(IntegrationTestCase):
@@ -187,3 +212,70 @@ class TestGLCharacterization(IntegrationTestCase):
 		debit_note.insert()
 		debit_note.submit()
 		assert_gl_snapshot(self, "pi_return", "Purchase Invoice", debit_note.name)
+
+	def test_pe_receive_against_si(self):
+		si = create_sales_invoice(posting_date=POSTING_DATE, qty=10, rate=100)
+		pe = get_payment_entry("Sales Invoice", si.name, bank_account="_Test Cash - _TC")
+		pe.posting_date = POSTING_DATE
+		pe.reference_no = "PE-REC-1"
+		pe.reference_date = POSTING_DATE
+		pe.insert()
+		pe.submit()
+		assert_gl_snapshot(self, "pe_receive_against_si", "Payment Entry", pe.name)
+
+	def test_pe_pay_against_pi(self):
+		pi = make_dated_purchase_invoice(qty=5, rate=50)
+		pi.insert()
+		pi.submit()
+		pe = get_payment_entry("Purchase Invoice", pi.name, bank_account="_Test Bank - _TC")
+		pe.posting_date = POSTING_DATE
+		pe.reference_no = "PE-PAY-1"
+		pe.reference_date = POSTING_DATE
+		pe.insert()
+		pe.submit()
+		assert_gl_snapshot(self, "pe_pay_against_pi", "Payment Entry", pe.name)
+
+	def test_pe_with_deductions(self):
+		si = create_sales_invoice(posting_date=POSTING_DATE, qty=10, rate=100)
+		pe = get_payment_entry("Sales Invoice", si.name, bank_account="_Test Cash - _TC")
+		pe.posting_date = POSTING_DATE
+		pe.reference_no = "PE-DED-1"
+		pe.reference_date = POSTING_DATE
+		pe.received_amount = pe.received_amount - 50
+		pe.append(
+			"deductions",
+			{
+				"account": "Write Off - _TC",
+				"cost_center": "_Test Cost Center - _TC",
+				"amount": 50,
+			},
+		)
+		pe.insert()
+		pe.submit()
+		assert_gl_snapshot(self, "pe_with_deductions", "Payment Entry", pe.name)
+
+	def test_pe_with_taxes(self):
+		frappe.db.set_single_value("Accounts Settings", "merge_similar_account_heads", 1)
+		pe = make_dated_payment_entry(party="_Test Supplier", paid_to="Creditors - _TC")
+		pe.append(
+			"taxes",
+			{
+				"account_head": "_Test Account Service Tax - _TC",
+				"charge_type": "Actual",
+				"tax_amount": 100,
+				"add_deduct_tax": "Add",
+				"description": "Service Tax",
+				"cost_center": "_Test Cost Center - _TC",
+			},
+		)
+		pe.save()
+		pe.submit()
+		assert_gl_snapshot(self, "pe_with_taxes", "Payment Entry", pe.name)
+
+	def test_pe_multi_currency(self):
+		pe = make_dated_payment_entry(party="_Test Supplier USD", paid_to="_Test Payable USD - _TC")
+		pe.target_exchange_rate = 80
+		pe.received_amount = pe.paid_amount / pe.target_exchange_rate
+		pe.save()
+		pe.submit()
+		assert_gl_snapshot(self, "pe_multi_currency", "Payment Entry", pe.name)
