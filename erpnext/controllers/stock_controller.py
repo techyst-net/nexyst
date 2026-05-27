@@ -1661,28 +1661,25 @@ class StockController(AccountsController):
 		item=None,
 		posting_date=None,
 	):
-		gl_entry = {
-			"account": account,
-			"cost_center": cost_center,
-			"debit": debit,
-			"credit": credit,
-			"against": against_account,
-			"remarks": remarks,
-		}
+		from erpnext.accounts.services.gl_entry_builder import add_gl_entry
 
-		if voucher_detail_no:
-			gl_entry.update({"voucher_detail_no": voucher_detail_no})
-
-		if debit_in_account_currency:
-			gl_entry.update({"debit_in_account_currency": debit_in_account_currency})
-
-		if credit_in_account_currency:
-			gl_entry.update({"credit_in_account_currency": credit_in_account_currency})
-
-		if posting_date:
-			gl_entry.update({"posting_date": posting_date})
-
-		gl_entries.append(self.get_gl_dict(gl_entry, item=item))
+		add_gl_entry(
+			self,
+			gl_entries,
+			account,
+			cost_center,
+			debit,
+			credit,
+			remarks,
+			against_account,
+			debit_in_account_currency,
+			credit_in_account_currency,
+			account_currency,
+			project,
+			voucher_detail_no,
+			item,
+			posting_date,
+		)
 
 	def update_stock_reservation_entries(self):
 		def get_sre_list():

@@ -14,7 +14,7 @@ class JournalEntryGLComposer(BaseGLComposer):
 
 	A Journal Entry already carries its ledger rows in the ``accounts`` child
 	table, so composing is a straight projection of those rows into GL dicts
-	via ``self.doc.get_gl_dict``. The transaction currency/rate are resolved
+	via ``self.get_gl_dict``. The transaction currency/rate are resolved
 	from the first foreign-currency row (mirroring the former build_gl_map).
 	"""
 
@@ -95,7 +95,7 @@ class JournalEntryGLComposer(BaseGLComposer):
 					frappe.flags.party_not_required = True
 
 				gl_map.append(
-					doc.get_gl_dict(
+					self.get_gl_dict(
 						row,
 						item=d,
 					)

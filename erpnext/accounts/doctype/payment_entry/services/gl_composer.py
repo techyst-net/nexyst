@@ -49,7 +49,7 @@ class PaymentEntryGLComposer(BaseGLComposer):
 
 		party_account_type = frappe.db.get_value("Party Type", doc.party_type, "account_type")
 
-		party_gl_dict = doc.get_gl_dict(
+		party_gl_dict = self.get_gl_dict(
 			{
 				"account": doc.party_account,
 				"party_type": doc.party_type,
@@ -84,7 +84,7 @@ class PaymentEntryGLComposer(BaseGLComposer):
 				dr_or_cr = "debit" if dr_or_cr == "credit" else "credit"
 
 			gle.update(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": doc.party_account,
 						"party_type": doc.party_type,
@@ -137,7 +137,7 @@ class PaymentEntryGLComposer(BaseGLComposer):
 			gle = party_gl_dict.copy()
 
 			gle.update(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": doc.party_account,
 						"party_type": doc.party_type,
@@ -167,7 +167,7 @@ class PaymentEntryGLComposer(BaseGLComposer):
 		doc = self.doc
 		if doc.payment_type in ("Pay", "Internal Transfer"):
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": doc.paid_from,
 						"account_currency": doc.paid_from_account_currency,
@@ -185,7 +185,7 @@ class PaymentEntryGLComposer(BaseGLComposer):
 			)
 		if doc.payment_type in ("Receive", "Internal Transfer"):
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": doc.paid_to,
 						"account_currency": doc.paid_to_account_currency,
@@ -222,7 +222,7 @@ class PaymentEntryGLComposer(BaseGLComposer):
 			base_tax_amount = d.base_tax_amount
 
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": d.account_head,
 						"against": against,
@@ -249,7 +249,7 @@ class PaymentEntryGLComposer(BaseGLComposer):
 					base_tax_amount = flt((tax_amount / exchange_rate), doc.precision("paid_amount"))
 
 				gl_entries.append(
-					doc.get_gl_dict(
+					self.get_gl_dict(
 						{
 							"account": payment_account,
 							"against": against,
@@ -278,7 +278,7 @@ class PaymentEntryGLComposer(BaseGLComposer):
 				frappe.throw(_("Currency for {0} must be {1}").format(d.account, doc.company_currency))
 
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": d.account,
 						"account_currency": account_currency,

@@ -19,7 +19,6 @@ from frappe.utils import (
 	comma_and,
 	flt,
 	fmt_money,
-	formatdate,
 	get_last_day,
 	get_link_to_form,
 	getdate,
@@ -51,7 +50,6 @@ from erpnext.accounts.utils import (
 	create_gain_loss_journal,
 	get_account_currency,
 	get_currency_precision,
-	get_fiscal_years,
 	validate_fiscal_year,
 )
 from erpnext.accounts.utils import (
@@ -1293,140 +1291,19 @@ class AccountsController(TransactionBase):
 					)
 
 	def get_gl_dict(self, args, account_currency=None, item=None):
-		"""this method populates the common properties of a gl entry record"""
+		from erpnext.accounts.services.gl_entry_builder import get_gl_dict
 
-		posting_date = args.get("posting_date") or self.get("posting_date")
-		fiscal_years = get_fiscal_years(posting_date, company=self.company)
-		if len(fiscal_years) > 1:
-			frappe.throw(
-				_("Multiple fiscal years exist for the date {0}. Please set company in Fiscal Year").format(
-					formatdate(posting_date)
-				)
-			)
-		else:
-			fiscal_year = fiscal_years[0][0]
-
-		gl_dict = frappe._dict(
-			{
-				"company": self.company,
-				"posting_date": posting_date,
-				"fiscal_year": fiscal_year,
-				"voucher_type": self.doctype,
-				"voucher_no": self.name,
-				"remarks": self.get("remarks") or self.get("remark"),
-				"debit": 0,
-				"credit": 0,
-				"debit_in_account_currency": 0,
-				"credit_in_account_currency": 0,
-				"is_opening": self.get("is_opening") or "No",
-				"party_type": None,
-				"party": None,
-				"project": self.get("project"),
-				"post_net_value": args.get("post_net_value"),
-				"voucher_detail_no": args.get("voucher_detail_no"),
-				"voucher_subtype": self.get_voucher_subtype(),
-			}
-		)
-
-		with temporary_flag("company", self.company):
-			update_gl_dict_with_regional_fields(self, gl_dict)
-
-		update_gl_dict_with_app_based_fields(self, gl_dict)
-
-		accounting_dimensions = get_accounting_dimensions()
-		dimension_dict = frappe._dict()
-
-		for dimension in accounting_dimensions:
-			dimension_dict[dimension] = self.get(dimension)
-			if item and item.get(dimension):
-				dimension_dict[dimension] = item.get(dimension)
-
-		gl_dict.update(dimension_dict)
-		gl_dict.update(args)
-
-		if not account_currency:
-			account_currency = get_account_currency(gl_dict.account)
-
-		if gl_dict.account and self.doctype not in [
-			"Journal Entry",
-			"Period Closing Voucher",
-			"Payment Entry",
-			"Purchase Receipt",
-			"Purchase Invoice",
-			"Stock Entry",
-		]:
-			self.validate_account_currency(gl_dict.account, account_currency)
-
-		if gl_dict.account and self.doctype not in [
-			"Journal Entry",
-			"Period Closing Voucher",
-			"Payment Entry",
-		]:
-			set_balance_in_account_currency(
-				gl_dict,
-				account_currency,
-				args.get("transaction_exchange_rate") or self.get("conversion_rate"),
-				self.company_currency,
-			)
-
-		# Update details in transaction currency
-		if self.doctype not in ["Purchase Invoice", "Sales Invoice", "Journal Entry", "Payment Entry"]:
-			gl_dict.update(
-				{
-					"transaction_currency": self.get("currency") or self.company_currency,
-					"transaction_exchange_rate": args.get("transaction_exchange_rate")
-					or self.get("conversion_rate", 1),
-					"debit_in_transaction_currency": self.get_value_in_transaction_currency(
-						account_currency, gl_dict, "debit"
-					),
-					"credit_in_transaction_currency": self.get_value_in_transaction_currency(
-						account_currency, gl_dict, "credit"
-					),
-				}
-			)
-
-		if not args.get("against_voucher_type") and self.get("against_voucher_type"):
-			gl_dict.update({"against_voucher_type": self.get("against_voucher_type")})
-
-		if not args.get("against_voucher") and self.get("against_voucher"):
-			gl_dict.update({"against_voucher": self.get("against_voucher")})
-
-		return gl_dict
+		return get_gl_dict(self, args, account_currency, item)
 
 	def get_voucher_subtype(self):
-		voucher_subtypes = {
-			"Journal Entry": "voucher_type",
-			"Payment Entry": "payment_type",
-			"Stock Entry": "stock_entry_type",
-			"Asset Capitalization": "entry_type",
-		}
+		from erpnext.accounts.services.gl_entry_builder import get_voucher_subtype
 
-		for method_name in frappe.get_hooks("voucher_subtypes"):
-			voucher_subtype = frappe.get_attr(method_name)(self)
-
-			if voucher_subtype:
-				return voucher_subtype
-
-		if self.doctype in voucher_subtypes:
-			return self.get(voucher_subtypes[self.doctype])
-		elif self.doctype == "Purchase Receipt" and self.is_return:
-			return "Purchase Return"
-		elif self.doctype == "Delivery Note" and self.is_return:
-			return "Sales Return"
-		elif self.doctype == "Sales Invoice" and self.is_return:
-			return "Credit Note"
-		elif self.doctype == "Sales Invoice" and self.is_debit_note:
-			return "Debit Note"
-		elif self.doctype == "Purchase Invoice" and self.is_return:
-			return "Debit Note"
-
-		return self.doctype
+		return get_voucher_subtype(self)
 
 	def get_value_in_transaction_currency(self, account_currency, gl_dict, field):
-		if account_currency == self.get("currency"):
-			return gl_dict.get(field + "_in_account_currency")
-		else:
-			return flt(gl_dict.get(field, 0) / self.get("conversion_rate", 1))
+		from erpnext.accounts.services.gl_entry_builder import get_value_in_transaction_currency
+
+		return get_value_in_transaction_currency(self, account_currency, gl_dict, field)
 
 	def validate_zero_qty_for_return_invoices_with_stock(self):
 		rows = []
@@ -1458,16 +1335,9 @@ class AccountsController(TransactionBase):
 				)
 
 	def validate_account_currency(self, account, account_currency=None):
-		valid_currency = [self.company_currency]
-		if self.get("currency") and self.currency != self.company_currency:
-			valid_currency.append(self.currency)
+		from erpnext.accounts.services.gl_entry_builder import validate_account_currency
 
-		if account_currency not in valid_currency:
-			frappe.throw(
-				_("Account {0} is invalid. Account Currency must be {1}").format(
-					account, (" " + _("or") + " ").join(valid_currency)
-				)
-			)
+		return validate_account_currency(self, account, account_currency)
 
 	def clear_unallocated_advances(self, childtype, parentfield):
 		self.set(parentfield, self.get(parentfield, {"allocated_amount": ["not in", [0, None, ""]]}))
@@ -3622,14 +3492,10 @@ def validate_einvoice_fields(doc):
 	pass
 
 
-@erpnext.allow_regional
-def update_gl_dict_with_regional_fields(doc, gl_dict):
-	pass
-
-
-def update_gl_dict_with_app_based_fields(doc, gl_dict):
-	for method in frappe.get_hooks("update_gl_dict_with_app_based_fields", default=[]):
-		frappe.get_attr(method)(doc, gl_dict)
+from erpnext.accounts.services.gl_entry_builder import (
+	update_gl_dict_with_app_based_fields,
+	update_gl_dict_with_regional_fields,
+)
 
 
 @frappe.whitelist()

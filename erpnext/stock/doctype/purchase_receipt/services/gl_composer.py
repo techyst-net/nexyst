@@ -58,7 +58,7 @@ class PurchaseReceiptGLComposer(BaseStockGLComposer):
 			account_currency = get_account_currency(stock_asset_account_name)
 			if not stock_asset_account_name:
 				validate_account("Asset or warehouse account")
-			doc.add_gl_entry(
+			self.add_gl_entry(
 				gl_entries=gl_entries,
 				account=stock_asset_account_name,
 				cost_center=d.cost_center,
@@ -108,7 +108,7 @@ class PurchaseReceiptGLComposer(BaseStockGLComposer):
 				if not account:
 					validate_account("Stock or Asset Received But Not Billed")
 
-				doc.add_gl_entry(
+				self.add_gl_entry(
 					gl_entries=gl_entries,
 					account=account,
 					cost_center=item.cost_center,
@@ -131,7 +131,7 @@ class PurchaseReceiptGLComposer(BaseStockGLComposer):
 							exchange_rate_map[item.purchase_invoice] - doc.conversion_rate
 						)
 
-						doc.add_gl_entry(
+						self.add_gl_entry(
 							gl_entries=gl_entries,
 							account=account,
 							cost_center=item.cost_center,
@@ -144,7 +144,7 @@ class PurchaseReceiptGLComposer(BaseStockGLComposer):
 							item=item,
 						)
 
-						doc.add_gl_entry(
+						self.add_gl_entry(
 							gl_entries=gl_entries,
 							account=doc.get_company_default("exchange_gain_loss_account"),
 							cost_center=d.cost_center,
@@ -173,7 +173,7 @@ class PurchaseReceiptGLComposer(BaseStockGLComposer):
 						if not account:
 							validate_account("Landed Cost Account")
 
-						doc.add_gl_entry(
+						self.add_gl_entry(
 							gl_entries=gl_entries,
 							account=account,
 							cost_center=item.cost_center,
@@ -190,7 +190,7 @@ class PurchaseReceiptGLComposer(BaseStockGLComposer):
 		def make_amount_difference_entry(item):
 			if item.amount_difference_with_purchase_invoice and stock_asset_rbnb:
 				account_currency = get_account_currency(stock_asset_rbnb)
-				doc.add_gl_entry(
+				self.add_gl_entry(
 					gl_entries=gl_entries,
 					account=stock_asset_rbnb,
 					cost_center=item.cost_center,
@@ -205,7 +205,7 @@ class PurchaseReceiptGLComposer(BaseStockGLComposer):
 
 		def make_sub_contracting_gl_entries(item):
 			if flt(item.rm_supp_cost) and supplier_warehouse_account:
-				doc.add_gl_entry(
+				self.add_gl_entry(
 					gl_entries=gl_entries,
 					account=supplier_warehouse_account,
 					cost_center=item.cost_center,
@@ -252,7 +252,7 @@ class PurchaseReceiptGLComposer(BaseStockGLComposer):
 					"Company", doc.company, "cost_center"
 				)
 				account_currency = get_account_currency(loss_account)
-				doc.add_gl_entry(
+				self.add_gl_entry(
 					gl_entries=gl_entries,
 					account=loss_account,
 					cost_center=cost_center,
@@ -394,7 +394,7 @@ class PurchaseReceiptGLComposer(BaseStockGLComposer):
 						)
 						amount_including_divisional_loss -= applicable_amount
 
-					doc.add_gl_entry(
+					self.add_gl_entry(
 						gl_entries=gl_entries,
 						account=account,
 						cost_center=tax.cost_center,

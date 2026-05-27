@@ -75,7 +75,7 @@ class StockEntryGLComposer(BaseStockGLComposer):
 					continue
 
 				gl_entries.append(
-					doc.get_gl_dict(
+					self.get_gl_dict(
 						{
 							"account": account,
 							"against": d.expense_account,
@@ -89,7 +89,7 @@ class StockEntryGLComposer(BaseStockGLComposer):
 				)
 
 				gl_entries.append(
-					doc.get_gl_dict(
+					self.get_gl_dict(
 						{
 							"account": d.expense_account,
 							"against": account,
@@ -122,7 +122,7 @@ class StockEntryGLComposer(BaseStockGLComposer):
 
 					_inv_dict = doc.get_inventory_account_dict(item, inventory_account_map, "t_warehouse")
 					gl_entries.append(
-						doc.get_gl_dict(
+						self.get_gl_dict(
 							{
 								"account": account,
 								"against": _inv_dict["account"],
@@ -140,7 +140,7 @@ class StockEntryGLComposer(BaseStockGLComposer):
 
 					account_currency = get_account_currency(item.expense_account)
 					gl_entries.append(
-						doc.get_gl_dict(
+						self.get_gl_dict(
 							{
 								"account": item.expense_account,
 								"against": _inv_dict["account"],

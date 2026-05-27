@@ -110,7 +110,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 			item_account_currency = get_account_currency(item.expense_account)
 
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": dn_expense_account,
 						"against": item.expense_account,
@@ -123,7 +123,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 				)
 			)
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": item.expense_account,
 						"against": dn_expense_account,
@@ -157,7 +157,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 
 			# Did not use base_grand_total to book rounding loss gle
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": doc.debit_to,
 						"party_type": "Customer",
@@ -191,7 +191,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 			if flt(tax.base_tax_amount_after_discount_amount):
 				account_currency = get_account_currency(tax.account_head)
 				gl_entries.append(
-					doc.get_gl_dict(
+					self.get_gl_dict(
 						{
 							"account": tax.account_head,
 							"against": doc.customer,
@@ -216,7 +216,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 		if doc.is_internal_transfer() and flt(doc.base_total_taxes_and_charges):
 			account_currency = get_account_currency(doc.unrealized_profit_loss_account)
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": doc.unrealized_profit_loss_account,
 						"against": doc.customer,
@@ -262,7 +262,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 
 					account_currency = get_account_currency(income_account)
 					gl_entries.append(
-						doc.get_gl_dict(
+						self.get_gl_dict(
 							{
 								"account": income_account,
 								"against": doc.customer,
@@ -310,13 +310,13 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 
 		for gle in fixed_asset_gl_entries:
 			gle["against"] = doc.customer
-			gl_entries.append(doc.get_gl_dict(gle, item=item))
+			gl_entries.append(self.get_gl_dict(gle, item=item))
 
 	def make_loyalty_point_redemption_gle(self, gl_entries):
 		doc = self.doc
 		if cint(doc.redeem_loyalty_points and doc.loyalty_points and not doc.is_consolidated):
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": doc.debit_to,
 						"party_type": "Customer",
@@ -334,7 +334,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 				)
 			)
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": doc.loyalty_redemption_account,
 						"cost_center": doc.cost_center or doc.loyalty_redemption_cost_center,
@@ -365,7 +365,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 				if payment_mode.base_amount:
 					# POS, make payment entries
 					gl_entries.append(
-						doc.get_gl_dict(
+						self.get_gl_dict(
 							{
 								"account": doc.debit_to,
 								"party_type": "Customer",
@@ -387,7 +387,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 
 					payment_mode_account_currency = get_account_currency(payment_mode.account)
 					gl_entries.append(
-						doc.get_gl_dict(
+						self.get_gl_dict(
 							{
 								"account": payment_mode.account,
 								"against": doc.customer,
@@ -415,7 +415,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 			frappe.throw(_("Please set Account for Change Amount"), title=_("Mandatory Field"))
 
 		return [
-			doc.get_gl_dict(
+			self.get_gl_dict(
 				{
 					"account": doc.debit_to,
 					"party_type": "Customer",
@@ -436,7 +436,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 				doc.party_account_currency,
 				item=doc,
 			),
-			doc.get_gl_dict(
+			self.get_gl_dict(
 				{
 					"account": doc.account_for_change_amount,
 					"against": doc.customer,
@@ -460,7 +460,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 			default_cost_center = frappe.get_cached_value("Company", doc.company, "cost_center")
 
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": doc.debit_to,
 						"party_type": "Customer",
@@ -485,7 +485,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 				)
 			)
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": doc.write_off_account,
 						"against": doc.customer,
@@ -536,7 +536,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 					round_off_account = round_off_for_opening
 
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": round_off_account,
 						"against": doc.customer,

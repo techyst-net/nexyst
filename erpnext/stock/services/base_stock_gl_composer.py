@@ -56,7 +56,7 @@ class BaseStockGLComposer(BaseGLComposer):
 							expense_account = item_row.expense_account
 
 						gl_list.append(
-							doc.get_gl_dict(
+							self.get_gl_dict(
 								{
 									"account": _inv_dict["account"],
 									"against": expense_account,
@@ -72,7 +72,7 @@ class BaseStockGLComposer(BaseGLComposer):
 						)
 
 						gl_list.append(
-							doc.get_gl_dict(
+							self.get_gl_dict(
 								{
 									"account": expense_account,
 									"against": _inv_dict["account"],
@@ -110,7 +110,7 @@ class BaseStockGLComposer(BaseGLComposer):
 					)
 
 				gl_list.append(
-					doc.get_gl_dict(
+					self.get_gl_dict(
 						{
 							"account": expense_account,
 							"against": warehouse_asset_account,
@@ -126,7 +126,7 @@ class BaseStockGLComposer(BaseGLComposer):
 				)
 
 				gl_list.append(
-					doc.get_gl_dict(
+					self.get_gl_dict(
 						{
 							"account": warehouse_asset_account,
 							"against": expense_account,

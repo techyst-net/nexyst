@@ -94,7 +94,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 		}
 		if remarks:
 			gl["remarks"] = remarks
-		gl_entries.append(doc.get_gl_dict(gl, doc.party_account_currency, item=doc))
+		gl_entries.append(self.get_gl_dict(gl, doc.party_account_currency, item=doc))
 
 	def make_item_gl_entries(self, gl_entries):
 		from erpnext.accounts.doctype.purchase_invoice.purchase_invoice import (
@@ -163,7 +163,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 						)
 
 						gl_entries.append(
-							doc.get_gl_dict(
+							self.get_gl_dict(
 								{
 									"account": _inv_dict["account"],
 									"against": _inv_dict_from_warehouse["account"],
@@ -184,7 +184,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 
 						# Intentionally passed negative debit amount to avoid incorrect GL Entry validation
 						gl_entries.append(
-							doc.get_gl_dict(
+							self.get_gl_dict(
 								{
 									"account": _inv_dict_from_warehouse["account"],
 									"against": _inv_dict["account"],
@@ -201,7 +201,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 
 						if not doc.is_internal_transfer():
 							gl_entries.append(
-								doc.get_gl_dict(
+								self.get_gl_dict(
 									{
 										"account": item.expense_account,
 										"against": doc.supplier,
@@ -219,7 +219,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 					else:
 						if not doc.is_internal_transfer():
 							gl_entries.append(
-								doc.get_gl_dict(
+								self.get_gl_dict(
 									{
 										"account": item.expense_account,
 										"against": doc.supplier,
@@ -244,7 +244,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 								(item.item_code, item.name)
 							].items():
 								gl_entries.append(
-									doc.get_gl_dict(
+									self.get_gl_dict(
 										{
 											"account": account,
 											"against": item.expense_account,
@@ -270,7 +270,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 								_("Please set account in Warehouse {0}").format(doc.supplier_warehouse)
 							)
 						gl_entries.append(
-							doc.get_gl_dict(
+							self.get_gl_dict(
 								{
 									"account": supplier_inventory_account,
 									"against": item.expense_account,
@@ -299,7 +299,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 
 					if not doc.is_internal_transfer():
 						gl_entries.append(
-							doc.get_gl_dict(
+							self.get_gl_dict(
 								{
 									"account": expense_account,
 									"against": doc.supplier,
@@ -330,7 +330,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 								) * (exchange_rate_map[item.purchase_receipt] - doc.conversion_rate)
 
 								gl_entries.append(
-									doc.get_gl_dict(
+									self.get_gl_dict(
 										{
 											"account": expense_account,
 											"against": doc.supplier,
@@ -343,7 +343,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 									)
 								)
 								gl_entries.append(
-									doc.get_gl_dict(
+									self.get_gl_dict(
 										{
 											"account": doc.get_company_default("exchange_gain_loss_account"),
 											"against": doc.supplier,
@@ -378,7 +378,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 
 					if not negative_expense_booked_in_pr:
 						gl_entries.append(
-							doc.get_gl_dict(
+							self.get_gl_dict(
 								{
 									"account": doc.stock_received_but_not_billed,
 									"against": doc.supplier,
@@ -505,7 +505,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 				stock_adjustment_amt = stock_amount - warehouse_debit_amount
 
 				gl_entries.append(
-					doc.get_gl_dict(
+					self.get_gl_dict(
 						{
 							"account": cost_of_goods_sold_account,
 							"against": item.expense_account,
@@ -531,7 +531,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 			stock_adjustment_amt = warehouse_debit_amount - stock_amount
 
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": cost_of_goods_sold_account,
 						"against": item.expense_account,
@@ -560,7 +560,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 				account_currency = get_account_currency(tax.account_head)
 				dr_or_cr = "debit" if tax.add_deduct_tax == "Add" else "credit"
 				gl_entries.append(
-					doc.get_gl_dict(
+					self.get_gl_dict(
 						{
 							"account": tax.account_head,
 							"against": doc.supplier,
@@ -606,7 +606,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 						amount_including_divisional_loss -= applicable_amount
 
 					gl_entries.append(
-						doc.get_gl_dict(
+						self.get_gl_dict(
 							{
 								"account": tax.account_head,
 								"cost_center": tax.cost_center,
@@ -627,7 +627,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 			for tax in doc.get("taxes"):
 				if valuation_tax.get(tax.name):
 					gl_entries.append(
-						doc.get_gl_dict(
+						self.get_gl_dict(
 							{
 								"account": tax.account_head,
 								"cost_center": tax.cost_center,
@@ -648,7 +648,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 		if doc.is_internal_transfer() and flt(doc.base_total_taxes_and_charges):
 			account_currency = get_account_currency(doc.unrealized_profit_loss_account)
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": doc.unrealized_profit_loss_account,
 						"against": doc.supplier,
@@ -691,7 +691,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 			bank_account_currency = get_account_currency(doc.cash_bank_account)
 
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": doc.credit_to,
 						"party_type": "Supplier",
@@ -715,7 +715,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 			)
 
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": doc.cash_bank_account,
 						"against": doc.supplier,
@@ -737,7 +737,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 			write_off_account_currency = get_account_currency(doc.write_off_account)
 
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": doc.credit_to,
 						"party_type": "Supplier",
@@ -760,7 +760,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 				)
 			)
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": doc.write_off_account,
 						"against": doc.supplier,
@@ -802,7 +802,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 					round_off_account = round_off_for_opening
 
 			gl_entries.append(
-				doc.get_gl_dict(
+				self.get_gl_dict(
 					{
 						"account": round_off_account,
 						"against": doc.supplier,

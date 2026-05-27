@@ -66,7 +66,7 @@ class SubcontractingReceiptGLComposer(BaseStockGLComposer):
 
 					remarks = doc.get("remarks") or _("Accounting Entry for Stock")
 
-					doc.add_gl_entry(
+					self.add_gl_entry(
 						gl_entries=gl_entries,
 						account=_inv_dict["account"],
 						cost_center=item.cost_center,
@@ -83,7 +83,7 @@ class SubcontractingReceiptGLComposer(BaseStockGLComposer):
 						item.service_cost_per_qty, item.precision("service_cost_per_qty")
 					) * flt(item.qty, item.precision("qty"))
 
-					doc.add_gl_entry(
+					self.add_gl_entry(
 						gl_entries=gl_entries,
 						account=item.expense_account,
 						cost_center=item.cost_center,
@@ -97,7 +97,7 @@ class SubcontractingReceiptGLComposer(BaseStockGLComposer):
 					)
 
 					service_account = item.service_expense_account or item.expense_account
-					doc.add_gl_entry(
+					self.add_gl_entry(
 						gl_entries=gl_entries,
 						account=service_account,
 						cost_center=item.cost_center,
@@ -116,7 +116,7 @@ class SubcontractingReceiptGLComposer(BaseStockGLComposer):
 								rm_item, inventory_account_map, "supplier_warehouse"
 							)
 
-							doc.add_gl_entry(
+							self.add_gl_entry(
 								gl_entries=gl_entries,
 								account=_inv_dict.get("account"),
 								cost_center=rm_item.cost_center or item.cost_center,
@@ -128,7 +128,7 @@ class SubcontractingReceiptGLComposer(BaseStockGLComposer):
 								project=item.project,
 								item=item,
 							)
-							doc.add_gl_entry(
+							self.add_gl_entry(
 								gl_entries=gl_entries,
 								account=rm_item.expense_account or item.expense_account,
 								cost_center=rm_item.cost_center or item.cost_center,
@@ -142,7 +142,7 @@ class SubcontractingReceiptGLComposer(BaseStockGLComposer):
 							)
 
 					if item.additional_cost_per_qty:
-						doc.add_gl_entry(
+						self.add_gl_entry(
 							gl_entries=gl_entries,
 							account=item.expense_account,
 							cost_center=doc.cost_center or doc.get_company_default("cost_center"),
@@ -158,7 +158,7 @@ class SubcontractingReceiptGLComposer(BaseStockGLComposer):
 							"stock_adjustment_account", ignore_validation=True
 						)
 
-						doc.add_gl_entry(
+						self.add_gl_entry(
 							gl_entries=gl_entries,
 							account=loss_account,
 							cost_center=item.cost_center,
@@ -170,7 +170,7 @@ class SubcontractingReceiptGLComposer(BaseStockGLComposer):
 							project=item.project,
 							item=item,
 						)
-						doc.add_gl_entry(
+						self.add_gl_entry(
 							gl_entries=gl_entries,
 							account=item.expense_account,
 							cost_center=item.cost_center,
@@ -195,7 +195,7 @@ class SubcontractingReceiptGLComposer(BaseStockGLComposer):
 				else flt(row.amount)
 			)
 
-			doc.add_gl_entry(
+			self.add_gl_entry(
 				gl_entries=gl_entries,
 				account=row.expense_account,
 				cost_center=doc.cost_center or doc.get_company_default("cost_center"),
@@ -234,7 +234,7 @@ class SubcontractingReceiptGLComposer(BaseStockGLComposer):
 							else flt(amount["amount"])
 						)
 
-						doc.add_gl_entry(
+						self.add_gl_entry(
 							gl_entries=gl_entries,
 							account=account,
 							cost_center=item.cost_center,
@@ -250,7 +250,7 @@ class SubcontractingReceiptGLComposer(BaseStockGLComposer):
 
 						account_currency = get_account_currency(item.expense_account)
 
-						doc.add_gl_entry(
+						self.add_gl_entry(
 							gl_entries=gl_entries,
 							account=item.expense_account,
 							cost_center=item.cost_center,
