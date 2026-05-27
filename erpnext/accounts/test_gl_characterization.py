@@ -391,6 +391,56 @@ class TestGLCharacterization(IntegrationTestCase):
 		ret.submit()
 		assert_gl_snapshot(self, "dn_return", "Delivery Note", ret.name)
 
+	def test_se_material_receipt(self):
+		se = make_stock_entry(
+			item_code="_Test Item",
+			target=DN_WAREHOUSE,
+			qty=5,
+			basic_rate=100,
+			company=DN_COMPANY,
+			posting_date=POSTING_DATE,
+			do_not_submit=True,
+		)
+		se.submit()
+		assert_gl_snapshot(self, "se_material_receipt", "Stock Entry", se.name)
+
+	def test_se_material_issue(self):
+		make_stock_entry(
+			item_code="_Test Item", target=DN_WAREHOUSE, qty=10, basic_rate=100, company=DN_COMPANY
+		)
+		se = make_stock_entry(
+			item_code="_Test Item",
+			source=DN_WAREHOUSE,
+			qty=5,
+			company=DN_COMPANY,
+			posting_date=POSTING_DATE,
+			do_not_submit=True,
+		)
+		se.submit()
+		assert_gl_snapshot(self, "se_material_issue", "Stock Entry", se.name)
+
+	def test_se_material_transfer(self):
+		make_stock_entry(
+			item_code="_Test Item", target=DN_WAREHOUSE, qty=10, basic_rate=100, company=DN_COMPANY
+		)
+		se = make_stock_entry(
+			item_code="_Test Item",
+			source=DN_WAREHOUSE,
+			target="Finished Goods - TCP1",
+			qty=5,
+			company=DN_COMPANY,
+			posting_date=POSTING_DATE,
+			do_not_submit=True,
+		)
+		se.submit()
+		assert_gl_snapshot(self, "se_material_transfer", "Stock Entry", se.name)
+
+	def test_sr_basic(self):
+		sr = _make_dated_stock_reconciliation(qty=10, rate=150)
+		sr.insert()
+		sr.submit()
+		assert_gl_snapshot(self, "sr_basic", "Stock Reconciliation", sr.name)
+
 
 def _make_dated_delivery_note(**args) -> frappe.Document:
 	"""Minimal Delivery Note on a fixed posting date using the perpetual-inventory
@@ -415,3 +465,29 @@ def _make_dated_delivery_note(**args) -> frappe.Document:
 		},
 	)
 	return dn
+
+
+def _make_dated_stock_reconciliation(**args) -> frappe.Document:
+	"""Minimal Stock Reconciliation on a fixed posting date using the perpetual-inventory
+	test company.
+
+	Inlined to avoid importing test_stock_reconciliation which drags in conflicting
+	test-record dependencies at discovery time."""
+	sr = frappe.new_doc("Stock Reconciliation")
+	sr.company = DN_COMPANY
+	sr.purpose = args.get("purpose", "Stock Reconciliation")
+	sr.posting_date = POSTING_DATE
+	sr.posting_time = "00:00:00"
+	sr.set_posting_time = 1
+	sr.expense_account = frappe.get_cached_value("Company", DN_COMPANY, "stock_adjustment_account")
+	sr.cost_center = frappe.get_cached_value("Company", DN_COMPANY, "cost_center")
+	sr.append(
+		"items",
+		{
+			"item_code": args.get("item_code", "_Test Item"),
+			"warehouse": args.get("warehouse", DN_WAREHOUSE),
+			"qty": args.get("qty", 10),
+			"valuation_rate": args.get("rate", 100),
+		},
+	)
+	return sr
