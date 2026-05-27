@@ -26,10 +26,14 @@ from erpnext.accounts.doctype.purchase_invoice.test_purchase_invoice import make
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_sales_return
 from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
 from erpnext.accounts.gl_snapshot import assert_gl_snapshot
+from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 
 POSTING_DATE = "2024-01-15"
 COMPANY = "_Test Company"
 CUSTOMER = "_Test Customer"
+WAREHOUSE = "_Test Warehouse - _TC"
+DN_COMPANY = "_Test Company with perpetual inventory"
+DN_WAREHOUSE = "Stores - TCP1"
 
 
 def make_dated_purchase_invoice(**args):
@@ -362,3 +366,52 @@ class TestGLCharacterization(IntegrationTestCase):
 		jv.insert()
 		jv.submit()
 		assert_gl_snapshot(self, "je_against_si", "Journal Entry", jv.name)
+
+	def test_dn_basic(self):
+		make_stock_entry(item_code="_Test Item", target=DN_WAREHOUSE, qty=10, basic_rate=100)
+		dn = _make_dated_delivery_note(qty=5, rate=150)
+		dn.insert()
+		dn.submit()
+		assert_gl_snapshot(self, "dn_basic", "Delivery Note", dn.name)
+
+	def test_dn_return(self):
+		make_stock_entry(item_code="_Test Item", target=DN_WAREHOUSE, qty=10, basic_rate=100)
+		original = _make_dated_delivery_note(qty=5, rate=150)
+		original.insert()
+		original.submit()
+
+		ret = frappe.copy_doc(original)
+		ret.is_return = 1
+		ret.return_against = original.name
+		for item in ret.items:
+			item.qty = -item.qty
+		ret.set_posting_time = 1
+		ret.posting_date = POSTING_DATE
+		ret.insert()
+		ret.submit()
+		assert_gl_snapshot(self, "dn_return", "Delivery Note", ret.name)
+
+
+def _make_dated_delivery_note(**args) -> frappe.Document:
+	"""Minimal Delivery Note on a fixed posting date using the perpetual-inventory
+	test company.
+
+	Inlined to avoid importing test_delivery_note which drags in conflicting
+	test-record dependencies at discovery time."""
+	dn = frappe.new_doc("Delivery Note")
+	dn.company = DN_COMPANY
+	dn.customer = CUSTOMER
+	dn.posting_date = POSTING_DATE
+	dn.set_posting_time = 1
+	dn.append(
+		"items",
+		{
+			"item_code": args.get("item_code", "_Test Item"),
+			"warehouse": args.get("warehouse", DN_WAREHOUSE),
+			"qty": args.get("qty", 1),
+			"rate": args.get("rate", 100),
+			"expense_account": "Cost of Goods Sold - TCP1",
+			"cost_center": "Main - TCP1",
+		},
+	)
+	return dn
