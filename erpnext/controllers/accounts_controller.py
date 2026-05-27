@@ -9,9 +9,8 @@ import frappe
 from frappe import _, bold, qb, throw
 from frappe.contacts.doctype.address.address import get_address_display
 from frappe.model.workflow import get_workflow_name, is_transition_condition_satisfied
-from frappe.query_builder import Criterion, DocType
-from frappe.query_builder.custom import ConstantColumn
-from frappe.query_builder.functions import Abs, Sum
+from frappe.query_builder import DocType
+from frappe.query_builder.functions import Sum
 from frappe.utils import (
 	DateTimeLikeObject,
 	add_days,
@@ -1507,86 +1506,14 @@ class AccountsController(TransactionBase):
 
 	@frappe.whitelist()
 	def set_advances(self):
-		"""Returns list of advances against Account, Party, Reference"""
+		from erpnext.accounts.services.advances import set_advances
 
-		res = self.get_advance_entries(
-			include_unallocated=not cint(self.get("only_include_allocated_payments"))
-		)
-
-		self.set("advances", [])
-		advance_allocated = 0
-		for d in res:
-			if self.get("party_account_currency") == self.company_currency:
-				amount = self.get("base_rounded_total") or self.base_grand_total
-			else:
-				amount = self.get("rounded_total") or self.grand_total
-			allocated_amount = min(amount - advance_allocated, d.amount)
-			advance_allocated += flt(allocated_amount)
-
-			advance_row = {
-				"doctype": self.doctype + " Advance",
-				"reference_type": d.reference_type,
-				"reference_name": d.reference_name,
-				"reference_row": d.reference_row,
-				"remarks": d.remarks,
-				"advance_amount": flt(d.amount),
-				"allocated_amount": allocated_amount,
-				"ref_exchange_rate": flt(d.exchange_rate),  # exchange_rate of advance entry
-				"difference_posting_date": self.posting_date,
-			}
-			if d.get("paid_from"):
-				advance_row["account"] = d.paid_from
-			if d.get("paid_to"):
-				advance_row["account"] = d.paid_to
-
-			self.append("advances", advance_row)
+		set_advances(self)
 
 	def get_advance_entries(self, include_unallocated=True):
-		party_account = []
-		default_advance_account = None
+		from erpnext.accounts.services.advances import get_advance_entries
 
-		if self.doctype in ["Sales Invoice", "POS Invoice"]:
-			party_type = "Customer"
-			party = self.customer
-			amount_field = "credit_in_account_currency"
-			order_field = "sales_order"
-			order_doctype = "Sales Order"
-			party_account.append(self.debit_to)
-		else:
-			party_type = "Supplier"
-			party = self.supplier
-			amount_field = "debit_in_account_currency"
-			order_field = "purchase_order"
-			order_doctype = "Purchase Order"
-			party_account.append(self.credit_to)
-
-		party_accounts = get_party_account(
-			party_type, party=party, company=self.company, include_advance=True
-		)
-
-		if party_accounts:
-			party_account.append(party_accounts[0])
-			default_advance_account = party_accounts[1] if len(party_accounts) == 2 else None
-
-		order_list = list(set(d.get(order_field) for d in self.get("items") if d.get(order_field)))
-
-		journal_entries = get_advance_journal_entries(
-			party_type, party, party_account, amount_field, order_doctype, order_list, include_unallocated
-		)
-
-		payment_entries = get_advance_payment_entries_for_regional(
-			party_type,
-			party,
-			party_account,
-			order_doctype,
-			order_list,
-			default_advance_account,
-			include_unallocated,
-		)
-
-		res = journal_entries + payment_entries
-
-		return res
+		return get_advance_entries(self, include_unallocated)
 
 	def is_inclusive_tax(self):
 		is_inclusive = cint(frappe.get_single_value("Accounts Settings", "show_inclusive_tax_in_print"))
@@ -1602,41 +1529,14 @@ class AccountsController(TransactionBase):
 		return cint(frappe.get_single_value("Accounts Settings", "show_taxes_as_table_in_print"))
 
 	def validate_advance_entries(self):
-		order_field = "sales_order" if self.doctype == "Sales Invoice" else "purchase_order"
-		order_list = list(set(d.get(order_field) for d in self.get("items") if d.get(order_field)))
+		from erpnext.accounts.services.advances import validate_advance_entries
 
-		if not order_list:
-			return
-
-		advance_entries = self.get_advance_entries(include_unallocated=False)
-
-		if advance_entries:
-			advance_entries_against_si = [d.reference_name for d in self.get("advances")]
-			for d in advance_entries:
-				if not advance_entries_against_si or d.reference_name not in advance_entries_against_si:
-					frappe.msgprint(
-						_(
-							"Payment Entry {0} is linked against Order {1}, check if it should be pulled as advance in this invoice."
-						).format(d.reference_name, d.against_order)
-					)
+		validate_advance_entries(self)
 
 	def set_advance_gain_or_loss(self):
-		if self.get("conversion_rate") == 1 or not self.get("advances"):
-			return
+		from erpnext.accounts.services.advances import set_advance_gain_or_loss
 
-		is_purchase_invoice = self.doctype == "Purchase Invoice"
-		party_account = self.credit_to if is_purchase_invoice else self.debit_to
-		if get_account_currency(party_account) != self.currency:
-			return
-
-		for d in self.get("advances"):
-			advance_exchange_rate = d.ref_exchange_rate
-			if d.allocated_amount and self.conversion_rate != advance_exchange_rate:
-				base_allocated_amount_in_ref_rate = advance_exchange_rate * d.allocated_amount
-				base_allocated_amount_in_inv_rate = self.conversion_rate * d.allocated_amount
-				difference = base_allocated_amount_in_ref_rate - base_allocated_amount_in_inv_rate
-
-				d.exchange_gain_loss = difference
+		set_advance_gain_or_loss(self)
 
 	def make_precision_loss_gl_entry(self, gl_entries):
 		(
@@ -2307,62 +2207,19 @@ class AccountsController(TransactionBase):
 		return asset_items
 
 	def calculate_total_advance_from_ledger(self):
-		adv = frappe.qb.DocType("Advance Payment Ledger Entry")
-		return (
-			qb.from_(adv)
-			.select(Abs(Sum(adv.amount)).as_("amount"), adv.currency.as_("account_currency"))
-			.where(adv.company == self.company)
-			.where(adv.delinked == 0)
-			.where(adv.against_voucher_type == self.doctype)
-			.where(adv.against_voucher_no == self.name)
-			.run(as_dict=True)
-		)
+		from erpnext.accounts.services.advances import calculate_total_advance_from_ledger
+
+		return calculate_total_advance_from_ledger(self)
 
 	def set_total_advance_paid(self):
-		advance = self.calculate_total_advance_from_ledger()
-		advance_paid = 0
+		from erpnext.accounts.services.advances import set_total_advance_paid
 
-		if advance:
-			advance = advance[0]
-
-			advance_paid = flt(advance.amount, self.precision("advance_paid"))
-			if advance.account_currency:
-				frappe.db.set_value(
-					self.doctype, self.name, "party_account_currency", advance.account_currency
-				)
-
-		self.db_set("advance_paid", advance_paid)
-		self.set_advance_payment_status()
+		set_total_advance_paid(self)
 
 	def set_advance_payment_status(self):
-		new_status = None
+		from erpnext.accounts.services.advances import set_advance_payment_status
 
-		PaymentRequest = frappe.qb.DocType("Payment Request")
-		paid_amount = frappe.get_value(
-			doctype="Payment Request",
-			filters={
-				"reference_doctype": self.doctype,
-				"reference_name": self.name,
-				"docstatus": 1,
-			},
-			fieldname=Sum(PaymentRequest.grand_total - PaymentRequest.outstanding_amount),
-		)
-
-		if not paid_amount:
-			if self.doctype in self.get_advance_payment_doctypes(payment_type="receivable"):
-				new_status = "Not Requested" if paid_amount is None else "Requested"
-			elif self.doctype in self.get_advance_payment_doctypes(payment_type="payable"):
-				new_status = "Not Initiated" if paid_amount is None else "Initiated"
-		else:
-			total_amount = self.get("rounded_total") or self.get("grand_total")
-			new_status = "Fully Paid" if paid_amount == total_amount else "Partially Paid"
-
-		if new_status == self.advance_payment_status:
-			return
-
-		self.db_set("advance_payment_status", new_status, update_modified=False)
-		self.set_status(update=True)
-		self.notify_update()
+		set_advance_payment_status(self)
 
 	@property
 	def company_abbr(self):
@@ -2472,21 +2329,9 @@ class AccountsController(TransactionBase):
 			)
 
 	def delink_advance_entries(self, linked_doc_name):
-		total_allocated_amount = 0
-		for adv in self.advances:
-			consider_for_total_advance = True
-			if adv.reference_name == linked_doc_name:
-				doctype = frappe.qb.DocType(self.doctype + " Advance")
-				frappe.qb.from_(doctype).delete().where(doctype.name == adv.name).run()
+		from erpnext.accounts.services.advances import delink_advance_entries
 
-				consider_for_total_advance = False
-
-			if consider_for_total_advance:
-				total_allocated_amount += flt(adv.allocated_amount, adv.precision("allocated_amount"))
-
-		frappe.db.set_value(
-			self.doctype, self.name, "total_advance", total_allocated_amount, update_modified=False
-		)
+		delink_advance_entries(self, linked_doc_name)
 
 	def group_similar_items(self):
 		grouped_items = {}
@@ -2865,102 +2710,9 @@ class AccountsController(TransactionBase):
 		)
 
 	def create_advance_and_reconcile(self, party_link):
-		secondary_party_type, secondary_party = self.get_party()
-		primary_party_type, primary_party = party_link.primary_role, party_link.primary_party
+		from erpnext.accounts.services.advances import create_advance_and_reconcile
 
-		primary_account = get_party_account(primary_party_type, primary_party, self.company)
-		secondary_account = get_party_account(secondary_party_type, secondary_party, self.company)
-		primary_account_currency = get_account_currency(primary_account)
-		secondary_account_currency = get_account_currency(secondary_account)
-		default_currency = erpnext.get_company_currency(self.company)
-
-		# Determine if multi-currency journal entry is needed
-		multi_currency = (
-			primary_account_currency != default_currency or secondary_account_currency != default_currency
-		)
-
-		jv = frappe.new_doc("Journal Entry")
-		jv.voucher_type = "Journal Entry"
-		jv.posting_date = self.posting_date
-		jv.company = self.company
-		jv.remark = f"Adjustment for {self.doctype} {self.name}"
-		jv.is_system_generated = True
-
-		reconcilation_entry = frappe._dict()
-		advance_entry = frappe._dict()
-
-		reconcilation_entry.account = secondary_account
-		reconcilation_entry.party_type = secondary_party_type
-		reconcilation_entry.party = secondary_party
-		reconcilation_entry.reference_type = self.doctype
-		reconcilation_entry.reference_name = self.name
-		reconcilation_entry.cost_center = self.cost_center or erpnext.get_default_cost_center(self.company)
-
-		advance_entry.account = primary_account
-		advance_entry.party_type = primary_party_type
-		advance_entry.party = primary_party
-		advance_entry.cost_center = self.cost_center or erpnext.get_default_cost_center(self.company)
-		# For returns the direction is reversed, so this entry cannot be an advance
-		# (JE validation: Supplier advance must be debit, Customer advance must be credit)
-		advance_entry.is_advance = "No" if self.is_return else "Yes"
-
-		# Update dimensions
-		dimensions_dict = frappe._dict()
-		active_dimensions = get_dimensions()[0]
-		for dim in active_dimensions:
-			dimensions_dict[dim.fieldname] = self.get(dim.fieldname)
-
-		reconcilation_entry.update(dimensions_dict)
-		advance_entry.update(dimensions_dict)
-
-		# Calculate exchange rates if necessary
-		if multi_currency:
-			# Exchange rates for primary and secondary accounts
-			exc_rate_primary_to_default = (
-				1
-				if primary_account_currency == default_currency
-				else get_exchange_rate(primary_account_currency, default_currency, self.posting_date)
-			)
-			exc_rate_secondary_to_default = (
-				1
-				if secondary_account_currency == default_currency
-				else get_exchange_rate(secondary_account_currency, default_currency, self.posting_date)
-			)
-			exc_rate_secondary_to_primary = (
-				1
-				if secondary_account_currency == primary_account_currency
-				else get_exchange_rate(
-					secondary_account_currency, primary_account_currency, self.posting_date
-				)
-			)
-
-			outstanding_amount = abs(self.outstanding_amount)
-			os_in_default_currency = outstanding_amount * exc_rate_secondary_to_default
-			os_in_primary_currency = outstanding_amount * exc_rate_secondary_to_primary
-
-			# SI normal and PI return → reconciliation is credit; SI return and PI normal → debit
-			reconciliation_is_credit = (self.doctype == "Sales Invoice") != bool(self.is_return)
-			_set_je_amounts(
-				reconcilation_entry, outstanding_amount, os_in_default_currency, reconciliation_is_credit
-			)
-			_set_je_amounts(
-				advance_entry, os_in_primary_currency, os_in_default_currency, not reconciliation_is_credit
-			)
-
-			reconcilation_entry.exchange_rate = exc_rate_secondary_to_default
-			advance_entry.exchange_rate = exc_rate_primary_to_default
-		else:
-			outstanding_amount = abs(self.outstanding_amount)
-			reconciliation_is_credit = (self.doctype == "Sales Invoice") != bool(self.is_return)
-			_set_je_amounts(reconcilation_entry, outstanding_amount, is_credit=reconciliation_is_credit)
-			_set_je_amounts(advance_entry, outstanding_amount, is_credit=not reconciliation_is_credit)
-
-		jv.multi_currency = multi_currency
-		jv.append("accounts", reconcilation_entry)
-		jv.append("accounts", advance_entry)
-
-		jv.save()
-		jv.submit()
+		create_advance_and_reconcile(self, party_link)
 
 	def check_conversion_rate(self):
 		default_currency = erpnext.get_company_currency(self.company)
@@ -3297,212 +3049,12 @@ def set_balance_in_account_currency(
 		)
 
 
-def get_advance_journal_entries(
-	party_type,
-	party,
-	party_account,
-	amount_field,
-	order_doctype,
-	order_list,
-	include_unallocated=True,
-):
-	journal_entry = frappe.qb.DocType("Journal Entry")
-	journal_acc = frappe.qb.DocType("Journal Entry Account")
-	q = (
-		frappe.qb.from_(journal_entry)
-		.inner_join(journal_acc)
-		.on(journal_entry.name == journal_acc.parent)
-		.select(
-			ConstantColumn("Journal Entry").as_("reference_type"),
-			(journal_entry.name).as_("reference_name"),
-			(journal_entry.remark).as_("remarks"),
-			(journal_acc[amount_field]).as_("amount"),
-			(journal_acc.name).as_("reference_row"),
-			(journal_acc.reference_name).as_("against_order"),
-			(journal_acc.exchange_rate),
-		)
-		.where(
-			journal_acc.account.isin(party_account)
-			& (journal_acc.party_type == party_type)
-			& (journal_acc.party == party)
-			& (journal_acc.is_advance == "Yes")
-			& (journal_entry.docstatus == 1)
-		)
-	)
-	if party_type == "Customer":
-		q = q.where(journal_acc.credit_in_account_currency > 0)
-
-	else:
-		q = q.where(journal_acc.debit_in_account_currency > 0)
-
-	reference_or_condition = []
-
-	if include_unallocated:
-		reference_or_condition.append(journal_acc.reference_name.isnull())
-		reference_or_condition.append(journal_acc.reference_name == "")
-
-	if order_list:
-		reference_or_condition.append(
-			(journal_acc.reference_type == order_doctype) & ((journal_acc.reference_name).isin(order_list))
-		)
-
-	if reference_or_condition:
-		q = q.where(Criterion.any(reference_or_condition))
-
-	q = q.orderby(journal_entry.posting_date)
-
-	journal_entries = q.run(as_dict=True)
-	return list(journal_entries)
-
-
-@erpnext.allow_regional
-def get_advance_payment_entries_for_regional(*args, **kwargs):
-	return get_advance_payment_entries(*args, **kwargs)
-
-
-def get_advance_payment_entries(
-	party_type,
-	party,
-	party_account,
-	order_doctype,
-	order_list=None,
-	default_advance_account=None,
-	include_unallocated=True,
-	against_all_orders=False,
-	limit=None,
-	condition=None,
-):
-	payment_entries = []
-	payment_entry = frappe.qb.DocType("Payment Entry")
-
-	if order_list or against_all_orders:
-		q = get_common_query(
-			party_type,
-			party,
-			party_account,
-			default_advance_account,
-			limit,
-			condition,
-		)
-		payment_ref = frappe.qb.DocType("Payment Entry Reference")
-
-		q = q.inner_join(payment_ref).on(payment_entry.name == payment_ref.parent)
-		q = q.select(
-			(payment_ref.allocated_amount).as_("amount"),
-			(payment_ref.name).as_("reference_row"),
-			(payment_ref.reference_name).as_("against_order"),
-			(payment_entry.book_advance_payments_in_separate_party_account),
-		)
-
-		q = q.where(payment_ref.reference_doctype == order_doctype)
-		if order_list:
-			q = q.where(payment_ref.reference_name.isin(order_list))
-
-		allocated = list(q.run(as_dict=True))
-		payment_entries += allocated
-	if include_unallocated:
-		q = get_common_query(
-			party_type,
-			party,
-			party_account,
-			default_advance_account,
-			limit,
-			condition,
-		)
-		q = q.select((payment_entry.unallocated_amount).as_("amount"))
-		q = q.where(payment_entry.unallocated_amount > 0)
-
-		unallocated = list(q.run(as_dict=True))
-		payment_entries += unallocated
-	return payment_entries
-
-
-def get_common_query(
-	party_type,
-	party,
-	party_account,
-	default_advance_account,
-	limit,
-	condition,
-):
-	account_type = frappe.db.get_value("Party Type", party_type, "account_type")
-	payment_type = "Receive" if account_type == "Receivable" else "Pay"
-	payment_entry = frappe.qb.DocType("Payment Entry")
-
-	q = (
-		frappe.qb.from_(payment_entry)
-		.select(
-			ConstantColumn("Payment Entry").as_("reference_type"),
-			(payment_entry.name).as_("reference_name"),
-			payment_entry.posting_date,
-			(payment_entry.remarks).as_("remarks"),
-			(payment_entry.book_advance_payments_in_separate_party_account),
-		)
-		.where(payment_entry.payment_type == payment_type)
-		.where(payment_entry.party_type == party_type)
-		.where(payment_entry.party == party)
-		.where(payment_entry.docstatus == 1)
-	)
-
-	field = "paid_from" if payment_type == "Receive" else "paid_to"
-
-	q = q.select((payment_entry[f"{field}_account_currency"]).as_("currency"))
-	q = q.select(payment_entry[field])
-	account_condition = payment_entry[field].isin(party_account)
-	if default_advance_account:
-		q = q.where(
-			account_condition
-			| (
-				(payment_entry[field] == default_advance_account)
-				& (payment_entry.book_advance_payments_in_separate_party_account == 1)
-			)
-		)
-
-	else:
-		q = q.where(account_condition)
-
-	if payment_type == "Receive":
-		q = q.select((payment_entry.source_exchange_rate).as_("exchange_rate"))
-	else:
-		q = q.select((payment_entry.target_exchange_rate).as_("exchange_rate"))
-
-	if condition:
-		# conditions should be built as an array and passed as Criterion
-		common_filter_conditions = []
-
-		common_filter_conditions.append(payment_entry.company == condition["company"])
-		if condition.get("name", None):
-			common_filter_conditions.append(payment_entry.name.like(f"%{condition.get('name')}%"))
-
-		if condition.get("from_payment_date"):
-			common_filter_conditions.append(payment_entry.posting_date.gte(condition["from_payment_date"]))
-
-		if condition.get("to_payment_date"):
-			common_filter_conditions.append(payment_entry.posting_date.lte(condition["to_payment_date"]))
-
-		if condition.get("get_payments") is True:
-			if condition.get("cost_center"):
-				common_filter_conditions.append(payment_entry.cost_center == condition["cost_center"])
-
-			if condition.get("accounting_dimensions"):
-				for field, val in condition.get("accounting_dimensions").items():
-					common_filter_conditions.append(payment_entry[field] == val)
-
-			if condition.get("minimum_payment_amount"):
-				common_filter_conditions.append(
-					payment_entry.unallocated_amount.gte(condition["minimum_payment_amount"])
-				)
-
-			if condition.get("maximum_payment_amount"):
-				common_filter_conditions.append(
-					payment_entry.unallocated_amount.lte(condition["maximum_payment_amount"])
-				)
-		q = q.where(Criterion.all(common_filter_conditions))
-
-	q = q.orderby(payment_entry.posting_date)
-	q = q.limit(limit) if limit else q
-
-	return q
+from erpnext.accounts.services.advances import (
+	get_advance_journal_entries,
+	get_advance_payment_entries,
+	get_advance_payment_entries_for_regional,
+	get_common_query,
+)
 
 
 def update_invoice_status():
@@ -3691,17 +3243,6 @@ def set_child_tax_template_and_map(item, child_item, parent_doc):
 		tax_template=child_item.item_tax_template,
 		as_json=True,
 	)
-
-
-def _set_je_amounts(entry, amount, default_amount=None, is_credit=True):
-	if is_credit:
-		entry.credit_in_account_currency = amount
-		if default_amount is not None:
-			entry.credit = default_amount
-	else:
-		entry.debit_in_account_currency = amount
-		if default_amount is not None:
-			entry.debit = default_amount
 
 
 def add_taxes_from_tax_template(child_item, parent_doc, db_insert=True):
