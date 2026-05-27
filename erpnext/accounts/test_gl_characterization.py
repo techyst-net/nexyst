@@ -26,6 +26,7 @@ from erpnext.accounts.doctype.purchase_invoice.test_purchase_invoice import make
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_sales_return
 from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
 from erpnext.accounts.gl_snapshot import assert_gl_snapshot
+from erpnext.stock.doctype.purchase_receipt.test_purchase_receipt import make_purchase_receipt
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 
 POSTING_DATE = "2024-01-15"
@@ -440,6 +441,44 @@ class TestGLCharacterization(IntegrationTestCase):
 		sr.insert()
 		sr.submit()
 		assert_gl_snapshot(self, "sr_basic", "Stock Reconciliation", sr.name)
+
+	def test_pr_basic(self):
+		pr = make_purchase_receipt(
+			company=DN_COMPANY,
+			warehouse=DN_WAREHOUSE,
+			posting_date=POSTING_DATE,
+			qty=5,
+			rate=100,
+		)
+		assert_gl_snapshot(self, "pr_basic", "Purchase Receipt", pr.name)
+
+	def test_pr_with_taxes(self):
+		pr = make_purchase_receipt(
+			company=DN_COMPANY,
+			warehouse=DN_WAREHOUSE,
+			posting_date=POSTING_DATE,
+			qty=5,
+			rate=100,
+			get_taxes_and_charges=True,
+		)
+		assert_gl_snapshot(self, "pr_with_taxes", "Purchase Receipt", pr.name)
+
+	def test_pr_return(self):
+		original = make_purchase_receipt(
+			company=DN_COMPANY,
+			warehouse=DN_WAREHOUSE,
+			posting_date=POSTING_DATE,
+			qty=5,
+			rate=100,
+		)
+		from erpnext.stock.doctype.purchase_receipt.purchase_receipt import make_purchase_return
+
+		ret = make_purchase_return(original.name)
+		ret.posting_date = POSTING_DATE
+		ret.set_posting_time = 1
+		ret.insert()
+		ret.submit()
+		assert_gl_snapshot(self, "pr_return", "Purchase Receipt", ret.name)
 
 
 def _make_dated_delivery_note(**args) -> frappe.Document:
