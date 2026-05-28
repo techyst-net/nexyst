@@ -35,25 +35,17 @@ from erpnext.accounts.general_ledger import get_round_off_account_and_cost_cente
 from erpnext.accounts.party import (
 	PURCHASE_TRANSACTION_TYPES,
 	SALES_TRANSACTION_TYPES,
-	get_party_account,
-	get_party_account_currency,
-	get_party_gle_currency,
-	validate_party_frozen_disabled,
-)
-from erpnext.accounts.utils import (
-	get_account_currency,
-	validate_fiscal_year,
 )
 from erpnext.accounts.utils import (
 	get_advance_payment_doctypes as _get_advance_payment_doctypes,
 )
+from erpnext.accounts.utils import validate_fiscal_year
 from erpnext.buying.utils import update_last_purchase_rate
 from erpnext.controllers.print_settings import (
 	set_print_templates_for_item_table,
 	set_print_templates_for_taxes,
 )
 from erpnext.controllers.sales_and_purchase_return import validate_return
-from erpnext.exceptions import InvalidCurrency
 from erpnext.setup.utils import get_exchange_rate
 from erpnext.stock.doctype.item.item import get_uom_conv_factor
 from erpnext.stock.doctype.packed_item.packed_item import make_packing_list
@@ -225,19 +217,15 @@ class AccountsController(TransactionBase):
 		self.ensure_supplier_is_not_blocked()
 
 		self.validate_date_with_fiscal_year()
-		self.validate_party_accounts()
 		if self.doctype in ["Sales Invoice", "Purchase Invoice"]:
 			if self.is_return:
 				self.validate_qty()
 			else:
 				self.validate_deferred_start_and_end_date()
 
-		self.validate_inter_company_reference()
-		# validate inter  company transaction rate
-		self.validate_internal_transaction()
+		from erpnext.accounts.services.internal_transfer import InternalTransferService
 
-		self.disable_pricing_rule_on_internal_transfer()
-		self.disable_tax_included_prices_for_internal_transfer()
+		InternalTransferService(self).validate()
 		self.set_incoming_rate()
 		self.init_internal_values()
 		self.validate_against_voucher_outstanding()
@@ -263,9 +251,9 @@ class AccountsController(TransactionBase):
 
 		self.validate_all_documents_schedule()
 
-		self.validate_party()
-		self.validate_currency()
-		self.validate_party_account_currency()
+		from erpnext.accounts.services.party_validation import PartyValidator
+
+		PartyValidator(self).validate()
 		self.validate_return_against_account()
 
 		if self.doctype in ["Purchase Invoice", "Sales Invoice"]:
@@ -286,7 +274,7 @@ class AccountsController(TransactionBase):
 			self.set_advance_gain_or_loss()
 
 			self.validate_deferred_income_expense_account()
-			self.set_inter_company_account()
+			InternalTransferService(self).set_account()
 
 		if self.doctype == "Purchase Invoice":
 			self.calculate_paid_amount()
@@ -301,54 +289,6 @@ class AccountsController(TransactionBase):
 		self.set_total_in_words()
 		self.set_default_letter_head()
 		self.validate_company_in_accounting_dimension()
-		self.validate_party_address_and_contact()
-		self.validate_company_linked_addresses()
-
-	def validate_company_linked_addresses(self):
-		address_fields = []
-		sales_doctypes = ("Quotation", "Sales Order", "Delivery Note", "Sales Invoice")
-		purchase_doctypes = ("Purchase Order", "Purchase Receipt", "Purchase Invoice", "Supplier Quotation")
-
-		if self.doctype in sales_doctypes:
-			address_fields = ["dispatch_address_name", "company_address"]
-		elif self.doctype in purchase_doctypes:
-			address_fields = ["billing_address", "shipping_address"]
-
-		if not address_fields:
-			return
-
-		# Determine if drop ship applies
-		is_drop_ship = self.doctype in {
-			"Purchase Order",
-			"Purchase Invoice",
-			"Sales Order",
-			"Sales Invoice",
-		} and self.is_drop_ship(self.items)
-
-		for field in address_fields:
-			address = self.get(field)
-
-			if (field in ["dispatch_address_name", "shipping_address"]) and is_drop_ship:
-				continue
-
-			if address and not frappe.db.exists(
-				"Dynamic Link",
-				{
-					"parent": address,
-					"parenttype": "Address",
-					"link_doctype": "Company",
-					"link_name": self.company,
-				},
-			):
-				frappe.throw(
-					_("{0} does not belong to the Company {1}.").format(
-						_(self.meta.get_label(field)), bold(self.company)
-					)
-				)
-
-	@staticmethod
-	def is_drop_ship(items):
-		return any(item.delivered_by_supplier for item in items)
 
 	def set_default_letter_head(self):
 		if hasattr(self, "letter_head") and not self.letter_head:
@@ -536,46 +476,6 @@ class AccountsController(TransactionBase):
 						)
 					)
 
-	def validate_party_address_and_contact(self):
-		party_type, party = self.get_party()
-
-		if not (party_type and party):
-			return
-
-		if party_type == "Customer":
-			billing_address, shipping_address = (
-				self.get("customer_address"),
-				self.get("shipping_address_name"),
-			)
-			self.validate_party_address(party, party_type, billing_address, shipping_address)
-		elif party_type == "Supplier":
-			billing_address = self.get("supplier_address")
-			self.validate_party_address(party, party_type, billing_address)
-
-		self.validate_party_contact(party, party_type)
-
-	def validate_party_address(self, party, party_type, billing_address, shipping_address=None):
-		if billing_address or shipping_address:
-			party_address = frappe.get_all(
-				"Dynamic Link",
-				{"link_doctype": party_type, "link_name": party, "parenttype": "Address"},
-				pluck="parent",
-			)
-			if billing_address and billing_address not in party_address:
-				frappe.throw(_("Billing Address does not belong to the {0}").format(party))
-			elif shipping_address and shipping_address not in party_address:
-				frappe.throw(_("Shipping Address does not belong to the {0}").format(party))
-
-	def validate_party_contact(self, party, party_type):
-		if self.get("contact_person"):
-			contact = frappe.get_all(
-				"Dynamic Link",
-				{"link_doctype": party_type, "link_name": party, "parenttype": "Contact"},
-				pluck="parent",
-			)
-			if self.contact_person and self.contact_person not in contact:
-				frappe.throw(_("Contact Person does not belong to the {0}").format(party))
-
 	def validate_return_against_account(self):
 		if self.doctype in ["Sales Invoice", "Purchase Invoice"] and self.is_return and self.return_against:
 			cr_dr_account_field = "debit_to" if self.doctype == "Sales Invoice" else "credit_to"
@@ -760,162 +660,6 @@ class AccountsController(TransactionBase):
 					self.company,
 					self.meta.get_label(date_field),
 					self,
-				)
-
-	def validate_party_accounts(self):
-		if self.doctype not in ("Sales Invoice", "Purchase Invoice"):
-			return
-
-		if self.doctype == "Sales Invoice":
-			party_account_field = "debit_to"
-			item_field = "income_account"
-		else:
-			party_account_field = "credit_to"
-			item_field = "expense_account"
-
-		for item in self.get("items"):
-			if item.get(item_field) == self.get(party_account_field):
-				frappe.throw(
-					_("Row {0}: {1} {2} cannot be same as {3} (Party Account) {4}").format(
-						item.idx,
-						frappe.bold(frappe.unscrub(item_field)),
-						item.get(item_field),
-						frappe.bold(frappe.unscrub(party_account_field)),
-						self.get(party_account_field),
-					)
-				)
-
-	def validate_inter_company_reference(self):
-		if self.get("is_return"):
-			return
-
-		if self.doctype not in ("Purchase Invoice", "Purchase Receipt"):
-			return
-
-		if self.is_internal_transfer():
-			if not (
-				self.get("inter_company_reference")
-				or self.get("inter_company_invoice_reference")
-				or self.get("inter_company_order_reference")
-			) and not self.get("is_return"):
-				msg = _("Internal Sale or Delivery Reference missing.")
-				msg += _("Please create purchase from internal sale or delivery document itself")
-				frappe.throw(msg, title=_("Internal Sales Reference Missing"))
-
-			label = "Delivery Note Item" if self.doctype == "Purchase Receipt" else "Sales Invoice Item"
-
-			field = frappe.scrub(label)
-
-			for row in self.get("items"):
-				if not row.get(field):
-					msg = f"At Row {row.idx}: The field {bold(label)} is mandatory for internal transfer"
-					frappe.throw(_(msg), title=_("Internal Transfer Reference Missing"))
-
-	def validate_internal_transaction(self):
-		if not cint(frappe.get_single_value("Accounts Settings", "maintain_same_internal_transaction_rate")):
-			return
-
-		doctypes_list = ["Sales Order", "Sales Invoice", "Purchase Order", "Purchase Invoice"]
-
-		if self.doctype in doctypes_list and (
-			self.get("is_internal_customer") or self.get("is_internal_supplier")
-		):
-			self.validate_internal_transaction_based_on_voucher_type()
-
-	def validate_internal_transaction_based_on_voucher_type(self):
-		order = ["Sales Order", "Purchase Order"]
-		invoice = ["Sales Invoice", "Purchase Invoice"]
-
-		if self.doctype in order and self.get("inter_company_order_reference"):
-			# Fetch the linked order
-			linked_doctype = "Sales Order" if self.doctype == "Purchase Order" else "Purchase Order"
-			self.validate_line_items(
-				linked_doctype,
-				"sales_order" if linked_doctype == "Sales Order" else "purchase_order",
-				"sales_order_item" if linked_doctype == "Sales Order" else "purchase_order_item",
-			)
-		elif self.doctype in invoice and self.get("inter_company_invoice_reference"):
-			# Fetch the linked invoice
-			linked_doctype = "Sales Invoice" if self.doctype == "Purchase Invoice" else "Purchase Invoice"
-			self.validate_line_items(
-				linked_doctype,
-				"sales_invoice" if linked_doctype == "Sales Invoice" else "purchase_invoice",
-				"sales_invoice_item" if linked_doctype == "Sales Invoice" else "purchase_invoice_item",
-			)
-
-	def validate_line_items(self, ref_dt, ref_dn_field, ref_link_field):
-		action, role_allowed_to_override = frappe.get_cached_value(
-			"Accounts Settings", "None", ["maintain_same_rate_action", "role_to_override_stop_action"]
-		)
-
-		reference_names = [d.get(ref_link_field) for d in self.get("items") if d.get(ref_link_field)]
-		reference_details = self.get_reference_details(reference_names, ref_dt + " Item")
-
-		stop_actions = []
-
-		for d in self.get("items"):
-			if d.get(ref_link_field):
-				ref_rate = reference_details.get(d.get(ref_link_field))
-				if ref_rate is not None and abs(flt(d.rate - ref_rate, d.precision("rate"))) >= 0.01:
-					if action == "Stop":
-						user_roles = [
-							r["role"]
-							for r in frappe.get_all(
-								"Has Role", filters={"parent": frappe.session.user}, fields=["role"]
-							)
-						]
-						if role_allowed_to_override not in user_roles:
-							stop_actions.append(
-								_("Row #{0}: Rate must be same as {1}: {2} ({3} / {4})").format(
-									d.idx,
-									ref_dt,
-									self.inter_company_invoice_reference
-									if d.parenttype in ("Sales Invoice", "Purchase Invoice")
-									else d.get(ref_dn_field),
-									d.rate,
-									ref_rate,
-								)
-							)
-					else:
-						frappe.msgprint(
-							_("Row #{0}: Rate must be same as {1}: {2} ({3} / {4})").format(
-								d.idx,
-								ref_dt,
-								self.inter_company_invoice_reference
-								if d.parenttype in ("Sales Invoice", "Purchase Invoice")
-								else d.get(ref_dn_field),
-								d.rate,
-								ref_rate,
-							),
-							title=_("Warning"),
-							indicator="orange",
-						)
-
-		if stop_actions:
-			frappe.throw(stop_actions, as_list=True)
-
-	def disable_pricing_rule_on_internal_transfer(self):
-		if not self.get("ignore_pricing_rule") and self.is_internal_transfer():
-			self.ignore_pricing_rule = 1
-			frappe.msgprint(
-				_("Disabled pricing rules since this {} is an internal transfer").format(self.doctype),
-				alert=1,
-			)
-
-	def disable_tax_included_prices_for_internal_transfer(self):
-		if self.is_internal_transfer():
-			tax_updated = False
-			for tax in self.get("taxes"):
-				if tax.get("included_in_print_rate"):
-					tax.included_in_print_rate = 0
-					tax_updated = True
-
-			if tax_updated:
-				frappe.msgprint(
-					_("Disabled tax included prices since this {} is an internal transfer").format(
-						self.doctype
-					),
-					alert=1,
 				)
 
 	def validate_due_date(self):
@@ -1546,80 +1290,10 @@ class AccountsController(TransactionBase):
 
 		frappe.throw(message, title=_("Account Missing"), exc=AccountMissingError)
 
-	def validate_party(self):
-		party_type, party = self.get_party()
-		validate_party_frozen_disabled(self.company, party_type, party)
+	def get_party(self) -> tuple[str | None, str | None]:
+		from erpnext.accounts.services.party_validation import PartyValidator
 
-	def get_party(self):
-		party_type = None
-		if self.doctype in ("Opportunity", "Quotation", "Sales Order", "Delivery Note", "Sales Invoice"):
-			party_type = "Customer"
-
-		elif self.doctype in (
-			"Supplier Quotation",
-			"Purchase Order",
-			"Purchase Receipt",
-			"Purchase Invoice",
-		):
-			party_type = "Supplier"
-
-		elif self.meta.get_field("customer"):
-			party_type = "Customer"
-
-		elif self.meta.get_field("supplier"):
-			party_type = "Supplier"
-
-		party = self.get(party_type.lower()) if party_type else None
-
-		return party_type, party
-
-	def validate_currency(self):
-		if self.get("currency"):
-			party_type, party = self.get_party()
-			if party_type and party:
-				party_account_currency = get_party_account_currency(party_type, party, self.company)
-
-				if (
-					party_account_currency
-					and party_account_currency != self.company_currency
-					and self.currency != party_account_currency
-				):
-					frappe.throw(
-						_("Accounting Entry for {0}: {1} can only be made in currency: {2}").format(
-							party_type, party, party_account_currency
-						),
-						InvalidCurrency,
-					)
-
-				# Note: not validating with gle account because we don't have the account
-				# at quotation / sales order level and we shouldn't stop someone
-				# from creating a sales invoice if sales order is already created
-
-	def validate_party_account_currency(self):
-		if self.doctype not in ("Sales Invoice", "Purchase Invoice"):
-			return
-
-		if self.is_opening == "Yes":
-			return
-
-		party_type, party = self.get_party()
-		party_gle_currency = get_party_gle_currency(party_type, party, self.company)
-		party_account = self.get("debit_to") if self.doctype == "Sales Invoice" else self.get("credit_to")
-		party_account_currency = get_account_currency(party_account)
-		allow_multi_currency_invoices_against_single_party_account = frappe.db.get_singles_value(
-			"Accounts Settings", "allow_multi_currency_invoices_against_single_party_account"
-		)
-
-		if (
-			not party_gle_currency
-			and (party_account_currency != self.currency)
-			and not allow_multi_currency_invoices_against_single_party_account
-		):
-			frappe.throw(
-				_("Party Account {0} currency ({1}) and document currency ({2}) should be same").format(
-					frappe.bold(party_account), party_account_currency, self.currency
-				)
-			)
+		return PartyValidator(self).get_party()
 
 	def delink_advance_entries(self, linked_doc_name):
 		from erpnext.accounts.services.advances import delink_advance_entries
@@ -1666,61 +1340,20 @@ class AccountsController(TransactionBase):
 		else:
 			return frappe.db.get_single_value("Global Defaults", "disable_rounded_total")
 
-	def set_inter_company_account(self):
-		"""
-		Set intercompany account for inter warehouse transactions
-		This account will be used in case billing company and internal customer's
-		representation company is same
-		"""
+	def is_internal_transfer(self) -> bool:
+		from erpnext.accounts.services.internal_transfer import InternalTransferService
 
-		if self.is_internal_transfer() and not self.unrealized_profit_loss_account:
-			unrealized_profit_loss_account = frappe.get_cached_value(
-				"Company", self.company, "unrealized_profit_loss_account"
-			)
+		return InternalTransferService(self).is_internal_transfer()
 
-			if not unrealized_profit_loss_account:
-				msg = _(
-					"Please select Unrealized Profit / Loss account or add default Unrealized Profit / Loss account account for company {0}"
-				).format(frappe.bold(self.company))
-				frappe.throw(msg)
+	def process_common_party_accounting(self) -> None:
+		from erpnext.accounts.services.internal_transfer import InternalTransferService
 
-			self.unrealized_profit_loss_account = unrealized_profit_loss_account
+		InternalTransferService(self).process_common_party_accounting()
 
-	def is_internal_transfer(self):
-		"""
-		It will an internal transfer if its an internal customer and representation
-		company is same as billing company
-		"""
-		if self.doctype in ("Sales Invoice", "Delivery Note", "Sales Order"):
-			internal_party_field = "is_internal_customer"
-		elif self.doctype in ("Purchase Invoice", "Purchase Receipt", "Purchase Order"):
-			internal_party_field = "is_internal_supplier"
-		else:
-			return False
+	def get_common_party_link(self) -> frappe._dict | None:
+		from erpnext.accounts.services.internal_transfer import InternalTransferService
 
-		if self.get(internal_party_field) and (self.represents_company == self.company):
-			return True
-
-		return False
-
-	def process_common_party_accounting(self):
-		is_invoice = self.doctype in ["Sales Invoice", "Purchase Invoice"]
-		if not is_invoice:
-			return
-
-		if frappe.get_single_value("Accounts Settings", "enable_common_party_accounting"):
-			party_link = self.get_common_party_link()
-			if party_link and self.outstanding_amount:
-				self.create_advance_and_reconcile(party_link)
-
-	def get_common_party_link(self):
-		party_type, party = self.get_party()
-		return frappe.db.get_value(
-			doctype="Party Link",
-			filters={"secondary_role": party_type, "secondary_party": party},
-			fieldname=["primary_role", "primary_party"],
-			as_dict=True,
-		)
+		return InternalTransferService(self).get_common_party_link()
 
 	def create_advance_and_reconcile(self, party_link):
 		from erpnext.accounts.services.advances import create_advance_and_reconcile
