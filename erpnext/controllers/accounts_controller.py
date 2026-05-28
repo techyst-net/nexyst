@@ -18,7 +18,6 @@ from frappe.utils import (
 	get_link_to_form,
 	getdate,
 	nowdate,
-	parse_json,
 	today,
 )
 
@@ -1182,106 +1181,49 @@ class AccountsController(TransactionBase):
 			)
 
 	def set_taxes(self):
-		if not self.meta.get_field("taxes"):
-			return
+		from erpnext.accounts.services.taxes import set_taxes
 
-		tax_master_doctype = self.meta.get_field("taxes_and_charges").options
-
-		if (self.is_new() or self.is_pos_profile_changed()) and not self.get("taxes"):
-			if self.company and not self.get("taxes_and_charges"):
-				# get the default tax master
-				self.taxes_and_charges = frappe.db.get_value(
-					tax_master_doctype, {"is_default": 1, "company": self.company}
-				)
-
-			self.append_taxes_from_master(tax_master_doctype)
+		set_taxes(self)
 
 	def is_pos_profile_changed(self):
-		if (
-			self.doctype == "Sales Invoice"
-			and self.is_pos
-			and self.pos_profile != frappe.db.get_value("Sales Invoice", self.name, "pos_profile")
-		):
-			return True
+		from erpnext.accounts.services.taxes import is_pos_profile_changed
+
+		return is_pos_profile_changed(self)
 
 	def set_taxes_and_charges(self):
-		if self.doctype == "Material Request":
-			# Material Request does not have taxes
-			return
+		from erpnext.accounts.services.taxes import set_taxes_and_charges
 
-		if self.get("taxes") or self.get("is_pos"):
-			return
-
-		if frappe.get_single_value(
-			"Accounts Settings", "add_taxes_from_taxes_and_charges_template"
-		) and hasattr(self, "taxes_and_charges"):
-			if tax_master_doctype := self.meta.get_field("taxes_and_charges").options:
-				self.append_taxes_from_master(tax_master_doctype)
-
-		if frappe.get_single_value("Accounts Settings", "add_taxes_from_item_tax_template"):
-			self.append_taxes_from_item_tax_template()
+		set_taxes_and_charges(self)
 
 	def append_taxes_from_master(self, tax_master_doctype=None):
-		if self.get("taxes_and_charges"):
-			if not tax_master_doctype:
-				tax_master_doctype = self.meta.get_field("taxes_and_charges").options
-			self.extend("taxes", get_taxes_and_charges(tax_master_doctype, self.get("taxes_and_charges")))
+		from erpnext.accounts.services.taxes import append_taxes_from_master
+
+		append_taxes_from_master(self, tax_master_doctype)
 
 	def append_taxes_from_item_tax_template(self):
-		if not frappe.get_single_value("Accounts Settings", "add_taxes_from_item_tax_template"):
-			return
+		from erpnext.accounts.services.taxes import append_taxes_from_item_tax_template
 
-		for row in self.items:
-			item_tax_rate = row.get("item_tax_rate")
-			if not item_tax_rate:
-				continue
-
-			if isinstance(item_tax_rate, str):
-				item_tax_rate = parse_json(item_tax_rate)
-
-			for account_head, _rate in item_tax_rate.items():
-				row = self.get_tax_row(account_head)
-
-				if not row:
-					self.append(
-						"taxes",
-						{
-							"charge_type": "On Net Total",
-							"account_head": account_head,
-							"rate": 0,
-							"description": account_head,
-							"set_by_item_tax_template": 1,
-							"category": "Total",
-							"add_deduct_tax": "Add",
-						},
-					)
+		append_taxes_from_item_tax_template(self)
 
 	def get_tax_row(self, account_head):
-		for row in self.taxes:
-			if row.account_head == account_head:
-				return row
+		from erpnext.accounts.services.taxes import get_tax_row
+
+		return get_tax_row(self, account_head)
 
 	def set_other_charges(self):
-		self.set("taxes", [])
-		self.set_taxes()
+		from erpnext.accounts.services.taxes import set_other_charges
+
+		set_other_charges(self)
 
 	def validate_enabled_taxes_and_charges(self):
-		taxes_and_charges_doctype = self.meta.get_options("taxes_and_charges")
-		if self.taxes_and_charges and frappe.get_cached_value(
-			taxes_and_charges_doctype, self.taxes_and_charges, "disabled"
-		):
-			frappe.throw(_("{0} '{1}' is disabled").format(taxes_and_charges_doctype, self.taxes_and_charges))
+		from erpnext.accounts.services.taxes import validate_enabled_taxes_and_charges
+
+		validate_enabled_taxes_and_charges(self)
 
 	def validate_tax_account_company(self):
-		for d in self.get("taxes"):
-			if d.account_head:
-				tax_account_company = frappe.get_cached_value("Account", d.account_head, "company")
-				if tax_account_company != self.company:
-					frappe.throw(
-						_("Row #{0}: Account {1} does not belong to company {2}").format(
-							d.idx, d.account_head, self.company
-						)
-					)
+		from erpnext.accounts.services.taxes import validate_tax_account_company
+
+		validate_tax_account_company(self)
 
 	def get_gl_dict(self, args, account_currency=None, item=None):
 		from erpnext.accounts.services.base_gl_composer import get_gl_dict
@@ -1567,127 +1509,24 @@ class AccountsController(TransactionBase):
 			frappe.msgprint(_("Purchase Orders {0} are un-linked").format("\n".join(linked_po)))
 
 	def get_tax_map(self):
-		tax_map = {}
-		for tax in self.get("taxes"):
-			tax_map.setdefault(tax.account_head, 0.0)
-			tax_map[tax.account_head] += tax.tax_amount
+		from erpnext.accounts.services.taxes import get_tax_map
 
-		return tax_map
+		return get_tax_map(self)
 
 	def get_amount_and_base_amount(self, item, enable_discount_accounting):
-		amount = item.net_amount
-		base_amount = item.base_net_amount
+		from erpnext.accounts.services.taxes import get_amount_and_base_amount
 
-		if (
-			enable_discount_accounting
-			and self.get("discount_amount")
-			and self.get("additional_discount_account")
-		):
-			# cases where distributed_discount_amount is not patched
-			if not hasattr(self, "__has_distributed_discount_set"):
-				self.__has_distributed_discount_set = any(
-					i.distributed_discount_amount for i in self.get("items")
-				)
-
-			if not self.__has_distributed_discount_set:
-				return item.amount, item.base_amount
-
-			amount += item.distributed_discount_amount
-			base_amount += flt(
-				item.distributed_discount_amount * self.get("conversion_rate"),
-				item.precision("distributed_discount_amount"),
-			)
-
-		return amount, base_amount
+		return get_amount_and_base_amount(self, item, enable_discount_accounting)
 
 	def get_tax_amounts(self, tax, enable_discount_accounting):
-		amount = tax.tax_amount_after_discount_amount
-		base_amount = tax.base_tax_amount_after_discount_amount
+		from erpnext.accounts.services.taxes import get_tax_amounts
 
-		if (
-			enable_discount_accounting
-			and self.get("discount_amount")
-			and self.get("additional_discount_account")
-			and self.get("apply_discount_on") == "Grand Total"
-		):
-			amount = tax.tax_amount
-			base_amount = tax.base_tax_amount
-
-		return amount, base_amount
+		return get_tax_amounts(self, tax, enable_discount_accounting)
 
 	def make_discount_gl_entries(self, gl_entries):
-		enable_discount_accounting = cint(
-			frappe.get_single_value("Selling Settings", "enable_discount_accounting")
-		)
+		from erpnext.accounts.services.taxes import make_discount_gl_entries
 
-		if enable_discount_accounting:
-			for item in self.get("items"):
-				if item.get("discount_amount") and item.get("discount_account"):
-					discount_amount = item.discount_amount * item.qty
-					income_account = (
-						item.income_account
-						if (not item.enable_deferred_revenue or self.is_return)
-						else item.deferred_revenue_account
-					)
-
-					account_currency = get_account_currency(item.discount_account)
-					gl_entries.append(
-						self.get_gl_dict(
-							{
-								"account": item.discount_account,
-								"against": self.customer,
-								"debit": flt(
-									discount_amount * self.get("conversion_rate"),
-									item.precision("discount_amount"),
-								),
-								"debit_in_transaction_currency": flt(
-									discount_amount, item.precision("discount_amount")
-								),
-								"cost_center": item.cost_center,
-								"project": item.project,
-							},
-							account_currency,
-							item=item,
-						)
-					)
-
-					account_currency = get_account_currency(income_account)
-					gl_entries.append(
-						self.get_gl_dict(
-							{
-								"account": income_account,
-								"against": self.customer,
-								"credit": flt(
-									discount_amount * self.get("conversion_rate"),
-									item.precision("discount_amount"),
-								),
-								"credit_in_transaction_currency": flt(
-									discount_amount, item.precision("discount_amount")
-								),
-								"cost_center": item.cost_center,
-								"project": item.project or self.project,
-							},
-							account_currency,
-							item=item,
-						)
-					)
-
-		if (
-			(enable_discount_accounting or self.get("is_cash_or_non_trade_discount"))
-			and self.get("additional_discount_account")
-			and self.get("discount_amount")
-		):
-			gl_entries.append(
-				self.get_gl_dict(
-					{
-						"account": self.additional_discount_account,
-						"against": self.customer,
-						"debit": self.base_discount_amount,
-						"cost_center": self.cost_center or erpnext.get_default_cost_center(self.company),
-					},
-					item=self,
-				)
-			)
+		make_discount_gl_entries(self, gl_entries)
 
 	def validate_multiple_billing(self, ref_dt: str, item_ref_dn: str, based_on: str) -> None:
 		from erpnext.accounts.services.billing_validation import validate_multiple_billing
