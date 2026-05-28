@@ -842,7 +842,9 @@ def get_mapped_purchase_invoice(source_name, target_doc=None, ignore_permissions
 		if target.get("allocate_advances_automatically"):
 			target.set_advances()
 
-		target.set_payment_schedule()
+		from erpnext.accounts.services.payment_schedule import PaymentScheduleService
+
+		PaymentScheduleService(target).set_payment_schedule()
 		target.credit_to = get_party_account("Supplier", source.supplier, source.company)
 
 	def get_billed_qty(po_item_name):

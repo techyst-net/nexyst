@@ -1606,7 +1606,9 @@ def make_sales_invoice(
 		frappe.get_single_value("Accounts Settings", "automatically_fetch_payment_terms")
 	)
 	if automatically_fetch_payment_terms:
-		doclist.set_payment_schedule()
+		from erpnext.accounts.services.payment_schedule import PaymentScheduleService
+
+		PaymentScheduleService(doclist).set_payment_schedule()
 
 	return doclist
 

@@ -480,7 +480,9 @@ def _make_sales_order(source_name, target_doc=None, ignore_permissions=False, ar
 	)
 
 	if automatically_fetch_payment_terms:
-		doclist.set_payment_schedule()
+		from erpnext.accounts.services.payment_schedule import PaymentScheduleService
+
+		PaymentScheduleService(doclist).set_payment_schedule()
 
 	return doclist
 

@@ -125,7 +125,9 @@ class AccountsController(TransactionBase):
 				"Sales Invoice",
 			)
 			if self.doctype in relevant_docs:
-				self.set_payment_schedule()
+				from erpnext.accounts.services.payment_schedule import PaymentScheduleService
+
+				PaymentScheduleService(self).set_payment_schedule()
 
 	def on_update(self):
 		from erpnext.controllers.taxes_and_totals import process_item_wise_tax_details
@@ -647,18 +649,24 @@ class AccountsController(TransactionBase):
 		if self.is_return:
 			return
 
-		self.validate_payment_schedule_dates()
-		self.set_due_date()
-		self.set_payment_schedule()
+		from erpnext.accounts.services.payment_schedule import PaymentScheduleService
+
+		ps = PaymentScheduleService(self)
+		ps.validate_payment_schedule_dates()
+		ps.set_due_date()
+		ps.set_payment_schedule()
 		if not self.get("ignore_default_payment_terms_template"):
-			self.validate_payment_schedule_amount()
+			ps.validate_payment_schedule_amount()
 			self.validate_due_date()
 		self.validate_advance_entries()
 
 	def validate_non_invoice_documents_schedule(self):
-		self.set_payment_schedule()
-		self.validate_payment_schedule_dates()
-		self.validate_payment_schedule_amount()
+		from erpnext.accounts.services.payment_schedule import PaymentScheduleService
+
+		ps = PaymentScheduleService(self)
+		ps.set_payment_schedule()
+		ps.validate_payment_schedule_dates()
+		ps.validate_payment_schedule_amount()
 
 	def validate_all_documents_schedule(self):
 		if self.doctype in ("Sales Invoice", "Purchase Invoice"):
@@ -1466,35 +1474,6 @@ class AccountsController(TransactionBase):
 
 			frappe.msgprint(_("Purchase Orders {0} are un-linked").format("\n".join(linked_po)))
 
-	def validate_multiple_billing(self, ref_dt: str, item_ref_dn: str, based_on: str) -> None:
-		from erpnext.accounts.services.billing_validation import validate_multiple_billing
-
-		validate_multiple_billing(self, ref_dt, item_ref_dn, based_on)
-
-	def get_billing_reference_details(
-		self, reference_names: list, reference_doctype: str, based_on: str
-	) -> frappe._dict:
-		from erpnext.accounts.services.billing_validation import get_billing_reference_details
-
-		return get_billing_reference_details(self, reference_names, reference_doctype, based_on)
-
-	def get_reference_wise_billed_amt(self, ref_dt: str, item_ref_dn: str, based_on: str) -> dict | None:
-		from erpnext.accounts.services.billing_validation import get_reference_wise_billed_amt
-
-		return get_reference_wise_billed_amt(self, ref_dt, item_ref_dn, based_on)
-
-	def get_already_billed_amount(
-		self, reference_names: list, item_ref_dn: str, based_on: str
-	) -> frappe._dict:
-		from erpnext.accounts.services.billing_validation import get_already_billed_amount
-
-		return get_already_billed_amount(self, reference_names, item_ref_dn, based_on)
-
-	def throw_overbill_exception(self, overbilled_items: list, precision: int) -> None:
-		from erpnext.accounts.services.billing_validation import throw_overbill_exception
-
-		throw_overbill_exception(self, overbilled_items, precision)
-
 	def get_company_default(self, fieldname, ignore_validation=False):
 		from erpnext.accounts.utils import get_company_default
 
@@ -1680,65 +1659,6 @@ class AccountsController(TransactionBase):
 				duplicate_list.append(item)
 		for item in duplicate_list:
 			self.remove(item)
-
-	def set_payment_schedule(self) -> None:
-		from erpnext.accounts.services.payment_schedule import set_payment_schedule
-
-		set_payment_schedule(self)
-
-	def get_order_details(self) -> tuple:
-		from erpnext.accounts.services.payment_schedule import get_order_details
-
-		return get_order_details(self)
-
-	def linked_order_has_payment_terms(self, po_or_so, fieldname, doctype) -> bool:
-		from erpnext.accounts.services.payment_schedule import linked_order_has_payment_terms
-
-		return linked_order_has_payment_terms(self, po_or_so, fieldname, doctype)
-
-	def all_items_have_same_po_or_so(self, po_or_so, fieldname) -> bool:
-		from erpnext.accounts.services.payment_schedule import all_items_have_same_po_or_so
-
-		return all_items_have_same_po_or_so(self, po_or_so, fieldname)
-
-	def linked_order_has_payment_terms_template(self, po_or_so, doctype) -> str | None:
-		from erpnext.accounts.services.payment_schedule import linked_order_has_payment_terms_template
-
-		return linked_order_has_payment_terms_template(po_or_so, doctype)
-
-	def linked_order_has_payment_schedule(self, po_or_so) -> list:
-		from erpnext.accounts.services.payment_schedule import linked_order_has_payment_schedule
-
-		return linked_order_has_payment_schedule(po_or_so)
-
-	def fetch_payment_terms_from_order(
-		self,
-		po_or_so,
-		po_or_so_doctype,
-		grand_total,
-		base_grand_total,
-		automatically_fetch_payment_terms,
-	) -> None:
-		from erpnext.accounts.services.payment_schedule import fetch_payment_terms_from_order
-
-		fetch_payment_terms_from_order(
-			self, po_or_so, po_or_so_doctype, grand_total, base_grand_total, automatically_fetch_payment_terms
-		)
-
-	def set_due_date(self) -> None:
-		from erpnext.accounts.services.payment_schedule import set_due_date
-
-		set_due_date(self)
-
-	def validate_payment_schedule_dates(self) -> None:
-		from erpnext.accounts.services.payment_schedule import validate_payment_schedule_dates
-
-		validate_payment_schedule_dates(self)
-
-	def validate_payment_schedule_amount(self) -> None:
-		from erpnext.accounts.services.payment_schedule import validate_payment_schedule_amount
-
-		validate_payment_schedule_amount(self)
 
 	def is_rounded_total_disabled(self):
 		if self.meta.get_field("disable_rounded_total"):
@@ -2538,7 +2458,9 @@ def update_child_qty_rate(
 	)
 
 	if parent_doctype != "Supplier Quotation":
-		parent.set_payment_schedule()
+		from erpnext.accounts.services.payment_schedule import PaymentScheduleService
+
+		PaymentScheduleService(parent).set_payment_schedule()
 	if parent_doctype == "Purchase Order":
 		parent.validate_minimum_order_qty()
 		parent.validate_budget()

@@ -1112,7 +1112,9 @@ def make_purchase_invoice(
 			merge_taxes(source, doc)
 
 		doc.run_method("calculate_taxes_and_totals")
-		doc.set_payment_schedule()
+		from erpnext.accounts.services.payment_schedule import PaymentScheduleService
+
+		PaymentScheduleService(doc).set_payment_schedule()
 
 	def update_item(source_doc, target_doc, source_parent):
 		target_doc.qty, returned_qty = get_pending_qty(source_doc)

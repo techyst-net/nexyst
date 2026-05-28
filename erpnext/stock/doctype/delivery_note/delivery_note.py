@@ -1000,9 +1000,12 @@ def make_sales_invoice(
 	)
 
 	if not doc.is_return:
-		so, doctype, fieldname = doc.get_order_details()
+		from erpnext.accounts.services.payment_schedule import PaymentScheduleService
+
+		ps = PaymentScheduleService(doc)
+		so, doctype, fieldname = ps.get_order_details()
 		if (
-			doc.linked_order_has_payment_terms(so, fieldname, doctype)
+			ps.linked_order_has_payment_terms(so, fieldname, doctype)
 			and not automatically_fetch_payment_terms
 		):
 			payment_terms_template = frappe.db.get_value(doctype, so, "payment_terms_template")
@@ -1016,7 +1019,7 @@ def make_sales_invoice(
 			)
 
 		elif automatically_fetch_payment_terms:
-			doc.set_payment_schedule()
+			ps.set_payment_schedule()
 
 	return doc
 

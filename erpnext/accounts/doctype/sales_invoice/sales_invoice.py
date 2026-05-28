@@ -362,7 +362,9 @@ class SalesInvoice(SellingController):
 		if not self.is_return:
 			self.validate_time_sheets_are_submitted()
 
-		self.validate_multiple_billing("Delivery Note", "dn_detail", "amount")
+		from erpnext.accounts.services.billing_validation import BillingValidationService
+
+		BillingValidationService(self).validate_multiple_billing("Delivery Note", "dn_detail", "amount")
 
 		if self.is_return and self.return_against:
 			for row in self.timesheets:
