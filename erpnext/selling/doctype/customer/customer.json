@@ -12,8 +12,8 @@
  "field_order": [
   "basic_info",
   "naming_series",
-  "customer_type",
   "customer_name",
+  "customer_type",
   "gender",
   "column_break0",
   "customer_group",
@@ -135,6 +135,7 @@
    "default": "Company",
    "fieldname": "customer_type",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Customer Type",
    "oldfieldname": "customer_type",
    "oldfieldtype": "Select",
@@ -376,7 +377,7 @@
    "description": "Internal notes about this customer. Not visible on transactions or the portal.",
    "fieldname": "customer_details",
    "fieldtype": "Text",
-   "label": "Notes",
+   "label": "Customer Details",
    "oldfieldname": "customer_details",
    "oldfieldtype": "Code"
   },
@@ -480,7 +481,6 @@
    "label": "Allow sales invoice creation without delivery note"
   },
   {
-   "depends_on": "tax_withholding_group",
    "description": "TDS/TCS is calculated at the rate defined here on every payment from this customer.",
    "fieldname": "tax_withholding_category",
    "fieldtype": "Link",
@@ -528,8 +528,11 @@
    "fieldtype": "Column Break"
   },
   {
+   "collapsible": 1,
+   "collapsible_depends_on": "loyalty_program",
    "fieldname": "loyalty_points_tab",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Loyalty Points"
   },
   {
    "fieldname": "taxation_section",
@@ -677,7 +680,7 @@
    "link_fieldname": "party"
   }
  ],
- "modified": "2026-05-27 17:07:25.099707",
+ "modified": "2026-05-29 02:21:41.089319",
  "modified_by": "Administrator",
  "module": "Selling",
  "name": "Customer",
