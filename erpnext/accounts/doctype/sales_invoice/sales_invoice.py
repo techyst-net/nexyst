@@ -3150,14 +3150,22 @@ def get_mode_of_payments_info(mode_of_payments, company):
 
 
 def get_mode_of_payment_info(mode_of_payment, company):
-	return frappe.db.sql(
-		"""
-		select mpa.default_account, mpa.parent, mp.type as type
-		from `tabMode of Payment Account` mpa,`tabMode of Payment` mp
-		where mpa.parent = mp.name and mpa.company = %s and mp.enabled = 1 and mp.name = %s""",
-		(company, mode_of_payment),
-		as_dict=1,
+	ModeOfPaymentAccount = frappe.qb.DocType("Mode of Payment Account")
+	ModeOfPayment = frappe.qb.DocType("Mode of Payment")
+
+	query = (
+		frappe.qb.from_(ModeOfPaymentAccount)
+		.join(ModeOfPayment)
+		.on(ModeOfPaymentAccount.parent == ModeOfPayment.name)
+		.select(
+			ModeOfPaymentAccount.default_account, ModeOfPaymentAccount.parent, ModeOfPayment.type.as_("type")
+		)
+		.where(ModeOfPaymentAccount.company == company)
+		.where(ModeOfPayment.enabled == 1)
+		.where(ModeOfPayment.name == mode_of_payment)
 	)
+
+	return query.run(as_dict=1)
 
 
 @frappe.whitelist()
