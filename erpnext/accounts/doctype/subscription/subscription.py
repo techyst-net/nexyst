@@ -446,8 +446,10 @@ class Subscription(Document):
 			tax_template = self.purchase_tax_template
 
 		if tax_template:
+			from erpnext.accounts.services.taxes import TaxService
+
 			invoice.taxes_and_charges = tax_template
-			invoice.set_taxes()
+			TaxService(invoice).set_taxes()
 
 		# Due date
 		if self.days_until_due:

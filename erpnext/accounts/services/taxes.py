@@ -1,7 +1,7 @@
 # Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
 # License: GNU General Public License v3. See license.txt
 
-"""Tax template and validation helpers shared across buying and selling controllers."""
+"""Tax helpers: TaxService class for doc-mutating operations, free functions for stateless utilities."""
 
 import json
 
@@ -18,6 +18,239 @@ from erpnext.stock.get_item_details import (
 	_get_item_tax_template_from_item_group,
 	get_item_tax_map,
 )
+
+
+class TaxService:
+	def __init__(self, doc):
+		self.doc = doc
+
+	def set_taxes(self) -> None:
+		doc = self.doc
+		if not doc.meta.get_field("taxes"):
+			return
+
+		tax_master_doctype = doc.meta.get_field("taxes_and_charges").options
+
+		if (doc.is_new() or self.is_pos_profile_changed()) and not doc.get("taxes"):
+			if doc.company and not doc.get("taxes_and_charges"):
+				doc.taxes_and_charges = frappe.db.get_value(
+					tax_master_doctype, {"is_default": 1, "company": doc.company}
+				)
+			self.append_taxes_from_master(tax_master_doctype)
+
+	def is_pos_profile_changed(self) -> bool:
+		doc = self.doc
+		if (
+			doc.doctype == "Sales Invoice"
+			and doc.is_pos
+			and doc.pos_profile != frappe.db.get_value("Sales Invoice", doc.name, "pos_profile")
+		):
+			return True
+
+	def set_taxes_and_charges(self) -> None:
+		doc = self.doc
+		if doc.doctype == "Material Request":
+			return
+
+		if doc.get("taxes") or doc.get("is_pos"):
+			return
+
+		if frappe.get_single_value(
+			"Accounts Settings", "add_taxes_from_taxes_and_charges_template"
+		) and hasattr(doc, "taxes_and_charges"):
+			if tax_master_doctype := doc.meta.get_field("taxes_and_charges").options:
+				self.append_taxes_from_master(tax_master_doctype)
+
+		if frappe.get_single_value("Accounts Settings", "add_taxes_from_item_tax_template"):
+			self.append_taxes_from_item_tax_template()
+
+	def append_taxes_from_master(self, tax_master_doctype=None) -> None:
+		doc = self.doc
+		if doc.get("taxes_and_charges"):
+			if not tax_master_doctype:
+				tax_master_doctype = doc.meta.get_field("taxes_and_charges").options
+			doc.extend("taxes", get_taxes_and_charges(tax_master_doctype, doc.get("taxes_and_charges")))
+
+	def append_taxes_from_item_tax_template(self) -> None:
+		doc = self.doc
+		if not frappe.get_single_value("Accounts Settings", "add_taxes_from_item_tax_template"):
+			return
+
+		for row in doc.items:
+			item_tax_rate = row.get("item_tax_rate")
+			if not item_tax_rate:
+				continue
+
+			if isinstance(item_tax_rate, str):
+				item_tax_rate = parse_json(item_tax_rate)
+
+			for account_head, _rate in item_tax_rate.items():
+				if not self.get_tax_row(account_head):
+					doc.append(
+						"taxes",
+						{
+							"charge_type": "On Net Total",
+							"account_head": account_head,
+							"rate": 0,
+							"description": account_head,
+							"set_by_item_tax_template": 1,
+							"category": "Total",
+							"add_deduct_tax": "Add",
+						},
+					)
+
+	def get_tax_row(self, account_head):
+		for row in self.doc.taxes:
+			if row.account_head == account_head:
+				return row
+
+	def set_other_charges(self) -> None:
+		self.doc.set("taxes", [])
+		self.set_taxes()
+
+	def validate_enabled_taxes_and_charges(self) -> None:
+		doc = self.doc
+		taxes_and_charges_doctype = doc.meta.get_options("taxes_and_charges")
+		if doc.taxes_and_charges and frappe.get_cached_value(
+			taxes_and_charges_doctype, doc.taxes_and_charges, "disabled"
+		):
+			frappe.throw(_("{0} '{1}' is disabled").format(taxes_and_charges_doctype, doc.taxes_and_charges))
+
+	def validate_tax_account_company(self) -> None:
+		doc = self.doc
+		for d in doc.get("taxes"):
+			if d.account_head:
+				tax_account_company = frappe.get_cached_value("Account", d.account_head, "company")
+				if tax_account_company != doc.company:
+					frappe.throw(
+						_("Row #{0}: Account {1} does not belong to company {2}").format(
+							d.idx, d.account_head, doc.company
+						)
+					)
+
+	def get_tax_map(self) -> dict:
+		tax_map = {}
+		for tax in self.doc.get("taxes"):
+			tax_map.setdefault(tax.account_head, 0.0)
+			tax_map[tax.account_head] += tax.tax_amount
+		return tax_map
+
+	def get_amount_and_base_amount(self, item, enable_discount_accounting):
+		doc = self.doc
+		amount = item.net_amount
+		base_amount = item.base_net_amount
+
+		if (
+			enable_discount_accounting
+			and doc.get("discount_amount")
+			and doc.get("additional_discount_account")
+		):
+			if not hasattr(doc, "__has_distributed_discount_set"):
+				doc.__has_distributed_discount_set = any(
+					i.distributed_discount_amount for i in doc.get("items")
+				)
+
+			if not doc.__has_distributed_discount_set:
+				return item.amount, item.base_amount
+
+			amount += item.distributed_discount_amount
+			base_amount += flt(
+				item.distributed_discount_amount * doc.get("conversion_rate"),
+				item.precision("distributed_discount_amount"),
+			)
+
+		return amount, base_amount
+
+	def get_tax_amounts(self, tax, enable_discount_accounting):
+		doc = self.doc
+		amount = tax.tax_amount_after_discount_amount
+		base_amount = tax.base_tax_amount_after_discount_amount
+
+		if (
+			enable_discount_accounting
+			and doc.get("discount_amount")
+			and doc.get("additional_discount_account")
+			and doc.get("apply_discount_on") == "Grand Total"
+		):
+			amount = tax.tax_amount
+			base_amount = tax.base_tax_amount
+
+		return amount, base_amount
+
+	def make_discount_gl_entries(self, gl_entries: list) -> None:
+		doc = self.doc
+		enable_discount_accounting = cint(
+			frappe.get_single_value("Selling Settings", "enable_discount_accounting")
+		)
+
+		if enable_discount_accounting:
+			for item in doc.get("items"):
+				if item.get("discount_amount") and item.get("discount_account"):
+					discount_amount = item.discount_amount * item.qty
+					income_account = (
+						item.income_account
+						if (not item.enable_deferred_revenue or doc.is_return)
+						else item.deferred_revenue_account
+					)
+
+					account_currency = get_account_currency(item.discount_account)
+					gl_entries.append(
+						doc.get_gl_dict(
+							{
+								"account": item.discount_account,
+								"against": doc.customer,
+								"debit": flt(
+									discount_amount * doc.get("conversion_rate"),
+									item.precision("discount_amount"),
+								),
+								"debit_in_transaction_currency": flt(
+									discount_amount, item.precision("discount_amount")
+								),
+								"cost_center": item.cost_center,
+								"project": item.project,
+							},
+							account_currency,
+							item=item,
+						)
+					)
+
+					account_currency = get_account_currency(income_account)
+					gl_entries.append(
+						doc.get_gl_dict(
+							{
+								"account": income_account,
+								"against": doc.customer,
+								"credit": flt(
+									discount_amount * doc.get("conversion_rate"),
+									item.precision("discount_amount"),
+								),
+								"credit_in_transaction_currency": flt(
+									discount_amount, item.precision("discount_amount")
+								),
+								"cost_center": item.cost_center,
+								"project": item.project or doc.project,
+							},
+							account_currency,
+							item=item,
+						)
+					)
+
+		if (
+			(enable_discount_accounting or doc.get("is_cash_or_non_trade_discount"))
+			and doc.get("additional_discount_account")
+			and doc.get("discount_amount")
+		):
+			gl_entries.append(
+				doc.get_gl_dict(
+					{
+						"account": doc.additional_discount_account,
+						"against": doc.customer,
+						"debit": doc.base_discount_amount,
+						"cost_center": doc.cost_center or erpnext.get_default_cost_center(doc.company),
+					},
+					item=doc,
+				)
+			)
 
 
 def get_tax_rate(account_head: str) -> dict:
@@ -287,230 +520,3 @@ def merge_taxes(source_doc, target_doc) -> None:
 		)
 
 	target_doc._item_wise_tax_details = item_tax_details
-
-
-def set_taxes(doc) -> None:
-	if not doc.meta.get_field("taxes"):
-		return
-
-	tax_master_doctype = doc.meta.get_field("taxes_and_charges").options
-
-	if (doc.is_new() or is_pos_profile_changed(doc)) and not doc.get("taxes"):
-		if doc.company and not doc.get("taxes_and_charges"):
-			doc.taxes_and_charges = frappe.db.get_value(
-				tax_master_doctype, {"is_default": 1, "company": doc.company}
-			)
-		append_taxes_from_master(doc, tax_master_doctype)
-
-
-def is_pos_profile_changed(doc) -> bool:
-	if (
-		doc.doctype == "Sales Invoice"
-		and doc.is_pos
-		and doc.pos_profile != frappe.db.get_value("Sales Invoice", doc.name, "pos_profile")
-	):
-		return True
-
-
-def set_taxes_and_charges(doc) -> None:
-	if doc.doctype == "Material Request":
-		return
-
-	if doc.get("taxes") or doc.get("is_pos"):
-		return
-
-	if frappe.get_single_value("Accounts Settings", "add_taxes_from_taxes_and_charges_template") and hasattr(
-		doc, "taxes_and_charges"
-	):
-		if tax_master_doctype := doc.meta.get_field("taxes_and_charges").options:
-			append_taxes_from_master(doc, tax_master_doctype)
-
-	if frappe.get_single_value("Accounts Settings", "add_taxes_from_item_tax_template"):
-		append_taxes_from_item_tax_template(doc)
-
-
-def append_taxes_from_master(doc, tax_master_doctype=None) -> None:
-	if doc.get("taxes_and_charges"):
-		if not tax_master_doctype:
-			tax_master_doctype = doc.meta.get_field("taxes_and_charges").options
-		doc.extend("taxes", get_taxes_and_charges(tax_master_doctype, doc.get("taxes_and_charges")))
-
-
-def append_taxes_from_item_tax_template(doc) -> None:
-	if not frappe.get_single_value("Accounts Settings", "add_taxes_from_item_tax_template"):
-		return
-
-	for row in doc.items:
-		item_tax_rate = row.get("item_tax_rate")
-		if not item_tax_rate:
-			continue
-
-		if isinstance(item_tax_rate, str):
-			item_tax_rate = parse_json(item_tax_rate)
-
-		for account_head, _rate in item_tax_rate.items():
-			row = get_tax_row(doc, account_head)
-
-			if not row:
-				doc.append(
-					"taxes",
-					{
-						"charge_type": "On Net Total",
-						"account_head": account_head,
-						"rate": 0,
-						"description": account_head,
-						"set_by_item_tax_template": 1,
-						"category": "Total",
-						"add_deduct_tax": "Add",
-					},
-				)
-
-
-def get_tax_row(doc, account_head):
-	for row in doc.taxes:
-		if row.account_head == account_head:
-			return row
-
-
-def set_other_charges(doc) -> None:
-	doc.set("taxes", [])
-	set_taxes(doc)
-
-
-def validate_enabled_taxes_and_charges(doc) -> None:
-	taxes_and_charges_doctype = doc.meta.get_options("taxes_and_charges")
-	if doc.taxes_and_charges and frappe.get_cached_value(
-		taxes_and_charges_doctype, doc.taxes_and_charges, "disabled"
-	):
-		frappe.throw(_("{0} '{1}' is disabled").format(taxes_and_charges_doctype, doc.taxes_and_charges))
-
-
-def validate_tax_account_company(doc) -> None:
-	for d in doc.get("taxes"):
-		if d.account_head:
-			tax_account_company = frappe.get_cached_value("Account", d.account_head, "company")
-			if tax_account_company != doc.company:
-				frappe.throw(
-					_("Row #{0}: Account {1} does not belong to company {2}").format(
-						d.idx, d.account_head, doc.company
-					)
-				)
-
-
-def get_tax_map(doc) -> dict:
-	tax_map = {}
-	for tax in doc.get("taxes"):
-		tax_map.setdefault(tax.account_head, 0.0)
-		tax_map[tax.account_head] += tax.tax_amount
-	return tax_map
-
-
-def get_amount_and_base_amount(doc, item, enable_discount_accounting):
-	amount = item.net_amount
-	base_amount = item.base_net_amount
-
-	if enable_discount_accounting and doc.get("discount_amount") and doc.get("additional_discount_account"):
-		if not hasattr(doc, "__has_distributed_discount_set"):
-			doc.__has_distributed_discount_set = any(i.distributed_discount_amount for i in doc.get("items"))
-
-		if not doc.__has_distributed_discount_set:
-			return item.amount, item.base_amount
-
-		amount += item.distributed_discount_amount
-		base_amount += flt(
-			item.distributed_discount_amount * doc.get("conversion_rate"),
-			item.precision("distributed_discount_amount"),
-		)
-
-	return amount, base_amount
-
-
-def get_tax_amounts(doc, tax, enable_discount_accounting):
-	amount = tax.tax_amount_after_discount_amount
-	base_amount = tax.base_tax_amount_after_discount_amount
-
-	if (
-		enable_discount_accounting
-		and doc.get("discount_amount")
-		and doc.get("additional_discount_account")
-		and doc.get("apply_discount_on") == "Grand Total"
-	):
-		amount = tax.tax_amount
-		base_amount = tax.base_tax_amount
-
-	return amount, base_amount
-
-
-def make_discount_gl_entries(doc, gl_entries: list) -> None:
-	enable_discount_accounting = cint(
-		frappe.get_single_value("Selling Settings", "enable_discount_accounting")
-	)
-
-	if enable_discount_accounting:
-		for item in doc.get("items"):
-			if item.get("discount_amount") and item.get("discount_account"):
-				discount_amount = item.discount_amount * item.qty
-				income_account = (
-					item.income_account
-					if (not item.enable_deferred_revenue or doc.is_return)
-					else item.deferred_revenue_account
-				)
-
-				account_currency = get_account_currency(item.discount_account)
-				gl_entries.append(
-					doc.get_gl_dict(
-						{
-							"account": item.discount_account,
-							"against": doc.customer,
-							"debit": flt(
-								discount_amount * doc.get("conversion_rate"),
-								item.precision("discount_amount"),
-							),
-							"debit_in_transaction_currency": flt(
-								discount_amount, item.precision("discount_amount")
-							),
-							"cost_center": item.cost_center,
-							"project": item.project,
-						},
-						account_currency,
-						item=item,
-					)
-				)
-
-				account_currency = get_account_currency(income_account)
-				gl_entries.append(
-					doc.get_gl_dict(
-						{
-							"account": income_account,
-							"against": doc.customer,
-							"credit": flt(
-								discount_amount * doc.get("conversion_rate"),
-								item.precision("discount_amount"),
-							),
-							"credit_in_transaction_currency": flt(
-								discount_amount, item.precision("discount_amount")
-							),
-							"cost_center": item.cost_center,
-							"project": item.project or doc.project,
-						},
-						account_currency,
-						item=item,
-					)
-				)
-
-	if (
-		(enable_discount_accounting or doc.get("is_cash_or_non_trade_discount"))
-		and doc.get("additional_discount_account")
-		and doc.get("discount_amount")
-	):
-		gl_entries.append(
-			doc.get_gl_dict(
-				{
-					"account": doc.additional_discount_account,
-					"against": doc.customer,
-					"debit": doc.base_discount_amount,
-					"cost_center": doc.cost_center or erpnext.get_default_cost_center(doc.company),
-				},
-				item=doc,
-			)
-		)

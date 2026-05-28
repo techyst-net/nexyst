@@ -8,6 +8,7 @@ from frappe.utils import cint, flt, get_link_to_form
 import erpnext
 from erpnext.accounts.general_ledger import get_round_off_account_and_cost_center
 from erpnext.accounts.services.base_gl_composer import BaseGLComposer
+from erpnext.accounts.services.taxes import TaxService
 from erpnext.accounts.utils import get_account_currency
 
 
@@ -102,6 +103,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 		)
 
 		doc = self.doc
+		tax_service = TaxService(doc)
 		stock_items = doc.get_stock_items()
 		if doc.update_stock and doc.auto_accounting_for_stock:
 			inventory_account_map = doc.get_inventory_account_map()
@@ -292,7 +294,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 						else item.deferred_expense_account
 					)
 					account_currency = get_account_currency(expense_account)
-					amount, base_amount = doc.get_amount_and_base_amount(item, None)
+					amount, base_amount = tax_service.get_amount_and_base_amount(item, None)
 
 					if provisional_accounting_for_non_stock_items:
 						self.make_provisional_gl_entry(gl_entries, item)
@@ -552,10 +554,11 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 
 	def make_tax_gl_entries(self, gl_entries):
 		doc = self.doc
+		tax_service = TaxService(doc)
 		valuation_tax = {}
 
 		for tax in doc.get("taxes"):
-			amount, base_amount = doc.get_tax_amounts(tax, None)
+			amount, base_amount = tax_service.get_tax_amounts(tax, None)
 			if tax.category in ("Total", "Valuation and Total") and flt(base_amount):
 				account_currency = get_account_currency(tax.account_head)
 				dr_or_cr = "debit" if tax.add_deduct_tax == "Add" else "credit"

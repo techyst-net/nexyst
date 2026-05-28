@@ -745,7 +745,9 @@ class POSInvoice(SalesInvoice):
 
 			# fetch charges
 			if self.taxes_and_charges and not len(self.get("taxes")):
-				self.set_taxes()
+				from erpnext.accounts.services.taxes import TaxService
+
+				TaxService(self).set_taxes()
 
 		if not self.account_for_change_amount:
 			self.account_for_change_amount = frappe.get_cached_value(

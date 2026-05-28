@@ -8,6 +8,7 @@ from frappe.utils import cint, cstr, flt, get_link_to_form
 import erpnext
 from erpnext.accounts.general_ledger import get_round_off_account_and_cost_center
 from erpnext.accounts.services.base_gl_composer import BaseGLComposer
+from erpnext.accounts.services.taxes import TaxService
 from erpnext.accounts.utils import get_account_currency
 from erpnext.assets.doctype.asset.depreciation import (
 	get_gl_entries_on_asset_disposal,
@@ -16,19 +17,14 @@ from erpnext.assets.doctype.asset.depreciation import (
 
 
 class SalesInvoiceGLComposer(BaseGLComposer):
-	"""Assembles the GL entries for a Sales Invoice.
-
-	The voucher-specific row builders live here and operate on ``self.doc``.
-	Shared helpers (get_gl_dict, make_discount_gl_entries, make_precision_loss_gl_entry,
-	set_transaction_currency_and_rate_in_gl_map, get_tax_amounts, get_amount_and_base_amount)
-	remain on the document for now and are invoked via ``self.doc``.
-	"""
+	"""Assembles the GL entries for a Sales Invoice."""
 
 	def compose(self, inventory_account_map=None):
 		from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_regional_gl_entries
 		from erpnext.accounts.general_ledger import merge_similar_entries
 
 		doc = self.doc
+		tax_service = TaxService(doc)
 		gl_entries = []
 
 		self.make_customer_gl_entry(gl_entries)
@@ -44,7 +40,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 			self.stock_delivered_but_not_billed_gl_entries(gl_entries)
 
 		doc.make_precision_loss_gl_entry(gl_entries)
-		doc.make_discount_gl_entries(gl_entries)
+		tax_service.make_discount_gl_entries(gl_entries)
 
 		gl_entries = make_regional_gl_entries(gl_entries, doc)
 
@@ -181,12 +177,13 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 
 	def make_tax_gl_entries(self, gl_entries):
 		doc = self.doc
+		tax_service = TaxService(doc)
 		enable_discount_accounting = cint(
 			frappe.get_single_value("Selling Settings", "enable_discount_accounting")
 		)
 
 		for tax in doc.get("taxes"):
-			amount, base_amount = doc.get_tax_amounts(tax, enable_discount_accounting)
+			amount, base_amount = tax_service.get_tax_amounts(tax, enable_discount_accounting)
 
 			if flt(tax.base_tax_amount_after_discount_amount):
 				account_currency = get_account_currency(tax.account_head)
@@ -234,6 +231,7 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 		from erpnext.accounts.doctype.sales_invoice.sales_invoice import SalesInvoice
 
 		doc = self.doc
+		tax_service = TaxService(doc)
 		# income account gl entries
 		enable_discount_accounting = cint(
 			frappe.get_single_value("Selling Settings", "enable_discount_accounting")
@@ -258,7 +256,9 @@ class SalesInvoiceGLComposer(BaseGLComposer):
 						else item.deferred_revenue_account
 					)
 
-					amount, base_amount = doc.get_amount_and_base_amount(item, enable_discount_accounting)
+					amount, base_amount = tax_service.get_amount_and_base_amount(
+						item, enable_discount_accounting
+					)
 
 					account_currency = get_account_currency(income_account)
 					gl_entries.append(

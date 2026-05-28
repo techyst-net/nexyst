@@ -242,11 +242,14 @@ class AccountsController(TransactionBase):
 
 		# Need to set taxes based on taxes_and_charges template
 		# before calculating taxes and totals
-		if self.meta.get_field("taxes_and_charges"):
-			self.validate_enabled_taxes_and_charges()
-			self.validate_tax_account_company()
+		from erpnext.accounts.services.taxes import TaxService
 
-		self.set_taxes_and_charges()
+		tax_service = TaxService(self)
+		if self.meta.get_field("taxes_and_charges"):
+			tax_service.validate_enabled_taxes_and_charges()
+			tax_service.validate_tax_account_company()
+
+		tax_service.set_taxes_and_charges()
 
 		if self.meta.get_field("currency"):
 			self.calculate_taxes_and_totals()
@@ -1180,51 +1183,6 @@ class AccountsController(TransactionBase):
 				},
 			)
 
-	def set_taxes(self):
-		from erpnext.accounts.services.taxes import set_taxes
-
-		set_taxes(self)
-
-	def is_pos_profile_changed(self):
-		from erpnext.accounts.services.taxes import is_pos_profile_changed
-
-		return is_pos_profile_changed(self)
-
-	def set_taxes_and_charges(self):
-		from erpnext.accounts.services.taxes import set_taxes_and_charges
-
-		set_taxes_and_charges(self)
-
-	def append_taxes_from_master(self, tax_master_doctype=None):
-		from erpnext.accounts.services.taxes import append_taxes_from_master
-
-		append_taxes_from_master(self, tax_master_doctype)
-
-	def append_taxes_from_item_tax_template(self):
-		from erpnext.accounts.services.taxes import append_taxes_from_item_tax_template
-
-		append_taxes_from_item_tax_template(self)
-
-	def get_tax_row(self, account_head):
-		from erpnext.accounts.services.taxes import get_tax_row
-
-		return get_tax_row(self, account_head)
-
-	def set_other_charges(self):
-		from erpnext.accounts.services.taxes import set_other_charges
-
-		set_other_charges(self)
-
-	def validate_enabled_taxes_and_charges(self):
-		from erpnext.accounts.services.taxes import validate_enabled_taxes_and_charges
-
-		validate_enabled_taxes_and_charges(self)
-
-	def validate_tax_account_company(self):
-		from erpnext.accounts.services.taxes import validate_tax_account_company
-
-		validate_tax_account_company(self)
-
 	def get_gl_dict(self, args, account_currency=None, item=None):
 		from erpnext.accounts.services.base_gl_composer import get_gl_dict
 
@@ -1507,26 +1465,6 @@ class AccountsController(TransactionBase):
 			)
 
 			frappe.msgprint(_("Purchase Orders {0} are un-linked").format("\n".join(linked_po)))
-
-	def get_tax_map(self):
-		from erpnext.accounts.services.taxes import get_tax_map
-
-		return get_tax_map(self)
-
-	def get_amount_and_base_amount(self, item, enable_discount_accounting):
-		from erpnext.accounts.services.taxes import get_amount_and_base_amount
-
-		return get_amount_and_base_amount(self, item, enable_discount_accounting)
-
-	def get_tax_amounts(self, tax, enable_discount_accounting):
-		from erpnext.accounts.services.taxes import get_tax_amounts
-
-		return get_tax_amounts(self, tax, enable_discount_accounting)
-
-	def make_discount_gl_entries(self, gl_entries):
-		from erpnext.accounts.services.taxes import make_discount_gl_entries
-
-		make_discount_gl_entries(self, gl_entries)
 
 	def validate_multiple_billing(self, ref_dt: str, item_ref_dn: str, based_on: str) -> None:
 		from erpnext.accounts.services.billing_validation import validate_multiple_billing

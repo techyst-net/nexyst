@@ -988,7 +988,9 @@ class SalesInvoice(SellingController):
 
 			# fetch charges
 			if self.taxes_and_charges and not len(self.get("taxes")):
-				self.set_taxes()
+				from erpnext.accounts.services.taxes import TaxService
+
+				TaxService(self).set_taxes()
 
 		return pos
 
