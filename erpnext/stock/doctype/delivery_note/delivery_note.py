@@ -17,6 +17,7 @@ from .mapper import (
 	make_delivery_trip,
 	make_installation_note,
 	make_inter_company_purchase_receipt,
+	make_inter_company_transaction,
 	make_packing_slip,
 	make_sales_invoice,
 	make_sales_return,
