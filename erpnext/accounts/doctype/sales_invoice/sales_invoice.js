@@ -567,7 +567,8 @@ erpnext.accounts.SalesInvoiceController = class SalesInvoiceController extends (
 	set_dynamic_labels() {
 		super.set_dynamic_labels();
 		this.frm.events.hide_fields(this.frm);
-		this.frm.set_df_property("update_stock", "hidden", cint(this.frm.doc.is_debit_note));
+		const hide_update_stock = cint(this.frm.doc.is_debit_note) || cint(this.frm.doc.has_subcontracted);
+		this.frm.set_df_property("update_stock", "hidden", hide_update_stock);
 	}
 
 	items_on_form_rendered() {
@@ -1160,8 +1161,8 @@ frappe.ui.form.on("Sales Invoice", {
 		if (frm.doc.is_debit_note) {
 			frm.set_value("update_stock", 0);
 		}
-		frm.set_df_property("update_stock", "hidden", cint(frm.doc.is_debit_note));
-		frm.refresh_field("update_stock");
+		// visibility handled by set_dynamic_labels()
+		frm.cscript.set_dynamic_labels();
 	},
 
 	refresh: function (frm) {
@@ -1170,7 +1171,6 @@ frappe.ui.form.on("Sales Invoice", {
 		}
 
 		frm.set_df_property("update_stock", "read_only", frm.doc.has_subcontracted);
-		frm.toggle_display("update_stock", !frm.doc.has_subcontracted);
 	},
 });
 

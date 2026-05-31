@@ -1286,6 +1286,7 @@ class SalesInvoice(SellingController):
 			msgprint(_("Please enter Account for Change Amount"), raise_exception=1)
 
 	def validate_debit_note_with_update_stock(self):
+		"""Prevent stock update when Sales Invoice is marked as Debit Note."""
 		if self.is_debit_note and cint(self.update_stock):
 			frappe.throw(
 				_(
