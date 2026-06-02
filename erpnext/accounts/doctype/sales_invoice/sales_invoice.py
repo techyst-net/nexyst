@@ -3154,8 +3154,8 @@ def get_mode_of_payment_info(mode_of_payment, company):
 	ModeOfPayment = frappe.qb.DocType("Mode of Payment")
 
 	query = (
-		frappe.qb.from_(ModeOfPaymentAccount)
-		.join(ModeOfPayment)
+		frappe.qb.from_(ModeOfPayment)
+		.join(ModeOfPaymentAccount)
 		.on(ModeOfPaymentAccount.parent == ModeOfPayment.name)
 		.select(
 			ModeOfPaymentAccount.default_account, ModeOfPaymentAccount.parent, ModeOfPayment.type.as_("type")
