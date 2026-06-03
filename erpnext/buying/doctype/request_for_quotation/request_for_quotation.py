@@ -6,6 +6,7 @@ import json
 
 import frappe
 from frappe import _
+from frappe.contacts.doctype.contact.contact import get_full_name
 from frappe.core.doctype.communication.email import make
 from frappe.desk.form.load import get_attachments
 from frappe.model.document import Document
@@ -15,7 +16,7 @@ from frappe.utils import get_url
 from frappe.utils.print_format import download_pdf
 from frappe.utils.user import get_user_fullname
 
-from erpnext.accounts.party import get_party_account_currency, get_party_details
+from erpnext.accounts.party import _get_party_details, get_party_account_currency
 from erpnext.buying.utils import validate_for_items
 from erpnext.controllers.buying_controller import BuyingController
 from erpnext.stock.doctype.material_request.material_request import set_missing_values
@@ -276,12 +277,20 @@ class RequestforQuotation(BuyingController):
 			supplier_doc.save()
 
 	def create_user(self, rfq_supplier, link):
+		contact_name = None
+		if rfq_supplier.contact:
+			name_fields = frappe.get_value(
+				"Contact", rfq_supplier.contact, ["first_name", "middle_name", "last_name"]
+			)
+			if name_fields:
+				contact_name = get_full_name(*name_fields)
+
 		user = frappe.get_doc(
 			{
 				"doctype": "User",
 				"send_welcome_email": 0,
 				"email": rfq_supplier.email_id,
-				"first_name": rfq_supplier.supplier_name or rfq_supplier.supplier,
+				"first_name": contact_name or rfq_supplier.supplier_name or rfq_supplier.supplier,
 				"user_type": "Website User",
 				"redirect_url": link,
 			}
@@ -378,25 +387,29 @@ class RequestforQuotation(BuyingController):
 		return [d.name for d in get_attachments(self.doctype, self.name)]
 
 	def update_rfq_supplier_status(self, sup_name=None):
+		from frappe.query_builder.functions import Count
+
+		SQ = frappe.qb.DocType("Supplier Quotation")
+		SQ_Item = frappe.qb.DocType("Supplier Quotation Item")
+
 		for supplier in self.suppliers:
 			if sup_name is None or supplier.supplier == sup_name:
 				quote_status = _("Received")
 				for item in self.items:
-					sqi_count = frappe.db.sql(
-						"""
-						SELECT
-							COUNT(sqi.name) as count
-						FROM
-							`tabSupplier Quotation Item` as sqi,
-							`tabSupplier Quotation` as sq
-						WHERE sq.supplier = %(supplier)s
-							AND sqi.docstatus = 1
-							AND sqi.request_for_quotation_item = %(rqi)s
-							AND sqi.parent = sq.name""",
-						{"supplier": supplier.supplier, "rqi": item.name},
-						as_dict=1,
-					)[0]
-					if (sqi_count.count) == 0:
+					query = (
+						frappe.qb.from_(SQ_Item)
+						.join(SQ)
+						.on(SQ_Item.parent == SQ.name)
+						.select(Count(SQ_Item.name).as_("count"))
+						.where(SQ.supplier == supplier.supplier)
+						.where(SQ_Item.docstatus == 1)
+						.where(SQ_Item.request_for_quotation_item == item.name)
+					)
+
+					result = query.run(as_dict=True)
+					sqi_count = result[0] if result else frappe._dict(count=0)
+
+					if sqi_count.count == 0:
 						quote_status = _("Pending")
 				supplier.quote_status = quote_status
 
@@ -441,7 +454,7 @@ def make_supplier_quotation_from_rfq(
 	def postprocess(source, target_doc):
 		if for_supplier:
 			target_doc.supplier = for_supplier
-			args = get_party_details(for_supplier, party_type="Supplier", ignore_permissions=True)
+			args = _get_party_details(for_supplier, party_type="Supplier", ignore_permissions=True)
 			target_doc.currency = args.currency or get_party_account_currency(
 				"Supplier", for_supplier, source.company
 			)
@@ -575,26 +588,28 @@ def get_pdf(
 def get_item_from_material_requests_based_on_supplier(
 	source_name: str, target_doc: str | Document | None = None
 ):
-	mr_items_list = frappe.db.sql(
-		"""
-		SELECT
-			mr.name, mr_item.item_code
-		FROM
-			`tabItem` as item,
-			`tabItem Supplier` as item_supp,
-			`tabMaterial Request Item` as mr_item,
-			`tabMaterial Request`  as mr
-		WHERE item_supp.supplier = %(supplier)s
-			AND item.name = item_supp.parent
-			AND mr_item.parent = mr.name
-			AND mr_item.item_code = item.name
-			AND mr.status != "Stopped"
-			AND mr.material_request_type = "Purchase"
-			AND mr.docstatus = 1
-			AND mr.per_ordered < 99.99""",
-		{"supplier": source_name},
-		as_dict=1,
+	Item = frappe.qb.DocType("Item")
+	Item_Supp = frappe.qb.DocType("Item Supplier")
+	MR = frappe.qb.DocType("Material Request")
+	MR_Item = frappe.qb.DocType("Material Request Item")
+
+	query = (
+		frappe.qb.from_(MR_Item)
+		.join(MR)
+		.on(MR_Item.parent == MR.name)
+		.join(Item)
+		.on(MR_Item.item_code == Item.name)
+		.join(Item_Supp)
+		.on(Item.name == Item_Supp.parent)
+		.select(MR.name, MR_Item.item_code)
+		.where(Item_Supp.supplier == source_name)
+		.where(MR.status != "Stopped")
+		.where(MR.material_request_type == "Purchase")
+		.where(MR.docstatus == 1)
+		.where(MR.per_ordered < 99.99)
 	)
+
+	mr_items_list = query.run(as_dict=True)
 
 	material_requests = {}
 	for d in mr_items_list:

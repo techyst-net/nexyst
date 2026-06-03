@@ -1238,9 +1238,9 @@ class PaymentEntry(AccountsController):
 		else:
 			remarks = [
 				_("Amount {0} {1} {2} {3}").format(
-					_(self.paid_to_account_currency)
+					_(self.paid_from_account_currency)
 					if self.payment_type == "Receive"
-					else _(self.paid_from_account_currency),
+					else _(self.paid_to_account_currency),
 					self.paid_amount if self.payment_type == "Receive" else self.received_amount,
 					_("received from") if self.payment_type == "Receive" else _("paid to"),
 					self.party,
@@ -1256,7 +1256,7 @@ class PaymentEntry(AccountsController):
 			for d in self.get("references"):
 				if d.allocated_amount:
 					remarks.append(
-						_("Amount {0} {1} against {2} {3}").format(
+						_("Amount {0} {1} adjusted against {2} {3}").format(
 							_(self.party_account_currency),
 							d.allocated_amount,
 							d.reference_doctype,
@@ -1267,7 +1267,7 @@ class PaymentEntry(AccountsController):
 		for d in self.get("deductions"):
 			if d.amount:
 				remarks.append(
-					_("Amount {0} {1} deducted against {2}").format(
+					_("Amount {0} {1} as adjustment to {2}").format(
 						_(self.company_currency), d.amount, d.account
 					)
 				)
@@ -3574,3 +3574,16 @@ def make_payment_order(source_name: str, target_doc: str | Document | None = Non
 @erpnext.allow_regional
 def add_regional_gl_entries(gl_entries, doc):
 	return
+
+
+@frappe.whitelist()
+def get_linked_bank_transactions(payment_entry: str) -> list:
+	frappe.has_permission("Payment Entry", ptype="read", doc=payment_entry, throw=True)
+	return frappe.get_all(
+		"Bank Transaction Payments",
+		filters={
+			"payment_document": "Payment Entry",
+			"payment_entry": payment_entry,
+		},
+		pluck="parent",
+	)

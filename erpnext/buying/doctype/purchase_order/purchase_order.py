@@ -5,7 +5,7 @@
 import json
 
 import frappe
-from frappe import _, msgprint
+from frappe import _
 from frappe.desk.notifications import clear_doctype_notifications
 from frappe.model.document import Document
 from frappe.model.mapper import get_mapped_doc
@@ -17,15 +17,15 @@ from erpnext.accounts.doctype.sales_invoice.sales_invoice import (
 	validate_inter_company_party,
 )
 from erpnext.accounts.party import get_party_account, get_party_account_currency
-from erpnext.buying.utils import check_on_hold_or_closed_status, validate_for_items
+from erpnext.buying.utils import validate_for_items
 from erpnext.controllers.buying_controller import BuyingController
+from erpnext.controllers.status_updater import get_allowance_for
 from erpnext.manufacturing.doctype.blanket_order.blanket_order import (
 	validate_against_blanket_order,
 )
 from erpnext.setup.doctype.item_group.item_group import get_item_group_defaults
 from erpnext.stock.doctype.item.item import get_item_defaults, get_last_purchase_details
 from erpnext.stock.stock_balance import get_ordered_qty, update_bin_qty
-from erpnext.stock.utils import get_bin
 from erpnext.subcontracting.doctype.subcontracting_bom.subcontracting_bom import (
 	get_subcontracting_boms_for_finished_goods,
 )
@@ -178,11 +178,15 @@ class PurchaseOrder(BuyingController):
 				"target_ref_field": "stock_qty",
 				"source_field": "stock_qty",
 				"percent_join_field": "material_request",
+				"global_allowance_field": "over_order_allowance",
+				"global_allowance_doctype": "Buying Settings",
+				"item_allowance_field": "over_order_allowance",
 			}
 		]
 
 	def onload(self):
 		self.set_onload("can_update_items", self.can_update_items())
+		self.set_onload("has_pending_receivable_qty", self.has_pending_receivable_qty())
 
 	def before_validate(self):
 		self.set_has_unit_price_items()
@@ -199,7 +203,7 @@ class PurchaseOrder(BuyingController):
 		self.validate_supplier()
 		self.validate_schedule_date()
 		validate_for_items(self)
-		self.check_on_hold_or_closed_status()
+		self.check_for_on_hold_or_closed_status("Material Request", "material_request")
 
 		self.validate_uom_is_integer("uom", "qty")
 		self.validate_uom_is_integer("stock_uom", "stock_qty")
@@ -378,18 +382,6 @@ class PurchaseOrder(BuyingController):
 							d.base_rate
 						) = d.price_list_rate = d.rate = d.last_purchase_rate = item_last_purchase_rate
 
-	# Check for Closed status
-	def check_on_hold_or_closed_status(self):
-		check_list = []
-		for d in self.get("items"):
-			if (
-				d.meta.get_field("material_request")
-				and d.material_request
-				and d.material_request not in check_list
-			):
-				check_list.append(d.material_request)
-				check_on_hold_or_closed_status("Material Request", d.material_request)
-
 	def update_ordered_qty(self, po_item_rows=None):
 		"""update requested qty (before ordered_qty is updated)"""
 		item_wh_list = []
@@ -406,11 +398,10 @@ class PurchaseOrder(BuyingController):
 			update_bin_qty(item_code, warehouse, {"ordered_qty": get_ordered_qty(item_code, warehouse)})
 
 	def check_modified_date(self):
-		mod_db = frappe.db.sql("select modified from `tabPurchase Order` where name = %s", self.name)
-		date_diff = frappe.db.sql(f"select '{mod_db[0][0]}' - '{cstr(self.modified)}' ")
+		modified_in_db = frappe.db.get_value("Purchase Order", self.name, "modified")
 
-		if date_diff and date_diff[0][0]:
-			msgprint(
+		if modified_in_db and cstr(modified_in_db) != cstr(self.modified):
+			frappe.msgprint(
 				_("{0} {1} has been modified. Please refresh.").format(self.doctype, self.name),
 				raise_exception=True,
 			)
@@ -469,11 +460,10 @@ class PurchaseOrder(BuyingController):
 			self.update_status_updater_if_from_pp()
 
 		if self.has_drop_ship_item():
-			self.update_delivered_qty_in_sales_order()
 			self.set_received_qty_to_zero_for_drop_ship_items()
 			self.update_receiving_percentage()
 
-		self.check_on_hold_or_closed_status()
+		self.check_for_on_hold_or_closed_status("Material Request", "material_request")
 
 		self.db_set("status", "Cancelled")
 
@@ -600,9 +590,17 @@ class PurchaseOrder(BuyingController):
 					)
 				)
 
-			item.received_qty += d.get("qty_change")
+			qty_change = item.received_qty + d.get("qty_change")
+			item.db_set("received_qty", qty_change, update_modified=True)
+			self.add_comment(
+				"Label",
+				_("updated delivered quantity for item {0} to {1}").format(
+					frappe.bold(item.item_code), frappe.bold(qty_change)
+				),
+			)
 		self.update_receiving_percentage()
-		self.save()
+		self.set_status(update=True)
+		self.update_delivered_qty_in_sales_order()
 
 	def is_against_so(self):
 		return any(d.sales_order for d in self.items if d.sales_order)
@@ -650,6 +648,19 @@ class PurchaseOrder(BuyingController):
 
 		return result
 
+	def has_pending_receivable_qty(self) -> bool:
+		"""Return True if any non-drop-ship item can still be received,
+		considering the configured over_delivery_receipt_allowance.
+		"""
+		for item in self.get("items", []):
+			if item.delivered_by_supplier:
+				continue
+			tolerance = flt(get_allowance_for(item.item_code, qty_or_amount="qty")[0])
+			max_receivable_qty = flt(item.qty) * (100 + tolerance) / 100
+			if abs(flt(item.received_qty)) < abs(max_receivable_qty):
+				return True
+		return False
+
 	def update_ordered_qty_in_so_for_removed_items(self, removed_items):
 		"""
 		Updates ordered_qty in linked SO when item rows are removed using Update Items
@@ -657,12 +668,21 @@ class PurchaseOrder(BuyingController):
 		if not self.is_against_so():
 			return
 		for item in removed_items:
+			sales_order_item = item.get("sales_order_item")
+			if not sales_order_item:
+				continue
+
 			prev_ordered_qty = flt(
-				frappe.get_cached_value("Sales Order Item", item.get("sales_order_item"), "ordered_qty")
+				frappe.get_cached_value("Sales Order Item", sales_order_item, "ordered_qty")
+			)
+			# `Sales Order Item.ordered_qty` is tracked in stock UOM (see status_updater);
+			# use the row's stock_qty so PO UOMs that differ from stock UOM decrement correctly.
+			qty_in_stock_uom = flt(item.get("stock_qty")) or flt(item.qty) * flt(
+				item.get("conversion_factor") or 1
 			)
 
 			frappe.db.set_value(
-				"Sales Order Item", item.get("sales_order_item"), "ordered_qty", prev_ordered_qty - item.qty
+				"Sales Order Item", sales_order_item, "ordered_qty", prev_ordered_qty - qty_in_stock_uom
 			)
 
 	def auto_create_subcontracting_order(self):
@@ -742,13 +762,25 @@ def make_purchase_receipt(
 	def is_unit_price_row(source):
 		return has_unit_price_items and source.qty == 0
 
+	def get_max_receivable_qty(source):
+		tolerance = flt(get_allowance_for(source.item_code, qty_or_amount="qty")[0])
+		return flt(source.qty) * (100 + tolerance) / 100
+
 	def update_item(obj, target, source_parent):
-		target.qty = flt(obj.qty) if is_unit_price_row(obj) else flt(obj.qty) - flt(obj.received_qty)
-		target.stock_qty = (flt(obj.qty) - flt(obj.received_qty)) * flt(obj.conversion_factor)
-		target.amount = (flt(obj.qty) - flt(obj.received_qty)) * flt(obj.rate)
-		target.base_amount = (
-			(flt(obj.qty) - flt(obj.received_qty)) * flt(obj.rate) * flt(source_parent.conversion_rate)
-		)
+		received_qty = flt(obj.received_qty)
+		qty = flt(obj.qty)
+		pending_qty = qty - received_qty
+
+		if is_unit_price_row(obj):
+			target.qty = qty
+		elif pending_qty > 0:
+			target.qty = pending_qty
+		else:
+			target.qty = max(get_max_receivable_qty(obj) - received_qty, 0)
+
+		target.stock_qty = target.qty * flt(obj.conversion_factor)
+		target.amount = target.qty * flt(obj.rate)
+		target.base_amount = target.qty * flt(obj.rate) * flt(source_parent.conversion_rate)
 
 	def select_item(d):
 		filtered_items = args.get("filtered_children", [])
@@ -780,7 +812,9 @@ def make_purchase_receipt(
 				},
 				"postprocess": update_item,
 				"condition": lambda doc: (
-					True if is_unit_price_row(doc) else abs(doc.received_qty) < abs(doc.qty)
+					True
+					if is_unit_price_row(doc)
+					else abs(doc.received_qty) < abs(get_max_receivable_qty(doc))
 				)
 				and doc.delivered_by_supplier != 1
 				and select_item(doc),

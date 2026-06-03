@@ -25,6 +25,7 @@ from erpnext.selling.doctype.sales_order.sales_order import (
 	make_delivery_note,
 	make_material_request,
 	make_production_plan,
+	make_purchase_order,
 	make_raw_material_request,
 	make_sales_invoice,
 	make_work_orders,
@@ -986,8 +987,8 @@ class TestSalesOrder(ERPNextTestSuite):
 
 		so = make_sales_order(item_code="_Test Service Product Bundle", warehouse=None)
 
-		self.assertTrue("_Test Service Product Bundle Item 1" in [d.item_code for d in so.packed_items])
-		self.assertTrue("_Test Service Product Bundle Item 2" in [d.item_code for d in so.packed_items])
+		self.assertIn("_Test Service Product Bundle Item 1", [d.item_code for d in so.packed_items])
+		self.assertIn("_Test Service Product Bundle Item 2", [d.item_code for d in so.packed_items])
 
 	def test_mix_type_product_bundle(self):
 		make_item("_Test Mix Product Bundle", {"is_stock_item": 0})
@@ -1163,9 +1164,6 @@ class TestSalesOrder(ERPNextTestSuite):
 
 	def test_drop_shipping(self):
 		from erpnext.buying.doctype.purchase_order.purchase_order import update_status
-		from erpnext.selling.doctype.sales_order.sales_order import (
-			make_purchase_order,
-		)
 		from erpnext.selling.doctype.sales_order.sales_order import update_status as so_update_status
 
 		# make items
@@ -1224,9 +1222,14 @@ class TestSalesOrder(ERPNextTestSuite):
 		self.assertEqual(abs(flt(reserved_qty)), 0)
 
 		# test per_delivered status
-		update_status("Delivered", po.name)
+		self.assertEqual(po.status, "To Receive and Bill")
+		self.assertEqual(so.status, "To Deliver and Bill")
+		po.update_dropship_received_qty([{"name": po.items[0].name, "qty_change": 2}])
 		self.assertEqual(flt(frappe.db.get_value("Sales Order", so.name, "per_delivered"), 2), 100.00)
 		po.load_from_db()
+		so.reload()
+		self.assertEqual(po.status, "To Bill")
+		self.assertEqual(so.status, "To Bill")
 
 		# test after closing so
 		so.db_set("status", "Closed")
@@ -1254,9 +1257,6 @@ class TestSalesOrder(ERPNextTestSuite):
 		so.cancel()
 
 	def test_drop_shipping_partial_order(self):
-		from erpnext.selling.doctype.sales_order.sales_order import (
-			make_purchase_order,
-		)
 		from erpnext.selling.doctype.sales_order.sales_order import update_status as so_update_status
 
 		# make items
@@ -1314,10 +1314,6 @@ class TestSalesOrder(ERPNextTestSuite):
 
 	def test_drop_shipping_full_for_default_suppliers(self):
 		"""Test if multiple POs are generated in one go against different default suppliers."""
-		from erpnext.selling.doctype.sales_order.sales_order import (
-			make_purchase_order,
-		)
-
 		if not frappe.db.exists("Item", "_Test Item for Drop Shipping 1"):
 			make_item("_Test Item for Drop Shipping 1", {"is_stock_item": 1, "delivered_by_supplier": 1})
 
@@ -1358,8 +1354,6 @@ class TestSalesOrder(ERPNextTestSuite):
 		Tests if the the Product Bundles in the Items table of Sales Orders are replaced with
 		their child items(from the Packed Items table) on creating a Purchase Order from it.
 		"""
-		from erpnext.selling.doctype.sales_order.sales_order import make_purchase_order
-
 		product_bundle = make_item("_Test Product Bundle", {"is_stock_item": 0})
 		make_item("_Test Bundle Item 1", {"is_stock_item": 1})
 		make_item("_Test Bundle Item 2", {"is_stock_item": 1})
@@ -1388,8 +1382,6 @@ class TestSalesOrder(ERPNextTestSuite):
 		"""
 		Tests if the packed item's `ordered_qty` is updated with the quantity of the Purchase Order
 		"""
-		from erpnext.selling.doctype.sales_order.sales_order import make_purchase_order
-
 		product_bundle = make_item("_Test Product Bundle", {"is_stock_item": 0})
 		make_item("_Test Bundle Item 1", {"is_stock_item": 1})
 		make_item("_Test Bundle Item 2", {"is_stock_item": 1})
@@ -2337,8 +2329,8 @@ class TestSalesOrder(ERPNextTestSuite):
 		pick_list.save()
 		for row in pick_list.locations:
 			self.assertEqual(row.qty, 1.0)
-			self.assertFalse(row.warehouse == rejected_warehouse)
-			self.assertTrue(row.warehouse == warehouse)
+			self.assertNotEqual(row.warehouse, rejected_warehouse)
+			self.assertEqual(row.warehouse, warehouse)
 
 	def test_pick_list_for_batch(self):
 		from erpnext.stock.doctype.pick_list.pick_list import create_delivery_note
@@ -2366,16 +2358,16 @@ class TestSalesOrder(ERPNextTestSuite):
 
 		for row in pick_list.locations:
 			self.assertEqual(row.qty, 10.0)
-			self.assertTrue(row.warehouse == warehouse)
-			self.assertTrue(row.batch_no == batch_no)
+			self.assertEqual(row.warehouse, warehouse)
+			self.assertEqual(row.batch_no, batch_no)
 
 		pick_list.submit()
 
 		dn = create_delivery_note(pick_list.name)
 		for row in dn.items:
 			self.assertEqual(row.qty, 10.0)
-			self.assertTrue(row.warehouse == warehouse)
-			self.assertTrue(row.batch_no == batch_no)
+			self.assertEqual(row.warehouse, warehouse)
+			self.assertEqual(row.batch_no, batch_no)
 
 		dn.submit()
 		dn.reload()
@@ -2433,7 +2425,7 @@ class TestSalesOrder(ERPNextTestSuite):
 
 		so.items[0].rate = 90
 		so.save()
-		self.assertTrue(so.items[0].discount_amount == 27558.0)
+		self.assertEqual(so.items[0].discount_amount, 27558.0)
 		so.submit()
 
 		warehouse = create_warehouse("NW Warehouse FOR Rate", company=so.company)
@@ -2579,13 +2571,13 @@ class TestSalesOrder(ERPNextTestSuite):
 
 		self.assertEqual(len(sres), 1)
 		sre_doc = frappe.get_doc("Stock Reservation Entry", sres[0].name)
-		self.assertFalse(sre_doc.status == "Delivered")
+		self.assertNotEqual(sre_doc.status, "Delivered")
 
 		si = make_sales_invoice(so.name)
 		si.update_stock = 1
 		si.submit()
 		sre_doc.reload()
-		self.assertTrue(sre_doc.status == "Delivered")
+		self.assertEqual(sre_doc.status, "Delivered")
 
 	@ERPNextTestSuite.change_settings("Selling Settings", {"allow_zero_qty_in_sales_order": 1})
 	def test_deliver_zero_qty_purchase_order(self):
@@ -2659,8 +2651,6 @@ class TestSalesOrder(ERPNextTestSuite):
 		self.assertEqual(so.status, "To Deliver and Bill")
 
 	def test_item_tax_transfer_from_sales_to_purchase(self):
-		from erpnext.selling.doctype.sales_order.sales_order import make_purchase_order
-
 		item_tax = frappe.new_doc("Item Tax Template")
 		item_tax.title = "Test Item Tax Template"
 		item_tax.company = "_Test Company"
@@ -2689,6 +2679,33 @@ class TestSalesOrder(ERPNextTestSuite):
 		po.items[0].rate = 100
 		po.submit()
 		self.assertEqual(po.taxes[0].tax_amount, 2)
+
+	def test_make_purchase_order_does_not_inherit_party_fields(self):
+		"""
+		Customer-derived fields must not leak from a drop-ship SO into the PO.
+		"""
+		so_items = [
+			{
+				"item_code": "_Test Item",
+				"warehouse": "",
+				"qty": 1,
+				"rate": 100,
+				"delivered_by_supplier": 1,
+				"supplier": "_Test Supplier",
+			}
+		]
+		so = make_sales_order(item_list=so_items, do_not_submit=True)
+		so.tax_category = "_Test Tax Category 1"
+		so.language = "ar"
+		so.payment_terms_template = "_Test Payment Term Template"
+		so.submit()
+
+		po = make_purchase_order(so.name, selected_items=so_items)[0]
+
+		supplier = frappe.get_doc("Supplier", "_Test Supplier")
+		self.assertEqual(po.tax_category or None, supplier.tax_category or None)
+		self.assertEqual(po.language or None, supplier.language or None)
+		self.assertEqual(po.payment_terms_template or None, supplier.payment_terms or None)
 
 	def test_pending_quantity_after_update_item_during_invoice_creation(self):
 		so = make_sales_order(qty=30, rate=100)

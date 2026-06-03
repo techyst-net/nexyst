@@ -251,7 +251,7 @@ class MaterialRequest(BuyingController):
 
 	def check_modified_date(self):
 		mod_db = frappe.db.sql("""select modified from `tabMaterial Request` where name = %s""", self.name)
-		date_diff = frappe.db.sql(f"""select TIMEDIFF('{mod_db[0][0]}', '{cstr(self.modified)}')""")
+		date_diff = frappe.db.sql("""select TIMEDIFF(%s, %s)""", (mod_db[0][0], cstr(self.modified)))
 
 		if date_diff and date_diff[0][0]:
 			frappe.throw(_("{0} {1} has been modified. Please refresh.").format(_(self.doctype), self.name))
@@ -768,7 +768,6 @@ def make_stock_entry(source_name: str, target_doc: str | Document | None = None)
 		target.set_actual_qty()
 		target.calculate_rate_and_amount(raise_error_if_no_rate=False)
 		target.stock_entry_type = target.purpose
-		target.set_job_card_data()
 
 		if source.job_card:
 			job_card_details = frappe.get_all(

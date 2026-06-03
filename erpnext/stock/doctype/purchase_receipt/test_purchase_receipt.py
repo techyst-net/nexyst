@@ -57,13 +57,13 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 		)
 		mr.insert()
 		mr.submit()
-		frappe.db.set_value("Item", item.name, "over_delivery_receipt_allowance", 200)
+		frappe.db.set_single_value("Buying Settings", "over_order_allowance", 200)
 		po = make_purchase_order(mr.name)
 		po.supplier = "_Test Supplier"
 		po.items[0].qty = 300
 		po.save()
 		po.submit()
-		frappe.db.set_value("Item", item.name, "over_delivery_receipt_allowance", 20)
+		frappe.db.set_single_value("Buying Settings", "over_order_allowance", 0)
 		pr = make_purchase_receipt(qty=300, item_code=item.name, do_not_save=True)
 		pr.save()
 		pr.submit()
@@ -1051,6 +1051,40 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 
 		pr.cancel()
 
+	def test_inter_company_purchase_receipt_does_not_inherit_party_fields(self):
+		"""
+		Party-derived fields on DN (from Customer) must not leak into the mapped PR.
+		"""
+		from erpnext.stock.doctype.delivery_note.delivery_note import make_inter_company_purchase_receipt
+		from erpnext.stock.doctype.delivery_note.test_delivery_note import create_delivery_note
+
+		prepare_data_for_internal_transfer()
+
+		customer = "_Test Internal Customer 2"
+		company = "_Test Company with perpetual inventory"
+
+		dn = create_delivery_note(
+			company=company,
+			customer=customer,
+			cost_center="Main - TCP1",
+			expense_account="Cost of Goods Sold - TCP1",
+			qty=1,
+			rate=100,
+			warehouse="Stores - TCP1",
+			target_warehouse="Work In Progress - TCP1",
+			do_not_submit=True,
+		)
+		# Stamp customer-side party fields onto the DN
+		dn.tax_category = "_Test Tax Category 2"
+		dn.language = "ar"
+		dn.submit()
+
+		pr = make_inter_company_purchase_receipt(dn.name)
+
+		supplier = frappe.get_doc("Supplier", "_Test Internal Supplier 2")
+		self.assertEqual(pr.tax_category or None, supplier.tax_category or None)
+		self.assertEqual(pr.language or None, supplier.language or None)
+
 	def test_lcv_for_internal_transfer(self):
 		from erpnext.stock.doctype.delivery_note.delivery_note import make_inter_company_purchase_receipt
 		from erpnext.stock.doctype.delivery_note.test_delivery_note import create_delivery_note
@@ -1145,7 +1179,7 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 		new_cost = frappe.db.get_value("Serial and Batch Bundle", new_inward_sabb[0], "total_amount")
 		self.assertEqual(new_cost, original_cost + 100)
 
-		self.assertTrue(new_inward_sabb[0] == inward_sabb[0])
+		self.assertEqual(new_inward_sabb[0], inward_sabb[0])
 
 	def test_stock_transfer_from_purchase_receipt_with_valuation(self):
 		from erpnext.stock.doctype.delivery_note.delivery_note import make_inter_company_purchase_receipt
@@ -1797,7 +1831,7 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 		return_pi = make_return_doc(pi.doctype, pi.name)
 		return_pi.save().submit()
 
-		self.assertTrue(return_pi.docstatus == 1)
+		self.assertEqual(return_pi.docstatus, 1)
 
 	def test_disable_last_purchase_rate(self):
 		from erpnext.stock.get_item_details import ItemDetailsCtx, get_item_details
@@ -2504,7 +2538,7 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 		sbb_doc = frappe.get_doc("Serial and Batch Bundle", pr.items[0].serial_and_batch_bundle)
 
 		for row in sbb_doc.entries:
-			self.assertTrue(row.serial_no in serial_nos)
+			self.assertIn(row.serial_no, serial_nos)
 
 		serial_nos.remove("SNU-TSFISI-000015")
 
@@ -2537,7 +2571,7 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 
 		serial_no_status = frappe.db.get_value("Serial No", "SNU-TSFISI-000015", "status")
 
-		self.assertTrue(serial_no_status != "Active")
+		self.assertNotEqual(serial_no_status, "Active")
 
 		dn = create_delivery_note(
 			item_code=item_code,
@@ -2550,11 +2584,11 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 		self.assertEqual(dn.items[0].qty, 4)
 		doc = frappe.get_doc("Serial and Batch Bundle", dn.items[0].serial_and_batch_bundle)
 		for row in doc.entries:
-			self.assertTrue(row.serial_no in new_serial_nos)
+			self.assertIn(row.serial_no, new_serial_nos)
 
 		for sn in new_serial_nos:
 			serial_no_status = frappe.db.get_value("Serial No", sn, "status")
-			self.assertTrue(serial_no_status != "Active")
+			self.assertNotEqual(serial_no_status, "Active")
 
 		frappe.db.set_single_value(
 			"Stock Settings", "do_not_update_serial_batch_on_creation_of_auto_bundle", 1
@@ -2965,7 +2999,7 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 					serial_no_details = frappe.db.get_value(
 						"Serial No", sn, ["status", "warehouse"], as_dict=1
 					)
-					self.assertTrue(serial_no_details.status == "Active")
+					self.assertEqual(serial_no_details.status, "Active")
 					self.assertEqual(serial_no_details.warehouse, "Work In Progress - TCP1")
 
 		inter_transfer_dn_return = make_return_doc("Delivery Note", inter_transfer_dn.name)
@@ -3104,7 +3138,7 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 					serial_no_details = frappe.db.get_value(
 						"Serial No", sn, ["status", "warehouse"], as_dict=1
 					)
-					self.assertTrue(serial_no_details.status == "Active")
+					self.assertEqual(serial_no_details.status, "Active")
 					self.assertEqual(serial_no_details.warehouse, "Work In Progress - TCP1")
 
 		inter_transfer_dn_return = make_return_doc("Delivery Note", inter_transfer_dn.name)
@@ -4236,7 +4270,7 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 		serial_no = get_serial_nos_from_bundle(pr.items[0].serial_and_batch_bundle)[0]
 
 		status = frappe.db.get_value("Serial No", serial_no, "status")
-		self.assertTrue(status == "Active")
+		self.assertEqual(status, "Active")
 
 		make_stock_entry(
 			item_code=item_code,
@@ -4247,7 +4281,7 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 		)
 
 		status = frappe.db.get_value("Serial No", serial_no, "status")
-		self.assertFalse(status == "Active")
+		self.assertNotEqual(status, "Active")
 
 		pr = make_purchase_receipt(
 			item_code=item_code, qty=1, rate=100, use_serial_batch_fields=1, do_not_submit=1
@@ -4759,8 +4793,8 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 
 		gl_entries = get_gl_entries(pr.doctype, pr.name)
 		accounts = [d.account for d in gl_entries]
-		self.assertTrue(expense_account in accounts)
-		self.assertTrue(expense_contra_account in accounts)
+		self.assertIn(expense_account, accounts)
+		self.assertIn(expense_contra_account, accounts)
 
 		for row in gl_entries:
 			if row.account == expense_account:
@@ -4798,7 +4832,7 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 
 		gl_entries = get_gl_entries(se.doctype, se.name)
 		for row in gl_entries:
-			self.assertTrue(row.account in ["Stock In Hand - TCP1", "Stock Adjustment - TCP1"])
+			self.assertIn(row.account, ["Stock In Hand - TCP1", "Stock Adjustment - TCP1"])
 
 		se.items[0].db_set("expense_account", account)
 		se.reload()
@@ -4820,7 +4854,7 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 
 		gl_entries = get_gl_entries(se.doctype, se.name)
 		for row in gl_entries:
-			self.assertTrue(row.account in ["Stock In Hand - TCP1", account])
+			self.assertIn(row.account, ["Stock In Hand - TCP1", account])
 
 	def test_lcv_for_repack_entry(self):
 		from erpnext.stock.doctype.landed_cost_voucher.test_landed_cost_voucher import (
@@ -5056,7 +5090,7 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 		doc.db_set("use_batchwise_valuation", 0)
 		doc.reload()
 
-		self.assertTrue(doc.use_batchwise_valuation == 0)
+		self.assertEqual(doc.use_batchwise_valuation, 0)
 
 		doc = frappe.new_doc("Batch")
 		doc.update(
@@ -5066,7 +5100,7 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 			}
 		).insert()
 
-		self.assertTrue(doc.use_batchwise_valuation == 1)
+		self.assertEqual(doc.use_batchwise_valuation, 1)
 
 		warehouse = "_Test Warehouse - _TC"
 		make_stock_entry(
@@ -5458,7 +5492,7 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 		self.assertEqual(pr.conversion_rate, 80)
 
 		gl_entries = get_gl_entries(pr.doctype, pr.name)
-		self.assertTrue(len(gl_entries) == 2)
+		self.assertEqual(len(gl_entries), 2)
 		for row in gl_entries:
 			amount = row.credit or row.debit
 			self.assertEqual(amount, 8000.0)
@@ -5471,17 +5505,309 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 		pi.submit()
 
 		gl_entries = get_gl_entries(pi.doctype, pi.name)
-		self.assertTrue(len(gl_entries) == 2)
+		self.assertEqual(len(gl_entries), 2)
 
 		accounts = ["USD Party Account Creditors - TCP1", "Stock Received But Not Billed - TCP1"]
 		for row in gl_entries:
 			amount = row.credit or row.debit
 			self.assertEqual(amount, 9000.0)
-			self.assertTrue(row.account in accounts)
+			self.assertIn(row.account, accounts)
 
 		frappe.db.set_single_value(
 			"Buying Settings", "set_landed_cost_based_on_purchase_invoice_rate", original_value
 		)
+
+	def test_purchase_receipt_gl_entries_for_asset_item(self):
+		from erpnext.assets.doctype.asset.test_asset import create_fixed_asset_item
+
+		# Create a Company without Stock Accounts Linked.
+		company = frappe.get_doc(
+			{
+				"doctype": "Company",
+				"company_name": "Asset Company",
+				"country": "India",
+				"default_currency": "INR",
+			}
+		).insert()
+
+		stock_accounts = (
+			company.default_inventory_account,
+			company.stock_adjustment_account,
+			company.stock_received_but_not_billed,
+		)
+
+		company.update(
+			{"stock_in_hand_account": "", "stock_adjustment_account": "", "stock_received_but_not_billed": ""}
+		).save()
+
+		for account in stock_accounts:
+			frappe.db.delete("Account", account)
+
+		asset_category = create_asset_category_for_pr_test()
+		asset_item = create_fixed_asset_item(
+			item_code="Test Fixed Asset Item for PR GL Test", asset_category=asset_category.name
+		)
+		arnb_account = frappe.db.get_value("Company", company.name, "asset_received_but_not_billed")
+
+		# Purchase Receipt should be able to create even without any stock accounts linked to company
+		pr = make_purchase_receipt(
+			item_code=asset_item.name, warehouse="Stores - AC", qty=1, rate=10000, company=company.name
+		)
+
+		gl_entries = get_gl_entries("Purchase Receipt", pr.name)
+
+		self.assertTrue(gl_entries)
+		gl_accounts = [d.account for d in gl_entries]
+
+		# The fixed asset account set on the item row must be debited
+		asset_expense_account = pr.items[0].expense_account
+		self.assertIn(asset_expense_account, gl_accounts)
+
+		# Asset Received But Not Billed must be credited
+		self.assertIn(arnb_account, gl_accounts)
+
+		# No Stock-type account should appear — the inventory account map is not
+		# needed and must not be consulted for an asset-only receipt
+		for entry in gl_entries:
+			account_type = frappe.db.get_value("Account", entry.account, "account_type")
+			self.assertNotEqual(account_type, "Stock")
+
+		pr.cancel()
+
+	def test_purchase_receipt_gl_entries_with_mixed_asset_and_stock_items(self):
+		from erpnext.assets.doctype.asset.test_asset import create_fixed_asset_item
+
+		company = frappe.get_doc(
+			{
+				"doctype": "Company",
+				"company_name": "Asset Company",
+				"country": "India",
+				"default_currency": "INR",
+			}
+		).insert()
+
+		asset_category = create_asset_category_for_pr_test()
+		asset_item = create_fixed_asset_item(
+			item_code="Test Fixed Asset Item for PR GL Test", asset_category=asset_category.name
+		)
+		arnb_account = frappe.db.get_value("Company", company.name, "asset_received_but_not_billed")
+
+		pr = make_purchase_receipt(
+			item_code=asset_item.name,
+			qty=1,
+			rate=10000,
+			warehouse="Stores - AC",
+			do_not_save=True,
+			company=company.name,
+		)
+		pr.append(
+			"items",
+			{
+				"item_code": "_Test Item",
+				"warehouse": "Stores - AC",
+				"qty": 5,
+				"received_qty": 5,
+				"rejected_qty": 0,
+				"rate": 50,
+				"uom": "_Test UOM",
+				"stock_uom": "_Test UOM",
+				"conversion_factor": 1.0,
+				"cost_center": frappe.get_cached_value("Company", pr.company, "cost_center"),
+			},
+		)
+		pr.insert()
+		pr.submit()
+
+		gl_entries = get_gl_entries("Purchase Receipt", pr.name)
+		self.assertTrue(gl_entries)
+
+		gl_accounts = [d.account for d in gl_entries]
+		self.assertIn(arnb_account, gl_accounts)
+
+		# The fixed asset account set on the item row must be debited
+		asset_expense_account = pr.items[0].expense_account
+		self.assertIn(asset_expense_account, gl_accounts)
+
+		# Asset Received But Not Billed must be credited
+		self.assertIn(asset_category.accounts[0].fixed_asset_account, gl_accounts)
+
+		# Stock Accounts should be used for Stock Items
+		self.assertIn(company.stock_received_but_not_billed, gl_accounts)
+		self.assertIn(company.default_inventory_account, gl_accounts)
+		pr.cancel()
+
+	@ERPNextTestSuite.change_settings(
+		"Buying Settings", {"set_landed_cost_based_on_purchase_invoice_rate": 1, "maintain_same_rate": 0}
+	)
+	def test_srbnb_with_inclusive_tax_and_rate_change_in_pi(self):
+		"""
+		When 'Set Landed Cost Based on PI Rate' is enabled and PI has an inclusive tax:
+		  - PR: qty=2, rate=1000 INR → base_net_amount=2000
+		  - PI: rate changed to 2000, 5% tax included in basic rate
+		      → PI base_net_amount = 2 * 2000 / 1.05 ≈ 3809.52
+
+		The system must use PI's base_net_amount (not amount=4000) so that
+		SRBNB credit on PR = 3809.52, not 4000.
+		"""
+		company = "_Test Company with perpetual inventory"
+		warehouse = "Stores - TCP1"
+		cost_center = "Main - TCP1"
+
+		item_code = make_item(
+			"Test Item for SRBNB Inclusive Tax Rate Change",
+			{"is_stock_item": 1},
+		).name
+
+		pr = make_purchase_receipt(
+			item_code=item_code,
+			qty=2,
+			rate=1000,
+			company=company,
+			warehouse=warehouse,
+			cost_center=cost_center,
+		)
+
+		pi = make_purchase_invoice(pr.name)
+		pi.items[0].rate = 2000
+		pi.append(
+			"taxes",
+			{
+				"charge_type": "On Net Total",
+				"account_head": "_Test Account VAT - TCP1",
+				"category": "Total",
+				"add_deduct_tax": "Add",
+				"included_in_print_rate": 1,
+				"rate": 5,
+				"description": "Test Inclusive Tax",
+				"cost_center": cost_center,
+			},
+		)
+		pi.save()
+		pi.submit()
+
+		pr.reload()
+
+		# PI base_net_amount = qty * (rate / (1 + tax_rate/100)) = 2 * (2000 / 1.05)
+		pi_base_net_amount = flt(2 * 2000 / 1.05, 2)
+		pr_base_net_amount = flt(pr.items[0].amount, 2)  # 2 * 1000 = 2000
+		expected_diff = flt(pi_base_net_amount - pr_base_net_amount, 2)
+
+		self.assertAlmostEqual(pr.items[0].amount_difference_with_purchase_invoice, expected_diff, places=2)
+
+		# Total SRBNB credit = PR base_net_amount + amount_difference = PI base_net_amount
+		srbnb_account = "Stock Received But Not Billed - TCP1"
+		gl_entries = get_gl_entries("Purchase Receipt", pr.name, skip_cancelled=True)
+		srbnb_credit = sum(flt(row.credit) for row in gl_entries if row.account == srbnb_account)
+		self.assertAlmostEqual(srbnb_credit, pi_base_net_amount, places=2)
+
+	@ERPNextTestSuite.change_settings(
+		"Buying Settings", {"set_landed_cost_based_on_purchase_invoice_rate": 1, "maintain_same_rate": 0}
+	)
+	def test_srbnb_with_inclusive_tax_and_exchange_rate_change_in_pi(self):
+		"""
+		When 'Set Landed Cost Based on PI Rate' is enabled, PI has an inclusive tax, and only
+		the exchange rate changes on the PI (rate stays the same):
+		  - PR: qty=2, rate=100 USD, conversion_rate=70 → base_net_amount=14000 INR
+		  - PI: same rate=100 USD, conversion_rate changed to 90, 5% tax included in basic rate
+		      → PI base_net_amount = 2 * (100 / 1.05) * 90 ≈ 17142.86 INR
+
+		The system must use PI's base_net_amount (not amount = 2*100*90 = 18000) so that
+		SRBNB credit on PR = 17142.86, not 18000.
+		"""
+		from erpnext.accounts.doctype.account.test_account import create_account
+
+		company = "_Test Company with perpetual inventory"
+		warehouse = "Stores - TCP1"
+		cost_center = "Main - TCP1"
+
+		party_account = create_account(
+			account_name="USD Payable For SRBNB Exchange Rate Test",
+			parent_account="Accounts Payable - TCP1",
+			account_type="Payable",
+			company=company,
+			account_currency="USD",
+		)
+
+		supplier = create_supplier(
+			supplier_name="_Test USD Supplier for SRBNB Exchange Rate",
+			default_currency="USD",
+			party_account=party_account,
+		).name
+
+		item_code = make_item(
+			"Test Item for SRBNB Inclusive Tax Exchange Rate Change",
+			{"is_stock_item": 1},
+		).name
+
+		pr = make_purchase_receipt(
+			item_code=item_code,
+			qty=2,
+			rate=100,
+			currency="USD",
+			conversion_rate=70,
+			company=company,
+			warehouse=warehouse,
+			supplier=supplier,
+		)
+
+		pi = make_purchase_invoice(pr.name)
+		pi.conversion_rate = 90
+		pi.append(
+			"taxes",
+			{
+				"charge_type": "On Net Total",
+				"account_head": "_Test Account VAT - TCP1",
+				"category": "Total",
+				"add_deduct_tax": "Add",
+				"included_in_print_rate": 1,
+				"rate": 5,
+				"description": "Test Inclusive Tax",
+				"cost_center": cost_center,
+			},
+		)
+		pi.save()
+		pi.submit()
+
+		pr.reload()
+
+		# PI base_net_amount = qty * (rate / (1 + tax_rate/100)) * new_conversion_rate
+		#                    = 2 * (100 / 1.05) * 90 ≈ 17142.86 INR
+		# PR base_net_amount = qty * rate * pr_conversion_rate = 2 * 100 * 70 = 14000 INR
+		tax_amount_pr = (200 - flt(200 / 1.05, 2)) * 90
+
+		pi_base_net_amount = flt(2 * 100 * 90) - flt(tax_amount_pr)
+		pr_base_net_amount = flt(2 * 100 * 70)
+		expected_diff = flt(pi_base_net_amount - pr_base_net_amount)
+
+		self.assertAlmostEqual(pr.items[0].amount_difference_with_purchase_invoice, expected_diff, places=2)
+
+		# Total SRBNB credit = PR base_net_amount + amount_difference = PI base_net_amount
+		srbnb_account = "Stock Received But Not Billed - TCP1"
+		gl_entries = get_gl_entries("Purchase Receipt", pr.name, skip_cancelled=True)
+		srbnb_credit = sum(flt(row.credit) for row in gl_entries if row.account == srbnb_account)
+		self.assertAlmostEqual(srbnb_credit, pi_base_net_amount, places=2)
+
+
+def create_asset_category_for_pr_test():
+	category_name = "Test Asset Category for PR"
+
+	asset_category = frappe.get_doc(
+		{
+			"doctype": "Asset Category",
+			"asset_category_name": category_name,
+			"enable_cwip_accounting": 0,
+			"depreciation_method": "Straight Line",
+			"total_number_of_depreciations": 12,
+			"frequency_of_depreciation": 1,
+			"accounts": [
+				{
+					"company_name": "Asset Company",
+					"fixed_asset_account": "Electronic Equipment - AC",
+				}
+			],
+		}
+	).insert()
+	return asset_category
 
 
 def prepare_data_for_internal_transfer():

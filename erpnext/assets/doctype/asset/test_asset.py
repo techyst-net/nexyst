@@ -885,9 +885,9 @@ class TestAsset(AssetSetup):
 			with self.assertRaises(frappe.ValidationError) as err:
 				asset.save()
 
-			self.assertTrue(
-				"Please set Depreciation related Accounts in Asset Category Computers or Company"
-				in str(err.exception)
+			self.assertIn(
+				"Please set Depreciation related Accounts in Asset Category Computers or Company",
+				str(err.exception),
 			)
 		finally:
 			frappe.db.set_value("Company", "_Test Company", company_depreciation_accounts)
@@ -1699,8 +1699,8 @@ class TestDepreciationBasics(AssetSetup):
 			accumulated_depreciation_after_full_schedule
 		)
 
-		self.assertTrue(
-			asset.finance_books[0].expected_value_after_useful_life >= asset_value_after_full_schedule
+		self.assertGreaterEqual(
+			asset.finance_books[0].expected_value_after_useful_life, asset_value_after_full_schedule
 		)
 
 	def test_gle_made_by_depreciation_entries(self):
@@ -2062,7 +2062,7 @@ def create_asset_category(enable_cwip=1):
 	asset_category.insert()
 
 
-def create_fixed_asset_item(item_code=None, auto_create_assets=1, is_grouped_asset=0):
+def create_fixed_asset_item(item_code=None, auto_create_assets=1, is_grouped_asset=0, asset_category=None):
 	meta = frappe.get_meta("Asset")
 	naming_series = meta.get_field("naming_series").options.splitlines()[0] or "ACC-ASS-.YYYY.-"
 	try:
@@ -2072,7 +2072,7 @@ def create_fixed_asset_item(item_code=None, auto_create_assets=1, is_grouped_ass
 				"item_code": item_code or "Macbook Pro",
 				"item_name": "Macbook Pro",
 				"description": "Macbook Pro Retina Display",
-				"asset_category": "Computers",
+				"asset_category": asset_category or "Computers",
 				"item_group": "All Item Groups",
 				"stock_uom": "Nos",
 				"is_stock_item": 0,
