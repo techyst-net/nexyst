@@ -105,7 +105,7 @@ class TestPurchaseOrder(ERPNextTestSuite):
 		Regression test for #55246: the mapper dropped rows once
 		received_qty >= qty, ignoring the configured tolerance.
 		"""
-		from erpnext.buying.doctype.purchase_order.purchase_order import make_purchase_receipt
+		from erpnext.buying.doctype.purchase_order.mapper import make_purchase_receipt
 
 		# 50% tolerance — 10 ordered allows up to 15 received
 		frappe.db.set_value("Item", "_Test Item", "over_delivery_receipt_allowance", 50)

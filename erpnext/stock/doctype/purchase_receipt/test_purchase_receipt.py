@@ -1055,7 +1055,7 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 		"""
 		Party-derived fields on DN (from Customer) must not leak into the mapped PR.
 		"""
-		from erpnext.stock.doctype.delivery_note.delivery_note import make_inter_company_purchase_receipt
+		from erpnext.stock.doctype.delivery_note.mapper import make_inter_company_purchase_receipt
 		from erpnext.stock.doctype.delivery_note.test_delivery_note import create_delivery_note
 
 		prepare_data_for_internal_transfer()
@@ -1339,7 +1339,8 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 		- Create PI from PO and submit
 		- Create PR from PO and submit
 		"""
-		from erpnext.buying.doctype.purchase_order import purchase_order, test_purchase_order
+		from erpnext.buying.doctype.purchase_order import mapper as purchase_order
+		from erpnext.buying.doctype.purchase_order import test_purchase_order
 
 		po = test_purchase_order.create_purchase_order()
 
@@ -1360,7 +1361,8 @@ class TestPurchaseReceipt(ERPNextTestSuite):
 		- Create partial PI from PO and submit
 		- Create PR from PO and submit
 		"""
-		from erpnext.buying.doctype.purchase_order import purchase_order, test_purchase_order
+		from erpnext.buying.doctype.purchase_order import mapper as purchase_order
+		from erpnext.buying.doctype.purchase_order import test_purchase_order
 
 		po = test_purchase_order.create_purchase_order()
 

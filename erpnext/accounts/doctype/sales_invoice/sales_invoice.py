@@ -691,6 +691,10 @@ class SalesInvoice(SellingController):
 	def clear_unallocated_mode_of_payments(self):
 		POSService(self).clear_unallocated_mode_of_payments()
 
+	# Called by POS Invoice
+	def validate_full_payment(self):
+		POSService(self).validate_full_payment()
+
 	def get_company_abbr(self):
 		return frappe.db.get_value("Company", self.company, "abbr")
 

@@ -2890,10 +2890,10 @@ class TestStockEntryCoverage(ERPNextTestSuite):
 	@ERPNextTestSuite.change_settings("Global Defaults", {"default_company": "_Test Company"})
 	def test_validate_fg_resets_invalid_serial_no_on_manufacture(self):
 		from erpnext.manufacturing.doctype.bom.test_bom import create_nested_bom
-		from erpnext.manufacturing.doctype.work_order.test_work_order import make_wo_order_test_record
-		from erpnext.manufacturing.doctype.work_order.work_order import (
+		from erpnext.manufacturing.doctype.work_order.mapper import (
 			make_stock_entry as _make_stock_entry,
 		)
+		from erpnext.manufacturing.doctype.work_order.test_work_order import make_wo_order_test_record
 
 		fg_item = "_FG Serial No Item"
 		rm_item = "RM for serial item"
@@ -2930,10 +2930,10 @@ class TestStockEntryCoverage(ERPNextTestSuite):
 	@ERPNextTestSuite.change_settings("Global Defaults", {"default_company": "_Test Company"})
 	def test_validate_fg_resets_invalid_batch_no_on_manufacture(self):
 		from erpnext.manufacturing.doctype.bom.test_bom import create_nested_bom
-		from erpnext.manufacturing.doctype.work_order.test_work_order import make_wo_order_test_record
-		from erpnext.manufacturing.doctype.work_order.work_order import (
+		from erpnext.manufacturing.doctype.work_order.mapper import (
 			make_stock_entry as _make_stock_entry,
 		)
+		from erpnext.manufacturing.doctype.work_order.test_work_order import make_wo_order_test_record
 		from erpnext.stock.serial_batch_bundle import get_batches_from_bundle
 
 		fg_item = "_FG Batch No Item"
