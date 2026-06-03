@@ -15,6 +15,7 @@ def execute():
 			"Letter Head",
 			{
 				"is_default": 1,
+				"disabled": 0,
 				"letter_head_for": letter_head_for,
 			},
 		)
