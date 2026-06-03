@@ -8,7 +8,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.model.mapper import get_mapped_doc
 
-from erpnext.accounts.party import get_party_account_currency, get_party_details
+from erpnext.accounts.party import _get_party_details, get_party_account_currency
 from erpnext.stock.doctype.material_request.mapper import set_missing_values
 
 
@@ -19,7 +19,7 @@ def make_supplier_quotation_from_rfq(
 	def postprocess(source, target_doc):
 		if for_supplier:
 			target_doc.supplier = for_supplier
-			args = get_party_details(for_supplier, party_type="Supplier", ignore_permissions=True)
+			args = _get_party_details(for_supplier, party_type="Supplier", ignore_permissions=True)
 			target_doc.currency = args.currency or get_party_account_currency(
 				"Supplier", for_supplier, source.company
 			)

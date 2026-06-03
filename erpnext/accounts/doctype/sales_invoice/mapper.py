@@ -9,7 +9,7 @@ from frappe.model.mapper import get_mapped_doc
 from frappe.model.utils import get_fetch_values
 from frappe.utils import flt, get_link_to_form, getdate
 
-from erpnext.accounts.party import get_party_details
+from erpnext.accounts.party import CROSS_PARTY_FIELD_NO_MAP, _get_party_details
 
 
 @frappe.whitelist()
@@ -360,7 +360,7 @@ def make_inter_company_transaction(doctype, source_name, target_doc=None):
 				"doctype": target_doctype,
 				"postprocess": update_details,
 				"set_target_warehouse": "set_from_warehouse",
-				"field_no_map": ["taxes_and_charges", "set_warehouse", "shipping_address", "cost_center"],
+				"field_no_map": [*CROSS_PARTY_FIELD_NO_MAP, "set_warehouse", "cost_center"],
 			},
 			doctype + " Item": item_field_map,
 		},
@@ -520,7 +520,7 @@ def update_taxes(
 	master_doctype=None,
 ):
 	# Update Party Details
-	party_details = get_party_details(
+	party_details = _get_party_details(
 		party=party,
 		party_type=party_type,
 		company=company,

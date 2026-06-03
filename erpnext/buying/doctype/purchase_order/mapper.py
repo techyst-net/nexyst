@@ -10,6 +10,7 @@ from frappe.model.mapper import get_mapped_doc
 from frappe.utils import flt, get_link_to_form
 
 from erpnext.accounts.party import get_party_account
+from erpnext.controllers.status_updater import get_allowance_for
 from erpnext.setup.doctype.item_group.item_group import get_item_group_defaults
 from erpnext.stock.doctype.item.item import get_item_defaults
 
@@ -34,13 +35,25 @@ def make_purchase_receipt(
 	def is_unit_price_row(source):
 		return has_unit_price_items and source.qty == 0
 
+	def get_max_receivable_qty(source):
+		tolerance = flt(get_allowance_for(source.item_code, qty_or_amount="qty")[0])
+		return flt(source.qty) * (100 + tolerance) / 100
+
 	def update_item(obj, target, source_parent):
-		target.qty = flt(obj.qty) if is_unit_price_row(obj) else flt(obj.qty) - flt(obj.received_qty)
-		target.stock_qty = (flt(obj.qty) - flt(obj.received_qty)) * flt(obj.conversion_factor)
-		target.amount = (flt(obj.qty) - flt(obj.received_qty)) * flt(obj.rate)
-		target.base_amount = (
-			(flt(obj.qty) - flt(obj.received_qty)) * flt(obj.rate) * flt(source_parent.conversion_rate)
-		)
+		received_qty = flt(obj.received_qty)
+		qty = flt(obj.qty)
+		pending_qty = qty - received_qty
+
+		if is_unit_price_row(obj):
+			target.qty = qty
+		elif pending_qty > 0:
+			target.qty = pending_qty
+		else:
+			target.qty = max(get_max_receivable_qty(obj) - received_qty, 0)
+
+		target.stock_qty = target.qty * flt(obj.conversion_factor)
+		target.amount = target.qty * flt(obj.rate)
+		target.base_amount = target.qty * flt(obj.rate) * flt(source_parent.conversion_rate)
 
 	def select_item(d):
 		filtered_items = args.get("filtered_children", [])
@@ -72,7 +85,9 @@ def make_purchase_receipt(
 				},
 				"postprocess": update_item,
 				"condition": lambda doc: (
-					True if is_unit_price_row(doc) else abs(doc.received_qty) < abs(doc.qty)
+					True
+					if is_unit_price_row(doc)
+					else abs(doc.received_qty) < abs(get_max_receivable_qty(doc))
 				)
 				and doc.delivered_by_supplier != 1
 				and select_item(doc),

@@ -720,6 +720,9 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 	def make_payment_gl_entries(self, gl_entries):
 		doc = self.doc
 		if cint(doc.is_paid) and doc.cash_bank_account and doc.paid_amount:
+			against_voucher = doc.name
+			if doc.is_return and doc.return_against and not doc.update_outstanding_for_self:
+				against_voucher = doc.return_against
 			bank_account_currency = get_account_currency(doc.cash_bank_account)
 
 			gl_entries.append(
@@ -734,9 +737,7 @@ class PurchaseInvoiceGLComposer(BaseGLComposer):
 						if doc.party_account_currency == doc.company_currency
 						else doc.paid_amount,
 						"debit_in_transaction_currency": doc.paid_amount,
-						"against_voucher": doc.return_against
-						if cint(doc.is_return) and doc.return_against
-						else doc.name,
+						"against_voucher": against_voucher,
 						"against_voucher_type": doc.doctype,
 						"cost_center": doc.cost_center,
 						"project": doc.project,
