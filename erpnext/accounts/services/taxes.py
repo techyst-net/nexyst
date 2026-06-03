@@ -10,7 +10,6 @@ from frappe import _, throw
 from frappe.utils import cint, flt, parse_json
 
 import erpnext
-from erpnext.accounts.utils import get_account_currency
 from erpnext.stock.get_item_details import (
 	NOT_APPLICABLE_TAX,
 	ItemDetailsCtx,
@@ -176,81 +175,6 @@ class TaxService:
 			base_amount = tax.base_tax_amount
 
 		return amount, base_amount
-
-	def make_discount_gl_entries(self, gl_entries: list) -> None:
-		doc = self.doc
-		enable_discount_accounting = cint(
-			frappe.get_single_value("Selling Settings", "enable_discount_accounting")
-		)
-
-		if enable_discount_accounting:
-			for item in doc.get("items"):
-				if item.get("discount_amount") and item.get("discount_account"):
-					discount_amount = item.discount_amount * item.qty
-					income_account = (
-						item.income_account
-						if (not item.enable_deferred_revenue or doc.is_return)
-						else item.deferred_revenue_account
-					)
-
-					account_currency = get_account_currency(item.discount_account)
-					gl_entries.append(
-						doc.get_gl_dict(
-							{
-								"account": item.discount_account,
-								"against": doc.customer,
-								"debit": flt(
-									discount_amount * doc.get("conversion_rate"),
-									item.precision("discount_amount"),
-								),
-								"debit_in_transaction_currency": flt(
-									discount_amount, item.precision("discount_amount")
-								),
-								"cost_center": item.cost_center,
-								"project": item.project,
-							},
-							account_currency,
-							item=item,
-						)
-					)
-
-					account_currency = get_account_currency(income_account)
-					gl_entries.append(
-						doc.get_gl_dict(
-							{
-								"account": income_account,
-								"against": doc.customer,
-								"credit": flt(
-									discount_amount * doc.get("conversion_rate"),
-									item.precision("discount_amount"),
-								),
-								"credit_in_transaction_currency": flt(
-									discount_amount, item.precision("discount_amount")
-								),
-								"cost_center": item.cost_center,
-								"project": item.project or doc.project,
-							},
-							account_currency,
-							item=item,
-						)
-					)
-
-		if (
-			(enable_discount_accounting or doc.get("is_cash_or_non_trade_discount"))
-			and doc.get("additional_discount_account")
-			and doc.get("discount_amount")
-		):
-			gl_entries.append(
-				doc.get_gl_dict(
-					{
-						"account": doc.additional_discount_account,
-						"against": doc.customer,
-						"debit": doc.base_discount_amount,
-						"cost_center": doc.cost_center or erpnext.get_default_cost_center(doc.company),
-					},
-					item=doc,
-				)
-			)
 
 
 def get_tax_rate(account_head: str) -> dict:
