@@ -2,11 +2,9 @@
 # License: GNU General Public License v3. See license.txt
 
 import json
-from collections import defaultdict
 
 import frappe
 from frappe import _, bold
-from frappe.query_builder.functions import Sum
 from frappe.utils import cint, cstr, flt, get_link_to_form, getdate
 
 import erpnext
@@ -287,89 +285,23 @@ class StockController(AccountsController):
 		return StockLedgerService(self).get_sl_entries(d, args)
 
 	def set_landed_cost_voucher_amount(self):
-		for d in self.get("items"):
-			lcv_item = frappe.qb.DocType("Landed Cost Item")
-			query = (
-				frappe.qb.from_(lcv_item)
-				.select(Sum(lcv_item.applicable_charges), lcv_item.cost_center)
-				.where((lcv_item.docstatus == 1) & (lcv_item.receipt_document == self.name))
-			)
-
-			if self.doctype == "Stock Entry":
-				query = query.where(lcv_item.stock_entry_item == d.name)
-			else:
-				query = query.where(lcv_item.purchase_receipt_item == d.name)
-
-			lc_voucher_data = query.run(as_list=True)
-
-			d.landed_cost_voucher_amount = lc_voucher_data[0][0] if lc_voucher_data else 0.0
-			if not d.cost_center and lc_voucher_data and lc_voucher_data[0][1]:
-				d.db_set("cost_center", lc_voucher_data[0][1])
-
-	def has_landed_cost_amount(self):
-		for row in self.items:
-			if row.get("landed_cost_voucher_amount"):
-				return True
-
-		return False
-
-	def get_item_account_wise_lcv_entries(self):
-		if not self.has_landed_cost_amount():
-			return
-
-		landed_cost_vouchers = frappe.get_all(
-			"Landed Cost Purchase Receipt",
-			fields=["parent"],
-			filters={"receipt_document": self.name, "docstatus": 1},
+		from erpnext.stock.doctype.landed_cost_voucher.landed_cost_voucher import (
+			set_landed_cost_voucher_amount,
 		)
 
-		if not landed_cost_vouchers:
-			return
+		return set_landed_cost_voucher_amount(self)
 
-		item_account_wise_cost = {}
+	def has_landed_cost_amount(self):
+		from erpnext.stock.doctype.landed_cost_voucher.landed_cost_voucher import has_landed_cost_amount
 
-		row_fieldname = "purchase_receipt_item"
-		if self.doctype == "Stock Entry":
-			row_fieldname = "stock_entry_item"
+		return has_landed_cost_amount(self)
 
-		for lcv in landed_cost_vouchers:
-			landed_cost_voucher_doc = frappe.get_doc("Landed Cost Voucher", lcv.parent)
+	def get_item_account_wise_lcv_entries(self):
+		from erpnext.stock.doctype.landed_cost_voucher.landed_cost_voucher import (
+			get_item_account_wise_lcv_entries,
+		)
 
-			based_on_field = "applicable_charges"
-			# Use amount field for total item cost for manually cost distributed LCVs
-			if landed_cost_voucher_doc.distribute_charges_based_on != "Distribute Manually":
-				based_on_field = frappe.scrub(landed_cost_voucher_doc.distribute_charges_based_on)
-
-			total_item_cost = 0
-
-			if based_on_field:
-				for item in landed_cost_voucher_doc.items:
-					total_item_cost += item.get(based_on_field)
-
-			for item in landed_cost_voucher_doc.items:
-				if item.receipt_document == self.name:
-					for account in landed_cost_voucher_doc.taxes:
-						exchange_rate = account.exchange_rate or 1
-						item_account_wise_cost.setdefault((item.item_code, item.get(row_fieldname)), {})
-						item_account_wise_cost[(item.item_code, item.get(row_fieldname))].setdefault(
-							account.expense_account, {"amount": 0.0, "base_amount": 0.0}
-						)
-
-						item_row = item_account_wise_cost[(item.item_code, item.get(row_fieldname))][
-							account.expense_account
-						]
-
-						if total_item_cost > 0:
-							item_row["amount"] += account.amount * item.get(based_on_field) / total_item_cost
-
-							item_row["base_amount"] += (
-								account.base_amount * item.get(based_on_field) / total_item_cost
-							)
-						else:
-							item_row["amount"] += item.applicable_charges / exchange_rate
-							item_row["base_amount"] += item.applicable_charges
-
-		return item_account_wise_cost
+		return get_item_account_wise_lcv_entries(self)
 
 	def update_inventory_dimensions(self, row, sl_dict) -> None:
 		from erpnext.stock.services.stock_ledger import StockLedgerService
@@ -472,72 +404,9 @@ class StockController(AccountsController):
 		return StockInternalTransferService(self).validate_internal_transfer()
 
 	def validate_putaway_capacity(self):
-		# if over receipt is attempted while 'apply putaway rule' is disabled
-		# and if rule was applied on the transaction, validate it.
-		from erpnext.stock.doctype.putaway_rule.putaway_rule import get_available_putaway_capacity
+		from erpnext.stock.doctype.putaway_rule.putaway_rule import validate_putaway_capacity
 
-		valid_doctype = self.doctype in (
-			"Purchase Receipt",
-			"Stock Entry",
-			"Purchase Invoice",
-			"Stock Reconciliation",
-		)
-
-		if not frappe.get_all("Putaway Rule", limit=1):
-			return
-
-		if self.doctype == "Purchase Invoice" and self.get("update_stock") == 0:
-			valid_doctype = False
-
-		if valid_doctype:
-			rule_map = defaultdict(dict)
-			for item in self.get("items"):
-				warehouse_field = "t_warehouse" if self.doctype == "Stock Entry" else "warehouse"
-				rule = frappe.db.get_value(
-					"Putaway Rule",
-					{"item_code": item.get("item_code"), "warehouse": item.get(warehouse_field)},
-					["stock_capacity", "name", "disable"],
-					as_dict=True,
-				)
-				if rule:
-					if rule.get("disabled"):
-						continue  # dont validate for disabled rule
-
-					if self.doctype == "Stock Reconciliation":
-						stock_qty = flt(item.qty)
-					else:
-						stock_qty = (
-							flt(item.transfer_qty) if self.doctype == "Stock Entry" else flt(item.stock_qty)
-						)
-
-					rule_name = rule.get("name")
-					if not rule_map[rule_name]:
-						rule_map[rule_name]["warehouse"] = item.get(warehouse_field)
-						rule_map[rule_name]["item"] = item.get("item_code")
-						rule_map[rule_name]["qty_put"] = 0
-						rule_map[rule_name]["capacity"] = (
-							rule.stock_capacity
-							if self.doctype == "Stock Reconciliation"
-							else get_available_putaway_capacity(rule_name)
-						)
-					rule_map[rule_name]["qty_put"] += flt(stock_qty)
-
-			for rule, values in rule_map.items():
-				if flt(values["qty_put"]) > flt(values["capacity"]):
-					message = self.prepare_over_receipt_message(rule, values)
-					frappe.throw(msg=message, title=_("Over Receipt"))
-
-	def prepare_over_receipt_message(self, rule, values):
-		message = _("{0} qty of Item {1} is being received into Warehouse {2} with capacity {3}.").format(
-			frappe.bold(values["qty_put"]),
-			frappe.bold(values["item"]),
-			frappe.bold(values["warehouse"]),
-			frappe.bold(values["capacity"]),
-		)
-		message += "<br><br>"
-		rule_link = frappe.utils.get_link_to_form("Putaway Rule", rule)
-		message += _("Please adjust the qty or edit {0} to proceed.").format(rule_link)
-		return message
+		return validate_putaway_capacity(self)
 
 	def repost_future_sle_and_gle(self, force=False, via_landed_cost_voucher=False):
 		from erpnext.stock.services.stock_ledger import StockLedgerService
