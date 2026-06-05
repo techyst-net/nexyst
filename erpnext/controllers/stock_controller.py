@@ -23,23 +23,15 @@ from erpnext.setup.doctype.brand.brand import get_brand_defaults
 from erpnext.setup.doctype.item_group.item_group import get_item_group_defaults
 from erpnext.stock import get_warehouse_account_map
 from erpnext.stock.doctype.item.item import get_item_defaults
+
+# Re-exported for backward compatibility; canonical home is erpnext.stock.exceptions.
+from erpnext.stock.exceptions import (
+	BatchExpiredError,
+	QualityInspectionNotSubmittedError,
+	QualityInspectionRejectedError,
+	QualityInspectionRequiredError,
+)
 from erpnext.stock.stock_ledger import get_items_to_be_repost
-
-
-class QualityInspectionRequiredError(frappe.ValidationError):
-	pass
-
-
-class QualityInspectionRejectedError(frappe.ValidationError):
-	pass
-
-
-class QualityInspectionNotSubmittedError(frappe.ValidationError):
-	pass
-
-
-class BatchExpiredError(frappe.ValidationError):
-	pass
 
 
 class StockController(AccountsController):
@@ -674,18 +666,12 @@ def repost_required_for_queue(doc: StockController) -> bool:
 
 @frappe.whitelist()
 def check_item_quality_inspection(doctype: str, docstatus: str | int, items: str | list[dict]):
+	from erpnext.stock.services.quality_inspection import INSPECTION_FIELDNAME_MAP
+
 	if isinstance(items, str):
 		items = json.loads(items)
 
-	inspection_fieldname_map = {
-		"Purchase Receipt": "inspection_required_before_purchase",
-		"Purchase Invoice": "inspection_required_before_purchase",
-		"Subcontracting Receipt": "inspection_required_before_purchase",
-		"Sales Invoice": "inspection_required_before_delivery",
-		"Delivery Note": "inspection_required_before_delivery",
-	}
-
-	inspection_fieldname = inspection_fieldname_map.get(doctype)
+	inspection_fieldname = INSPECTION_FIELDNAME_MAP.get(doctype)
 	if inspection_fieldname is None:
 		return []
 

@@ -10,6 +10,22 @@ inspection have a present / submitted / non-rejected Quality Inspection.
 import frappe
 from frappe import _
 
+from erpnext.stock.exceptions import (
+	QualityInspectionNotSubmittedError,
+	QualityInspectionRejectedError,
+	QualityInspectionRequiredError,
+)
+
+# Doctype -> the document-level "inspection required" flag. Shared with
+# check_item_quality_inspection in stock_controller so the two stay in sync.
+INSPECTION_FIELDNAME_MAP = {
+	"Purchase Receipt": "inspection_required_before_purchase",
+	"Purchase Invoice": "inspection_required_before_purchase",
+	"Subcontracting Receipt": "inspection_required_before_purchase",
+	"Sales Invoice": "inspection_required_before_delivery",
+	"Delivery Note": "inspection_required_before_delivery",
+}
+
 
 class QualityInspectionService:
 	def __init__(self, doc) -> None:
@@ -17,14 +33,7 @@ class QualityInspectionService:
 
 	def validate_inspection(self):
 		"""Checks if quality inspection is set/ is valid for Items that require inspection."""
-		inspection_fieldname_map = {
-			"Purchase Receipt": "inspection_required_before_purchase",
-			"Purchase Invoice": "inspection_required_before_purchase",
-			"Subcontracting Receipt": "inspection_required_before_purchase",
-			"Sales Invoice": "inspection_required_before_delivery",
-			"Delivery Note": "inspection_required_before_delivery",
-		}
-		inspection_required_fieldname = inspection_fieldname_map.get(self.doc.doctype)
+		inspection_required_fieldname = INSPECTION_FIELDNAME_MAP.get(self.doc.doctype)
 
 		# return if inspection is not required on document level
 		if (
@@ -64,8 +73,6 @@ class QualityInspectionService:
 
 	def validate_qi_presence(self, row):
 		"""Check if QI is present on row level. Warn on save and stop on submit if missing."""
-		from erpnext.controllers.stock_controller import QualityInspectionRequiredError
-
 		if not row.quality_inspection:
 			msg = _("Row #{0}: Quality Inspection is required for Item {1}").format(
 				row.idx, frappe.bold(row.item_code)
@@ -77,8 +84,6 @@ class QualityInspectionService:
 
 	def validate_qi_submission(self, row):
 		"""Check if QI is submitted on row level, during submission"""
-		from erpnext.controllers.stock_controller import QualityInspectionNotSubmittedError
-
 		action = frappe.get_single_value("Stock Settings", "action_if_quality_inspection_is_not_submitted")
 		qa_docstatus = frappe.db.get_value("Quality Inspection", row.quality_inspection, "docstatus")
 
@@ -94,8 +99,6 @@ class QualityInspectionService:
 
 	def validate_qi_rejection(self, row):
 		"""Check if QI is rejected on row level, during submission"""
-		from erpnext.controllers.stock_controller import QualityInspectionRejectedError
-
 		action = frappe.get_single_value("Stock Settings", "action_if_quality_inspection_is_rejected")
 		qa_status = frappe.db.get_value("Quality Inspection", row.quality_inspection, "status")
 

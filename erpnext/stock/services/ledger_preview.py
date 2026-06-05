@@ -30,17 +30,23 @@ def get_accounting_ledger_preview(doc, filters):
 		"against_voucher",
 	]
 
-	doc.docstatus = 1
+	# Dry run: submit in memory to materialise GL entries, read them, then roll back
+	# to the savepoint so the preview never persists anything, regardless of caller.
+	frappe.db.savepoint("ledger_preview")
+	try:
+		doc.docstatus = 1
 
-	if doc.get("update_stock") or doc.doctype in ("Purchase Receipt", "Delivery Note", "Stock Entry"):
-		doc.update_stock_ledger()
+		if doc.get("update_stock") or doc.doctype in ("Purchase Receipt", "Delivery Note", "Stock Entry"):
+			doc.update_stock_ledger()
 
-	doc.make_gl_entries()
-	columns = get_gl_columns(filters)
-	gl_entries = get_gl_entries_for_preview(doc.doctype, doc.name, fields)
+		doc.make_gl_entries()
+		columns = get_gl_columns(filters)
+		gl_entries = get_gl_entries_for_preview(doc.doctype, doc.name, fields)
 
-	gl_columns = get_columns(columns, fields)
-	gl_data = get_data(fields, gl_entries)
+		gl_columns = get_columns(columns, fields)
+		gl_data = get_data(fields, gl_entries)
+	finally:
+		frappe.db.rollback(save_point="ledger_preview")
 
 	return gl_columns, gl_data
 
@@ -74,15 +80,21 @@ def get_stock_ledger_preview(doc, filters):
 	]
 
 	if doc.get("update_stock") or doc.doctype in ("Purchase Receipt", "Delivery Note", "Stock Entry"):
-		doc.docstatus = 1
-		doc.make_bundle_using_old_serial_batch_fields()
-		doc.update_stock_ledger()
+		# Dry run: submit in memory to materialise SLEs, read them, then roll back to
+		# the savepoint so the preview never persists anything, regardless of caller.
+		frappe.db.savepoint("ledger_preview")
+		try:
+			doc.docstatus = 1
+			doc.make_bundle_using_old_serial_batch_fields()
+			doc.update_stock_ledger()
 
-		columns = get_sl_columns(filters)
-		sl_entries = get_sl_entries_for_preview(doc.doctype, doc.name, fields)
+			columns = get_sl_columns(filters)
+			sl_entries = get_sl_entries_for_preview(doc.doctype, doc.name, fields)
 
-		sl_columns = get_columns(columns, columns_fields)
-		sl_data = get_data(columns_fields, sl_entries)
+			sl_columns = get_columns(columns, columns_fields)
+			sl_data = get_data(columns_fields, sl_entries)
+		finally:
+			frappe.db.rollback(save_point="ledger_preview")
 
 	return sl_columns, sl_data
 
