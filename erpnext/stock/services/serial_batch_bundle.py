@@ -678,15 +678,3 @@ class SerialBatchBundleService:
 			)
 			.where((doctype.docstatus == 1) & (child_doc.batch_no.isin(batches)))
 		).run(as_dict=True)
-
-	def get_serialized_items(self):
-		serialized_items = []
-		item_codes = list(set(d.item_code for d in self.doc.get("items")))
-		if item_codes:
-			serialized_items = frappe.db.sql_list(
-				"""select name from `tabItem`
-				where has_serial_no=1 and name in ({})""".format(", ".join(["%s"] * len(item_codes))),
-				tuple(item_codes),
-			)
-
-		return serialized_items
