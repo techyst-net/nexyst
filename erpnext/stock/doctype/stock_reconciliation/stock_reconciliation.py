@@ -65,6 +65,11 @@ class StockReconciliation(StockController):
 		self.head_row = ["Item Code", "Warehouse", "Quantity", "Valuation Rate"]
 
 	def validate(self):
+		from erpnext.stock.doctype.putaway_rule.putaway_rule import validate_putaway_capacity
+		from erpnext.stock.services.serial_batch_bundle_service import SerialBatchBundleService
+
+		sbb = SerialBatchBundleService(self)
+
 		self.validate_items_exist()
 		if not self.expense_account:
 			self.expense_account = frappe.get_cached_value(
@@ -75,16 +80,16 @@ class StockReconciliation(StockController):
 		self.validate_posting_time()
 		self.set_current_serial_and_batch_bundle()
 		self.set_new_serial_and_batch_bundle()
-		self.validate_duplicate_serial_and_batch_bundle("items")
+		sbb.validate_duplicate_serial_and_batch_bundle("items")
 		self.remove_items_with_no_change()
 		self.validate_data()
 		self.change_row_indexes()
 		self.validate_expense_account()
 		self.validate_customer_provided_item()
 		self.set_zero_value_for_customer_provided_items()
-		self.clean_serial_nos()
+		sbb.clean_serial_nos()
 		self.set_total_qty_and_amount()
-		self.validate_putaway_capacity()
+		validate_putaway_capacity(self)
 		self.validate_inventory_dimension()
 		self.validate_uom_is_integer("stock_uom", "qty")
 
@@ -925,7 +930,9 @@ class StockReconciliation(StockController):
 			data.qty_after_transaction = 0.0
 			data.incoming_rate = flt(row.valuation_rate)
 
-		self.update_inventory_dimensions(row, data)
+		from erpnext.stock.services.stock_ledger_service import StockLedgerService
+
+		StockLedgerService(self).update_inventory_dimensions(row, data)
 
 		return data
 
