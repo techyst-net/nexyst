@@ -1,13 +1,14 @@
 # Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
 # License: GNU General Public License v3. See license.txt
 
-"""Read-side GL / Stock Ledger preview helpers for stock transactions.
+"""Read-side GL / Stock Ledger preview helpers.
 
-A dry-run consumer of the posting path: it submits-in-memory, reads the resulting
-GL/SLE entries and formats them for the datatable preview, then the caller rolls
-back. Lives separately from the posting services it orchestrates. The whitelisted
-``show_*_preview`` entry points stay on ``stock_controller`` (their dotted path is
-referenced from client JS).
+A dry-run consumer of the posting path, shared across accounts and stock vouchers
+(Sales/Purchase Invoice, Payment Entry, Delivery Note, Purchase Receipt, Stock
+Entry): it submits-in-memory, reads the resulting GL/SLE entries and formats them
+for the datatable preview, then rolls back. Lives separately from the posting
+services it orchestrates. The whitelisted ``show_*_preview`` entry points stay on
+``stock_controller`` (their dotted path is referenced from client JS).
 """
 
 import frappe
