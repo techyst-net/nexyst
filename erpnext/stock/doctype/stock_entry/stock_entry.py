@@ -266,7 +266,7 @@ class StockEntry(StockController, SubcontractingInwardController):
 
 	def validate(self):
 		from erpnext.stock.doctype.putaway_rule.putaway_rule import validate_putaway_capacity
-		from erpnext.stock.services.serial_batch_bundle import SerialBatchBundleService
+		from erpnext.stock.services.serial_batch_bundle_service import SerialBatchBundleService
 
 		sbb = SerialBatchBundleService(self)
 

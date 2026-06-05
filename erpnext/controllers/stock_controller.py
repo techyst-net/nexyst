@@ -38,7 +38,7 @@ from erpnext.stock.stock_ledger import get_items_to_be_repost
 class StockController(AccountsController):
 	def validate(self):
 		from erpnext.stock.doctype.putaway_rule.putaway_rule import validate_putaway_capacity
-		from erpnext.stock.services.serial_batch_bundle import SerialBatchBundleService
+		from erpnext.stock.services.serial_batch_bundle_service import SerialBatchBundleService
 
 		sbb = SerialBatchBundleService(self)
 
@@ -203,19 +203,19 @@ class StockController(AccountsController):
 				make_gl_entries(gl_entries, from_repost=from_repost)
 
 	def make_bundle_using_old_serial_batch_fields(self, table_name=None, via_landed_cost_voucher=False):
-		from erpnext.stock.services.serial_batch_bundle import SerialBatchBundleService
+		from erpnext.stock.services.serial_batch_bundle_service import SerialBatchBundleService
 
 		return SerialBatchBundleService(self).make_bundle_using_old_serial_batch_fields(
 			table_name, via_landed_cost_voucher
 		)
 
 	def make_bundle_for_sales_purchase_return(self, table_name=None):
-		from erpnext.stock.services.serial_batch_bundle import SerialBatchBundleService
+		from erpnext.stock.services.serial_batch_bundle_service import SerialBatchBundleService
 
 		return SerialBatchBundleService(self).make_bundle_for_sales_purchase_return(table_name)
 
 	def set_use_serial_batch_fields(self):
-		from erpnext.stock.services.serial_batch_bundle import SerialBatchBundleService
+		from erpnext.stock.services.serial_batch_bundle_service import SerialBatchBundleService
 
 		return SerialBatchBundleService(self).set_use_serial_batch_fields()
 
@@ -239,19 +239,19 @@ class StockController(AccountsController):
 		return StockLedgerService(self).get_stock_ledger_details()
 
 	def delete_auto_created_batches(self):
-		from erpnext.stock.services.serial_batch_bundle import SerialBatchBundleService
+		from erpnext.stock.services.serial_batch_bundle_service import SerialBatchBundleService
 
 		return SerialBatchBundleService(self).delete_auto_created_batches()
 
 	def set_serial_and_batch_bundle(self, table_name=None, ignore_validate=False):
-		from erpnext.stock.services.serial_batch_bundle import SerialBatchBundleService
+		from erpnext.stock.services.serial_batch_bundle_service import SerialBatchBundleService
 
 		return SerialBatchBundleService(self).set_serial_and_batch_bundle(table_name, ignore_validate)
 
 	def make_package_for_transfer(
 		self, serial_and_batch_bundle, warehouse, type_of_transaction=None, do_not_submit=None, qty=0
 	):
-		from erpnext.stock.services.serial_batch_bundle import SerialBatchBundleService
+		from erpnext.stock.services.serial_batch_bundle_service import SerialBatchBundleService
 
 		return SerialBatchBundleService(self).make_package_for_transfer(
 			serial_and_batch_bundle, warehouse, type_of_transaction, do_not_submit, qty
@@ -331,7 +331,7 @@ class StockController(AccountsController):
 		)
 
 	def validate_inspection(self):
-		from erpnext.stock.services.quality_inspection import QualityInspectionService
+		from erpnext.stock.services.quality_inspection_service import QualityInspectionService
 
 		return QualityInspectionService(self).validate_inspection()
 
@@ -625,7 +625,7 @@ def repost_required_for_queue(doc: StockController) -> bool:
 
 @frappe.whitelist()
 def check_item_quality_inspection(doctype: str, docstatus: str | int, items: str | list[dict]):
-	from erpnext.stock.services.quality_inspection import INSPECTION_FIELDNAME_MAP
+	from erpnext.stock.services.quality_inspection_service import INSPECTION_FIELDNAME_MAP
 
 	if isinstance(items, str):
 		items = json.loads(items)
