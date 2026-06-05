@@ -6,6 +6,13 @@ a stored snapshot (see ``erpnext/stock/ledger_snapshots``). They assert nothing
 about *correct* accounting or valuation — only that ledger output stays
 byte-identical as ``stock_controller`` is split into services.
 
+Determinism: each test is wrapped in a savepoint that is rolled back in tearDown,
+so the cumulative Stock Ledger fields (qty_after_transaction, stock_value,
+valuation_rate) do not depend on test execution order or on state left by other
+tests. Prerequisite stock is posted on PREREQUISITE_DATE (before POSTING_DATE) so
+balances are positive and independent of the wall-clock date. Run the module in
+isolation (``--module ...``) as below.
+
 Regenerate goldens after an intentional change::
 
     REGEN_LEDGER_SNAPSHOTS=1 bench run-tests --site test-erpnext-v17 \\
@@ -15,26 +22,38 @@ Regenerate goldens after an intentional change::
 import frappe
 from frappe.tests import IntegrationTestCase
 
+from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.doctype.purchase_receipt.test_purchase_receipt import make_purchase_receipt
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.stock.ledger_snapshot import assert_ledger_snapshot
 
 POSTING_DATE = "2024-01-15"
+PREREQUISITE_DATE = "2024-01-10"
 CUSTOMER = "_Test Customer"
 COMPANY = "_Test Company with perpetual inventory"
 WAREHOUSE = "Stores - TCP1"
 
 
 class TestLedgerCharacterization(IntegrationTestCase):
+	def setUp(self):
+		frappe.db.savepoint("ledger_characterization")
+
+	def tearDown(self):
+		frappe.db.rollback(save_point="ledger_characterization")
+
 	def test_dn_basic(self):
-		make_stock_entry(item_code="_Test Item", target=WAREHOUSE, qty=10, basic_rate=100)
+		make_stock_entry(
+			item_code="_Test Item", target=WAREHOUSE, qty=10, basic_rate=100, posting_date=PREREQUISITE_DATE
+		)
 		dn = _make_dated_delivery_note(qty=5, rate=150)
 		dn.insert()
 		dn.submit()
 		assert_ledger_snapshot(self, "dn_basic", "Delivery Note", dn.name)
 
 	def test_dn_return(self):
-		make_stock_entry(item_code="_Test Item", target=WAREHOUSE, qty=10, basic_rate=100)
+		make_stock_entry(
+			item_code="_Test Item", target=WAREHOUSE, qty=10, basic_rate=100, posting_date=PREREQUISITE_DATE
+		)
 		original = _make_dated_delivery_note(qty=5, rate=150)
 		original.insert()
 		original.submit()
@@ -64,7 +83,14 @@ class TestLedgerCharacterization(IntegrationTestCase):
 		assert_ledger_snapshot(self, "se_material_receipt", "Stock Entry", se.name)
 
 	def test_se_material_issue(self):
-		make_stock_entry(item_code="_Test Item", target=WAREHOUSE, qty=10, basic_rate=100, company=COMPANY)
+		make_stock_entry(
+			item_code="_Test Item",
+			target=WAREHOUSE,
+			qty=10,
+			basic_rate=100,
+			company=COMPANY,
+			posting_date=PREREQUISITE_DATE,
+		)
 		se = make_stock_entry(
 			item_code="_Test Item",
 			source=WAREHOUSE,
@@ -77,7 +103,14 @@ class TestLedgerCharacterization(IntegrationTestCase):
 		assert_ledger_snapshot(self, "se_material_issue", "Stock Entry", se.name)
 
 	def test_se_material_transfer(self):
-		make_stock_entry(item_code="_Test Item", target=WAREHOUSE, qty=10, basic_rate=100, company=COMPANY)
+		make_stock_entry(
+			item_code="_Test Item",
+			target=WAREHOUSE,
+			qty=10,
+			basic_rate=100,
+			company=COMPANY,
+			posting_date=PREREQUISITE_DATE,
+		)
 		se = make_stock_entry(
 			item_code="_Test Item",
 			source=WAREHOUSE,
@@ -125,6 +158,43 @@ class TestLedgerCharacterization(IntegrationTestCase):
 		ret.insert()
 		ret.submit()
 		assert_ledger_snapshot(self, "pr_return", "Purchase Receipt", ret.name)
+
+	def test_pr_batch_item(self):
+		"""Exercises SerialBatchBundleService bundle creation + SLE bundle linkage."""
+		item_code = make_item(
+			"_Test Characterization Batch Item",
+			{
+				"has_batch_no": 1,
+				"create_new_batch": 1,
+				"batch_number_series": "CHAR-BATCH-.#####",
+				"is_stock_item": 1,
+			},
+		).name
+		pr = make_purchase_receipt(
+			item_code=item_code,
+			company=COMPANY,
+			warehouse=WAREHOUSE,
+			posting_date=POSTING_DATE,
+			qty=10,
+			rate=100,
+		)
+		assert_ledger_snapshot(self, "pr_batch_item", "Purchase Receipt", pr.name)
+
+	def test_pr_serial_item(self):
+		"""Exercises SerialBatchBundleService for serialized items + SLE bundle linkage."""
+		item_code = make_item(
+			"_Test Characterization Serial Item",
+			{"has_serial_no": 1, "serial_no_series": "CHAR-SER-.#####", "is_stock_item": 1},
+		).name
+		pr = make_purchase_receipt(
+			item_code=item_code,
+			company=COMPANY,
+			warehouse=WAREHOUSE,
+			posting_date=POSTING_DATE,
+			qty=5,
+			rate=100,
+		)
+		assert_ledger_snapshot(self, "pr_serial_item", "Purchase Receipt", pr.name)
 
 
 def _make_dated_delivery_note(**args) -> frappe.Document:

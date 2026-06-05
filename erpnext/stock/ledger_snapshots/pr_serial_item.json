@@ -1,9 +1,9 @@
 {
 	"gl": [
 		{
-			"account": "Stock Delivered But Not Billed - TCP1",
+			"account": "Stock In Hand - TCP1",
 			"account_currency": "INR",
-			"against": "Stock In Hand - TCP1",
+			"against": "Stock Received But Not Billed - TCP1",
 			"cost_center": "Main - TCP1",
 			"credit": 0.0,
 			"credit_in_account_currency": 0.0,
@@ -15,9 +15,9 @@
 			"posting_date": "2024-01-15"
 		},
 		{
-			"account": "Stock In Hand - TCP1",
+			"account": "Stock Received But Not Billed - TCP1",
 			"account_currency": "INR",
-			"against": "Stock Delivered But Not Billed - TCP1",
+			"against": "Stock In Hand - TCP1",
 			"cost_center": "Main - TCP1",
 			"credit": 500.0,
 			"credit_in_account_currency": 500.0,
@@ -31,15 +31,15 @@
 	],
 	"sle": [
 		{
-			"actual_qty": -5.0,
-			"has_serial_and_batch_bundle": false,
-			"incoming_rate": 0.0,
-			"item_code": "_Test Item",
+			"actual_qty": 5.0,
+			"has_serial_and_batch_bundle": true,
+			"incoming_rate": 100.0,
+			"item_code": "_Test Characterization Serial Item",
 			"posting_date": "2024-01-15",
 			"qty_after_transaction": 5.0,
-			"stock_uom": "_Test UOM",
+			"stock_uom": "Nos",
 			"stock_value": 500.0,
-			"stock_value_difference": -500.0,
+			"stock_value_difference": 500.0,
 			"valuation_rate": 100.0,
 			"warehouse": "Stores - TCP1"
 		}

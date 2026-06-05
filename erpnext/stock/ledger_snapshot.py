@@ -114,6 +114,7 @@ class SLSnapshot:
 				sle.valuation_rate,
 				sle.stock_value,
 				sle.stock_value_difference,
+				sle.serial_and_batch_bundle,
 				sle.posting_date,
 			)
 			.where(
@@ -136,6 +137,9 @@ class SLSnapshot:
 			"valuation_rate": flt(row.valuation_rate, RATE_PRECISION),
 			"stock_value": flt(row.stock_value, RATE_PRECISION),
 			"stock_value_difference": flt(row.stock_value_difference, RATE_PRECISION),
+			# Linkage presence, not the volatile bundle docname — catches a dropped
+			# serial/batch bundle link without coupling the golden to generated names.
+			"has_serial_and_batch_bundle": bool(row.serial_and_batch_bundle),
 			"posting_date": str(row.posting_date),
 		}
 
