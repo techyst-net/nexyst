@@ -31,6 +31,7 @@ from erpnext.stock.exceptions import (
 	QualityInspectionRejectedError,
 	QualityInspectionRequiredError,
 )
+from erpnext.stock.services.internal_transfer import StockInternalTransferService
 from erpnext.stock.stock_ledger import get_items_to_be_repost
 
 
@@ -50,7 +51,7 @@ class StockController(AccountsController):
 		self.clean_serial_nos()
 		self.validate_customer_provided_item()
 		self.set_rate_of_stock_uom()
-		self.validate_internal_transfer()
+		StockInternalTransferService(self).validate_internal_transfer()
 		self.validate_putaway_capacity()
 		self.reset_conversion_factor()
 
@@ -283,11 +284,6 @@ class StockController(AccountsController):
 
 		return set_landed_cost_voucher_amount(self)
 
-	def has_landed_cost_amount(self):
-		from erpnext.stock.doctype.landed_cost_voucher.landed_cost_voucher import has_landed_cost_amount
-
-		return has_landed_cost_amount(self)
-
 	def get_item_account_wise_lcv_entries(self):
 		from erpnext.stock.doctype.landed_cost_voucher.landed_cost_voucher import (
 			get_item_account_wise_lcv_entries,
@@ -389,11 +385,6 @@ class StockController(AccountsController):
 		]:
 			for d in self.get("items"):
 				d.stock_uom_rate = d.rate / (d.conversion_factor or 1)
-
-	def validate_internal_transfer(self):
-		from erpnext.stock.services.internal_transfer import StockInternalTransferService
-
-		return StockInternalTransferService(self).validate_internal_transfer()
 
 	def validate_putaway_capacity(self):
 		from erpnext.stock.doctype.putaway_rule.putaway_rule import validate_putaway_capacity
