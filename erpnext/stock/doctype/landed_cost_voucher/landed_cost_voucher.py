@@ -315,7 +315,7 @@ class LandedCostVoucher(Document):
 				self.validate_asset_qty_and_status(d.receipt_document_type, doc)
 
 			# set landed cost voucher amount in pr item
-			doc.set_landed_cost_voucher_amount()
+			set_landed_cost_voucher_amount(doc)
 
 			if d.receipt_document_type == "Subcontracting Receipt":
 				doc.calculate_items_qty_and_amount()

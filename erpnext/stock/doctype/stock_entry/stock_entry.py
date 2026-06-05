@@ -265,17 +265,22 @@ class StockEntry(StockController, SubcontractingInwardController):
 				)
 
 	def validate(self):
+		from erpnext.stock.doctype.putaway_rule.putaway_rule import validate_putaway_capacity
+		from erpnext.stock.services.serial_batch_bundle import SerialBatchBundleService
+
+		sbb = SerialBatchBundleService(self)
+
 		if self.purpose_cls:
 			self.purpose_cls(self).validate()
 
-		self.validate_duplicate_serial_and_batch_bundle("items")
+		sbb.validate_duplicate_serial_and_batch_bundle("items")
 		self.validate_posting_time()
 		self.validate_item()
 		self.validate_customer_provided_item()
 		self.set_transfer_qty()
 		self.validate_uom_is_integer("uom", "qty")
 		self.validate_uom_is_integer("stock_uom", "transfer_qty")
-		self.validate_warehouse_of_sabb()
+		sbb.validate_warehouse_of_sabb()
 		self.validate_source_stock_entry()
 		self.validate_bom()
 		self.set_process_loss_qty()
@@ -294,11 +299,11 @@ class StockEntry(StockController, SubcontractingInwardController):
 		self.validate_difference_account()
 		self.validate_job_card_item()
 		self.set_purpose_for_stock_entry()
-		self.clean_serial_nos()
+		sbb.clean_serial_nos()
 		self.remove_fg_completed_qty()
-		self.validate_serialized_batch()
+		sbb.validate_serialized_batch()
 		self.calculate_rate_and_amount()
-		self.validate_putaway_capacity()
+		validate_putaway_capacity(self)
 		self.validate_closed_subcontracting_order()
 		super().validate_subcontracting_inward()
 

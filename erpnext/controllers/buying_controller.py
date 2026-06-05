@@ -35,6 +35,10 @@ class BuyingController(SubcontractingController):
 		self.flags.ignore_permlevel_for_fields = ["buying_price_list", "price_list_currency"]
 
 	def validate(self):
+		from erpnext.stock.doctype.landed_cost_voucher.landed_cost_voucher import (
+			set_landed_cost_voucher_amount,
+		)
+
 		self.set_rate_for_standalone_debit_note()
 
 		super().validate()
@@ -59,7 +63,7 @@ class BuyingController(SubcontractingController):
 			self.validate_rejected_warehouse()
 			self.validate_accepted_rejected_qty()
 			validate_for_items(self)
-			self.set_landed_cost_voucher_amount()
+			set_landed_cost_voucher_amount(self)
 
 		if self.doctype in ("Purchase Receipt", "Purchase Invoice"):
 			self.update_valuation_rate()

@@ -37,32 +37,32 @@ from erpnext.stock.stock_ledger import get_items_to_be_repost
 
 class StockController(AccountsController):
 	def validate(self):
+		from erpnext.stock.doctype.putaway_rule.putaway_rule import validate_putaway_capacity
+		from erpnext.stock.services.serial_batch_bundle import SerialBatchBundleService
+
+		sbb = SerialBatchBundleService(self)
+
 		super().validate()
 
 		if self.docstatus == 0:
 			for table_name in ["items", "packed_items", "supplied_items"]:
-				self.validate_duplicate_serial_and_batch_bundle(table_name)
+				sbb.validate_duplicate_serial_and_batch_bundle(table_name)
 
 		if not self.get("is_return"):
 			self.validate_inspection()
 
-		self.validate_warehouse_of_sabb()
-		self.validate_serialized_batch()
-		self.clean_serial_nos()
+		sbb.validate_warehouse_of_sabb()
+		sbb.validate_serialized_batch()
+		sbb.clean_serial_nos()
 		self.validate_customer_provided_item()
 		self.set_rate_of_stock_uom()
 		StockInternalTransferService(self).validate_internal_transfer()
-		self.validate_putaway_capacity()
+		validate_putaway_capacity(self)
 		self.reset_conversion_factor()
 
 	def on_update(self):
 		super().on_update()
 		self.check_zero_rate()
-
-	def validate_warehouse_of_sabb(self):
-		from erpnext.stock.services.serial_batch_bundle import SerialBatchBundleService
-
-		return SerialBatchBundleService(self).validate_warehouse_of_sabb()
 
 	def reset_conversion_factor(self):
 		for row in self.get("items"):
@@ -117,11 +117,6 @@ class StockController(AccountsController):
 
 		if non_exists_items:
 			frappe.throw(_("Items {0} do not exist in the Item master.").format(", ".join(non_exists_items)))
-
-	def validate_duplicate_serial_and_batch_bundle(self, table_name):
-		from erpnext.stock.services.serial_batch_bundle import SerialBatchBundleService
-
-		return SerialBatchBundleService(self).validate_duplicate_serial_and_batch_bundle(table_name)
 
 	def get_item_wise_inventory_account_map(self):
 		inventory_account_map = frappe._dict()
@@ -207,16 +202,6 @@ class StockController(AccountsController):
 					)
 				make_gl_entries(gl_entries, from_repost=from_repost)
 
-	def validate_serialized_batch(self):
-		from erpnext.stock.services.serial_batch_bundle import SerialBatchBundleService
-
-		return SerialBatchBundleService(self).validate_serialized_batch()
-
-	def clean_serial_nos(self):
-		from erpnext.stock.services.serial_batch_bundle import SerialBatchBundleService
-
-		return SerialBatchBundleService(self).clean_serial_nos()
-
 	def make_bundle_using_old_serial_batch_fields(self, table_name=None, via_landed_cost_voucher=False):
 		from erpnext.stock.services.serial_batch_bundle import SerialBatchBundleService
 
@@ -277,24 +262,12 @@ class StockController(AccountsController):
 
 		return StockLedgerService(self).get_sl_entries(d, args)
 
-	def set_landed_cost_voucher_amount(self):
-		from erpnext.stock.doctype.landed_cost_voucher.landed_cost_voucher import (
-			set_landed_cost_voucher_amount,
-		)
-
-		return set_landed_cost_voucher_amount(self)
-
 	def get_item_account_wise_lcv_entries(self):
 		from erpnext.stock.doctype.landed_cost_voucher.landed_cost_voucher import (
 			get_item_account_wise_lcv_entries,
 		)
 
 		return get_item_account_wise_lcv_entries(self)
-
-	def update_inventory_dimensions(self, row, sl_dict) -> None:
-		from erpnext.stock.services.stock_ledger import StockLedgerService
-
-		return StockLedgerService(self).update_inventory_dimensions(row, sl_dict)
 
 	def make_sl_entries(self, sl_entries, allow_negative_stock=False, via_landed_cost_voucher=False):
 		from erpnext.stock.services.stock_ledger import StockLedgerService
@@ -385,11 +358,6 @@ class StockController(AccountsController):
 		]:
 			for d in self.get("items"):
 				d.stock_uom_rate = d.rate / (d.conversion_factor or 1)
-
-	def validate_putaway_capacity(self):
-		from erpnext.stock.doctype.putaway_rule.putaway_rule import validate_putaway_capacity
-
-		return validate_putaway_capacity(self)
 
 	def repost_future_sle_and_gle(self, force=False, via_landed_cost_voucher=False):
 		from erpnext.stock.services.stock_ledger import StockLedgerService
