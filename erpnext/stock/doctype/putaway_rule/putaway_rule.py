@@ -363,7 +363,7 @@ def validate_putaway_capacity(doc):
 				as_dict=True,
 			)
 			if rule:
-				if rule.get("disabled"):
+				if rule.get("disable"):
 					continue  # dont validate for disabled rule
 
 				if doc.doctype == "Stock Reconciliation":
