@@ -102,8 +102,8 @@ class SerialBatchBundleService:
 				)
 
 	def validate_serialized_batch(self):
+		from erpnext.exceptions import BatchExpiredError
 		from erpnext.stock.doctype.serial_no.serial_no import get_serial_nos
-		from erpnext.stock.exceptions import BatchExpiredError
 
 		is_material_issue = False
 		if self.doc.doctype == "Stock Entry" and self.doc.purpose in ["Material Issue", "Material Transfer"]:

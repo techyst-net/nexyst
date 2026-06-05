@@ -19,18 +19,18 @@ from erpnext.controllers.sales_and_purchase_return import (
 	filter_serial_batches,
 	make_serial_batch_bundle_for_return,
 )
-from erpnext.setup.doctype.brand.brand import get_brand_defaults
-from erpnext.setup.doctype.item_group.item_group import get_item_group_defaults
-from erpnext.stock import get_warehouse_account_map
-from erpnext.stock.doctype.item.item import get_item_defaults
 
-# Re-exported for backward compatibility; canonical home is erpnext.stock.exceptions.
-from erpnext.stock.exceptions import (
+# Re-exported for backward compatibility; canonical home is erpnext.exceptions.
+from erpnext.exceptions import (
 	BatchExpiredError,
 	QualityInspectionNotSubmittedError,
 	QualityInspectionRejectedError,
 	QualityInspectionRequiredError,
 )
+from erpnext.setup.doctype.brand.brand import get_brand_defaults
+from erpnext.setup.doctype.item_group.item_group import get_item_group_defaults
+from erpnext.stock import get_warehouse_account_map
+from erpnext.stock.doctype.item.item import get_item_defaults
 from erpnext.stock.services.internal_transfer import StockInternalTransferService
 from erpnext.stock.stock_ledger import get_items_to_be_repost
 

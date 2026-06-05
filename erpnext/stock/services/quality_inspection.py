@@ -10,7 +10,7 @@ inspection have a present / submitted / non-rejected Quality Inspection.
 import frappe
 from frappe import _
 
-from erpnext.stock.exceptions import (
+from erpnext.exceptions import (
 	QualityInspectionNotSubmittedError,
 	QualityInspectionRejectedError,
 	QualityInspectionRequiredError,
