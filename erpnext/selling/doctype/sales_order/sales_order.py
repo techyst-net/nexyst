@@ -8,7 +8,6 @@ from typing import Literal
 import frappe
 import frappe.utils
 from frappe import _, qb
-from frappe.desk.notifications import clear_doctype_notifications
 from frappe.model.document import Document
 from frappe.query_builder.functions import Sum
 from frappe.utils import cint, cstr, flt, get_link_to_form, getdate, parse_json
@@ -23,6 +22,7 @@ from erpnext.manufacturing.doctype.blanket_order.blanket_order import (
 	validate_against_blanket_order,
 )
 from erpnext.selling.doctype.customer.customer import check_credit_limit
+from erpnext.selling.doctype.sales_order.services.status import StatusService
 from erpnext.selling.doctype.sales_order.services.stock_reservation import StockReservationService
 from erpnext.stock.doctype.packed_item.packed_item import make_packing_list
 from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import has_reserved_stock
@@ -248,12 +248,7 @@ class SalesOrder(SellingController):
 		self.validate_fg_item_for_subcontracting()
 		self.set_status()
 
-		if not self.billing_status:
-			self.billing_status = "Not Billed"
-		if not self.delivery_status:
-			self.delivery_status = "Not Delivered"
-		if not self.advance_payment_status:
-			self.advance_payment_status = "Not Requested"
+		StatusService(self).set_default_statuses()
 
 		self.reset_default_field_value("set_warehouse", "items", "warehouse")
 		if not self.get("is_subcontracted"):
@@ -579,23 +574,8 @@ class SalesOrder(SellingController):
 				)
 			)
 
-	def check_modified_date(self):
-		mod_db = frappe.db.get_value("Sales Order", self.name, "modified")
-		if mod_db and cstr(mod_db) != cstr(self.modified):
-			frappe.throw(_("{0} {1} has been modified. Please refresh.").format(self.doctype, self.name))
-
 	def update_status(self, status):
-		self.check_modified_date()
-		self.set_status(update=True, status=status)
-		# Upon Sales Order Re-open, check for credit limit.
-		# Limit should be checked after the 'Hold/Closed' status is reset.
-		if status == "Draft" and self.docstatus == 1:
-			self.check_credit_limit()
-		self.update_reserved_qty()
-		self.update_subcontracting_order_status()
-		self.notify_update()
-		clear_doctype_notifications(self)
-		self.update_blanket_order()
+		StatusService(self).update_status(status)
 
 	def update_subcontracting_order_status(self):
 		from erpnext.subcontracting.doctype.subcontracting_inward_order.subcontracting_inward_order import (
@@ -643,65 +623,14 @@ class SalesOrder(SellingController):
 
 	def update_delivery_status(self):
 		"""Update delivery status from Purchase Order for drop shipping"""
-		tot_qty, delivered_qty = 0.0, 0.0
-
-		for item in self.items:
-			if item.delivered_by_supplier:
-				item_delivered_qty = frappe.get_all(
-					"Purchase Order Item",
-					{"sales_order_item": item.name, "docstatus": 1},
-					[{"SUM": "received_qty", "AS": "received_qty"}],
-					pluck="received_qty",
-				)[0]
-				item.db_set("delivered_qty", flt(item_delivered_qty), update_modified=False)
-
-			delivered_qty += min(item.delivered_qty, item.qty)
-			tot_qty += item.qty
-
-		if tot_qty != 0:
-			self.db_set("per_delivered", flt(delivered_qty / tot_qty) * 100, update_modified=False)
+		StatusService(self).update_delivery_status()
 
 	def update_picking_status(self):
-		total_picked_qty = 0.0
-		total_qty = 0.0
-		per_picked = 0.0
-
-		for so_item in self.items:
-			if cint(
-				frappe.get_cached_value("Item", so_item.item_code, "is_stock_item")
-			) or self.has_product_bundle(so_item.item_code):
-				total_picked_qty += flt(so_item.picked_qty)
-				total_qty += flt(so_item.stock_qty)
-
-		if total_picked_qty and total_qty:
-			per_picked = total_picked_qty / total_qty * 100
-
-			pick_percentage = frappe.get_single_value("Stock Settings", "over_picking_allowance")
-			if pick_percentage:
-				total_qty += flt(total_qty) * (pick_percentage / 100)
-
-			if total_picked_qty > total_qty:
-				frappe.throw(
-					_(
-						"Total Picked Quantity {0} is more than ordered qty {1}. You can set the Over Picking Allowance in Stock Settings."
-					).format(total_picked_qty, total_qty)
-				)
-
-		self.db_set("per_picked", flt(per_picked), update_modified=False)
+		StatusService(self).update_picking_status()
 
 	def set_indicator(self):
 		"""Set indicator for portal"""
-		self.indicator_color = {
-			"Draft": "red",
-			"On Hold": "orange",
-			"To Deliver and Bill": "orange",
-			"To Bill": "orange",
-			"To Deliver": "orange",
-			"Completed": "green",
-			"Cancelled": "red",
-		}.get(self.status, "blue")
-
-		self.indicator_title = _(self.status)
+		StatusService(self).set_indicator()
 
 	def on_recurring(self, reference_doc, auto_repeat_doc):
 		def _get_delivery_date(ref_doc_delivery_date, red_doc_transaction_date, transaction_date):
