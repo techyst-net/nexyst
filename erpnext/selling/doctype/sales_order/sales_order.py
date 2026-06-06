@@ -10,7 +10,7 @@ import frappe.utils
 from frappe import _, qb
 from frappe.model.document import Document
 from frappe.query_builder.functions import Sum
-from frappe.utils import cint, cstr, flt, get_link_to_form, getdate, parse_json
+from frappe.utils import cint, flt, get_link_to_form, getdate
 
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import (
 	unlink_inter_company_doc,
@@ -22,6 +22,7 @@ from erpnext.manufacturing.doctype.blanket_order.blanket_order import (
 	validate_against_blanket_order,
 )
 from erpnext.selling.doctype.customer.customer import check_credit_limit
+from erpnext.selling.doctype.sales_order.services.delivery_schedule import DeliveryScheduleService
 from erpnext.selling.doctype.sales_order.services.status import StatusService
 from erpnext.selling.doctype.sales_order.services.stock_reservation import StockReservationService
 from erpnext.stock.doctype.packed_item.packed_item import make_packing_list
@@ -480,7 +481,7 @@ class SalesOrder(SellingController):
 		super().update_prevdoc_status()
 		self.check_credit_limit()
 		self.update_reserved_qty()
-		self.delete_removed_delivery_schedule_items()
+		DeliveryScheduleService(self).delete_removed_delivery_schedule_items()
 
 		frappe.get_cached_doc("Authorization Control").validate_approving_authority(
 			self.doctype, self.company, self.base_grand_total, self
@@ -499,13 +500,6 @@ class SalesOrder(SellingController):
 		if self.get("reserve_stock") and not self.get("is_subcontracted"):
 			self.create_stock_reservation_entries()
 
-	def delete_removed_delivery_schedule_items(self):
-		items = [d.name for d in self.get("items")]
-		doctype = frappe.qb.DocType("Delivery Schedule Item")
-		frappe.qb.from_(doctype).delete().where(
-			(doctype.sales_order == self.name) & (doctype.sales_order_item.notin(items))
-		).run()
-
 	def on_cancel(self):
 		self.ignore_linked_doctypes = (
 			"GL Entry",
@@ -521,7 +515,7 @@ class SalesOrder(SellingController):
 		if self.status == "Closed":
 			frappe.throw(_("Closed order cannot be cancelled. Unclose to cancel."))
 
-		self.delete_delivery_schedule_items()
+		DeliveryScheduleService(self).delete_delivery_schedule_items()
 		self.check_nextdoc_docstatus()
 		self.update_reserved_qty()
 		self.update_project()
@@ -730,79 +724,11 @@ class SalesOrder(SellingController):
 
 	@frappe.whitelist()
 	def get_delivery_schedule(self, sales_order_item: str):
-		return frappe.get_all(
-			"Delivery Schedule Item",
-			filters={"sales_order_item": sales_order_item, "sales_order": self.name},
-			fields=["delivery_date", "qty", "name"],
-			order_by="delivery_date asc",
-		)
+		return DeliveryScheduleService(self).get_delivery_schedule(sales_order_item)
 
 	@frappe.whitelist()
 	def create_delivery_schedule(self, child_row: dict | frappe._dict, schedules: str | list[dict]):
-		if isinstance(child_row, dict):
-			child_row = frappe._dict(child_row)
-
-		if isinstance(schedules, str):
-			schedules = parse_json(schedules)
-
-		names = []
-		first_delivery_date = None
-		for row in schedules:
-			row = frappe._dict(row)
-
-			if not first_delivery_date:
-				first_delivery_date = row.delivery_date
-
-			data = {
-				"delivery_date": row.delivery_date,
-				"qty": row.qty,
-				"uom": child_row.uom,
-				"stock_uom": child_row.stock_uom,
-				"item_code": child_row.item_code,
-				"conversion_factor": child_row.conversion_factor or 1.0,
-				"warehouse": child_row.warehouse,
-				"sales_order_item": child_row.name,
-				"sales_order": self.name,
-				"stock_qty": row.qty * (child_row.conversion_factor or 1.0),
-			}
-
-			if frappe.db.exists("Delivery Schedule Item", row.name):
-				doc = frappe.get_doc("Delivery Schedule Item", row.name)
-			else:
-				doc = frappe.new_doc("Delivery Schedule Item")
-
-			doc.update(data)
-			doc.save(ignore_permissions=True)
-			names.append(doc.name)
-
-		if names:
-			self.delete_delivery_schedule_items(child_row.name, names)
-
-		if first_delivery_date:
-			self.update_delivery_date_based_on_schedule(child_row, first_delivery_date)
-
-	def update_delivery_date_based_on_schedule(self, child_row, first_delivery_date):
-		for row in self.items:
-			if row.name == child_row.name:
-				if first_delivery_date:
-					row.delivery_date = first_delivery_date
-				break
-
-		self.save()
-
-	def delete_delivery_schedule_items(self, sales_order_item=None, ignore_names=None):
-		"""Delete delivery schedule items."""
-		doctype = frappe.qb.DocType("Delivery Schedule Item")
-
-		query = frappe.qb.from_(doctype).delete().where(doctype.sales_order == self.name)
-
-		if ignore_names:
-			query = query.where(doctype.name.notin(ignore_names))
-
-		if sales_order_item:
-			query = query.where(doctype.sales_order_item == sales_order_item)
-
-		query.run()
+		DeliveryScheduleService(self).create_delivery_schedule(child_row, schedules)
 
 
 def get_list_context(context=None):
