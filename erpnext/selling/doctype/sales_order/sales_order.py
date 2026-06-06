@@ -23,13 +23,10 @@ from erpnext.manufacturing.doctype.blanket_order.blanket_order import (
 	validate_against_blanket_order,
 )
 from erpnext.selling.doctype.customer.customer import check_credit_limit
+from erpnext.selling.doctype.sales_order.services.stock_reservation import StockReservationService
 from erpnext.stock.doctype.packed_item.packed_item import make_packing_list
-from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import (
-	get_sre_reserved_qty_details_for_voucher,
-	has_reserved_stock,
-)
+from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import has_reserved_stock
 from erpnext.stock.get_item_details import get_default_bom
-from erpnext.stock.stock_balance import get_reserved_qty, update_bin_qty
 
 form_grid_templates = {"items": "templates/form_grid/item_grid.html"}
 
@@ -233,7 +230,7 @@ class SalesOrder(SellingController):
 		self.validate_for_items()
 		self.validate_warehouse()
 		self.validate_drop_ship()
-		self.validate_reserved_stock()
+		StockReservationService(self).validate_reserved_stock()
 		self.validate_serial_no_based_delivery()
 		validate_against_blanket_order(self)
 		validate_inter_company_party(
@@ -260,7 +257,7 @@ class SalesOrder(SellingController):
 
 		self.reset_default_field_value("set_warehouse", "items", "warehouse")
 		if not self.get("is_subcontracted"):
-			self.enable_auto_reserve_stock()
+			StockReservationService(self).enable_auto_reserve_stock()
 
 	def validate_fg_item_for_subcontracting(self):
 		if self.is_subcontracted:
@@ -292,10 +289,6 @@ class SalesOrder(SellingController):
 			for item in self.items:
 				item.set("fg_item", None)
 				item.set("fg_item_qty", 0)
-
-	def enable_auto_reserve_stock(self):
-		if self.is_new() and frappe.get_single_value("Stock Settings", "auto_reserve_stock"):
-			self.reserve_stock = 1
 
 	def set_has_unit_price_items(self):
 		"""
@@ -618,29 +611,7 @@ class SalesOrder(SellingController):
 				update_scio_status(scio, "Closed" if self.status == "Closed" else None)
 
 	def update_reserved_qty(self, so_item_rows=None):
-		"""update requested qty (before ordered_qty is updated)"""
-		item_wh_list = []
-
-		def _valid_for_reserve(item_code, warehouse):
-			if (
-				item_code
-				and warehouse
-				and [item_code, warehouse] not in item_wh_list
-				and frappe.get_cached_value("Item", item_code, "is_stock_item")
-			):
-				item_wh_list.append([item_code, warehouse])
-
-		for d in self.get("items"):
-			if (not so_item_rows or d.name in so_item_rows) and not d.delivered_by_supplier:
-				if self.has_product_bundle(d.item_code):
-					for p in self.get("packed_items"):
-						if p.parent_detail_docname == d.name and p.parent_item == d.item_code:
-							_valid_for_reserve(p.item_code, p.warehouse)
-				else:
-					_valid_for_reserve(d.item_code, d.warehouse)
-
-		for item_code, warehouse in item_wh_list:
-			update_bin_qty(item_code, warehouse, {"reserved_qty": get_reserved_qty(item_code, warehouse)})
+		StockReservationService(self).update_reserved_qty(so_item_rows)
 
 	def on_update_after_submit(self):
 		self.calculate_commission()
@@ -798,31 +769,10 @@ class SalesOrder(SellingController):
 					).format(item.item_code)
 				)
 
-	def validate_reserved_stock(self):
-		"""Clean reserved stock flag for non-stock Item"""
-
-		enable_stock_reservation = frappe.get_single_value("Stock Settings", "enable_stock_reservation")
-
-		for item in self.items:
-			if item.reserve_stock and (not enable_stock_reservation or not cint(item.is_stock_item)):
-				item.reserve_stock = 0
-
 	@frappe.whitelist()
-	def has_unreserved_stock(self, table_name: str = "items") -> bool:
-		"""Returns True if there is any unreserved item in the Sales Order."""
-
-		reserved_qty_details = get_sre_reserved_qty_details_for_voucher("Sales Order", self.name)
-
-		data = {}
-		for item in self.get(table_name):
-			if not item.get("reserve_stock"):
-				continue
-
-			unreserved_qty = get_unreserved_qty(item, reserved_qty_details)
-			if unreserved_qty > 0:
-				data[item.name] = unreserved_qty
-
-		return data
+	def has_unreserved_stock(self, table_name: str = "items") -> dict:
+		"""Returns unreserved qty per item if there is any unreserved item in the Sales Order."""
+		return StockReservationService(self).has_unreserved_stock(table_name)
 
 	@frappe.whitelist()
 	def create_stock_reservation_entries(
@@ -832,58 +782,14 @@ class SalesOrder(SellingController):
 		notify: bool = True,
 	) -> None:
 		"""Creates Stock Reservation Entries for Sales Order Items."""
-
-		from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import (
-			create_stock_reservation_entries_for_so_items as create_stock_reservation_entries,
+		StockReservationService(self).create_stock_reservation_entries(
+			items_details, from_voucher_type, notify
 		)
-
-		packed_items = []
-		if items_details:
-			for item in items_details:
-				if not frappe.db.exists("Sales Order Item", item.get("sales_order_item")):
-					item["qty"] = item.pop("qty_to_reserve")
-					packed_items.append(item)
-
-			for item in packed_items:
-				items_details.remove(item)
-
-		sre_count = 0
-		if items_details != []:
-			sre_count = create_stock_reservation_entries(
-				sales_order=self,
-				items_details=items_details,
-				from_voucher_type=from_voucher_type,
-				notify=notify,
-			)
-
-		items = []
-		if packed_items:
-			items = packed_items
-		elif not items_details:
-			items = [item for item in self.packed_items if item.reserve_stock]
-
-		if items:
-			from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import StockReservation
-
-			stock_reservation = StockReservation(doc=self, items=items)
-			stock_reservation.table_name = "packed_items"
-			stock_reservation.qty_field = "qty"
-			is_sre_created = stock_reservation.make_stock_reservation_entries()
-
-			if notify and is_sre_created and not sre_count:
-				frappe.msgprint(_("Stock Reservation Entries Created"), alert=True, indicator="green")
 
 	@frappe.whitelist()
 	def cancel_stock_reservation_entries(self, sre_list: list | None = None, notify: bool = True) -> None:
 		"""Cancel Stock Reservation Entries for Sales Order Items."""
-
-		from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import (
-			cancel_stock_reservation_entries,
-		)
-
-		cancel_stock_reservation_entries(
-			voucher_type=self.doctype, voucher_no=self.name, sre_list=sre_list, notify=notify
-		)
+		StockReservationService(self).cancel_stock_reservation_entries(sre_list, notify)
 
 	def set_missing_values(self, for_validate=False):
 		super().set_missing_values(for_validate)
@@ -968,29 +874,6 @@ class SalesOrder(SellingController):
 			query = query.where(doctype.sales_order_item == sales_order_item)
 
 		query.run()
-
-
-def get_unreserved_qty(item: object, reserved_qty_details: dict) -> float:
-	"""Returns the unreserved quantity for the Sales Order Item."""
-
-	existing_reserved_qty = reserved_qty_details.get(item.name, 0)
-	if item.get("delivered_qty") is not None:
-		return (
-			item.stock_qty
-			- flt(item.delivered_qty) * item.get("conversion_factor", 1)
-			- existing_reserved_qty
-		)
-	else:
-		stock_qty, delivered_qty, conversion_factor = frappe.get_value(
-			"Sales Order Item",
-			item.parent_detail_docname,
-			["stock_qty", "delivered_qty", "conversion_factor"],
-		)
-		bundle_conversion_factor = (
-			item.qty / stock_qty
-		)  # ratio of packed item qty to main item qty in product bundle
-		delivered_qty = delivered_qty * conversion_factor * bundle_conversion_factor
-		return item.qty - delivered_qty - existing_reserved_qty
 
 
 def get_list_context(context=None):
