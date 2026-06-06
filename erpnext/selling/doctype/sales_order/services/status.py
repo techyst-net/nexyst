@@ -8,6 +8,8 @@ from frappe import _
 from frappe.desk.notifications import clear_doctype_notifications
 from frappe.utils import cint, cstr, flt
 
+from erpnext.selling.doctype.sales_order.services.subcontracting import SubcontractingService
+
 
 class StatusService:
 	def __init__(self, doc):
@@ -31,7 +33,7 @@ class StatusService:
 		if status == "Draft" and doc.docstatus == 1:
 			doc.check_credit_limit()
 		doc.update_reserved_qty()
-		doc.update_subcontracting_order_status()
+		SubcontractingService(doc).update_subcontracting_order_status()
 		doc.notify_update()
 		clear_doctype_notifications(doc)
 		doc.update_blanket_order()

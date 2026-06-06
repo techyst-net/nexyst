@@ -25,6 +25,7 @@ from erpnext.selling.doctype.customer.customer import check_credit_limit
 from erpnext.selling.doctype.sales_order.services.delivery_schedule import DeliveryScheduleService
 from erpnext.selling.doctype.sales_order.services.status import StatusService
 from erpnext.selling.doctype.sales_order.services.stock_reservation import StockReservationService
+from erpnext.selling.doctype.sales_order.services.subcontracting import SubcontractingService
 from erpnext.stock.doctype.packed_item.packed_item import make_packing_list
 from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import has_reserved_stock
 from erpnext.stock.get_item_details import get_default_bom
@@ -209,13 +210,7 @@ class SalesOrder(SellingController):
 			self.set_onload("has_reserved_stock", True)
 
 	def can_update_items(self) -> bool:
-		result = True
-
-		if self.is_subcontracted:
-			if frappe.db.exists("Subcontracting Inward Order", {"sales_order": self.name, "docstatus": 1}):
-				result = False
-
-		return result
+		return SubcontractingService(self).can_update_items()
 
 	def before_validate(self):
 		self.set_has_unit_price_items()
@@ -246,7 +241,7 @@ class SalesOrder(SellingController):
 		make_packing_list(self)
 
 		self.validate_with_previous_doc()
-		self.validate_fg_item_for_subcontracting()
+		SubcontractingService(self).validate_fg_item_for_subcontracting()
 		self.set_status()
 
 		StatusService(self).set_default_statuses()
@@ -254,37 +249,6 @@ class SalesOrder(SellingController):
 		self.reset_default_field_value("set_warehouse", "items", "warehouse")
 		if not self.get("is_subcontracted"):
 			StockReservationService(self).enable_auto_reserve_stock()
-
-	def validate_fg_item_for_subcontracting(self):
-		if self.is_subcontracted:
-			for item in self.items:
-				if not item.fg_item:
-					frappe.throw(
-						_("Row #{0}: Finished Good Item is not specified for service item {1}").format(
-							item.idx, item.item_code
-						)
-					)
-				else:
-					if not frappe.get_value("Item", item.fg_item, "is_sub_contracted_item"):
-						frappe.throw(
-							_("Row #{0}: Finished Good Item {1} must be a sub-contracted item").format(
-								item.idx, item.fg_item
-							)
-						)
-					if not frappe.db.get_value(
-						"Subcontracting BOM",
-						{"finished_good": item.fg_item, "is_active": 1},
-						"finished_good_bom",
-					) and not frappe.get_value("Item", item.fg_item, "default_bom"):
-						frappe.throw(
-							_("Row #{0}: BOM not found for FG Item {1}").format(item.idx, item.fg_item)
-						)
-				if not item.fg_item_qty:
-					frappe.throw(_("Row #{0}: Finished Good Item Qty can not be zero").format(item.idx))
-		else:
-			for item in self.items:
-				item.set("fg_item", None)
-				item.set("fg_item_qty", 0)
 
 	def set_has_unit_price_items(self):
 		"""
@@ -570,19 +534,6 @@ class SalesOrder(SellingController):
 
 	def update_status(self, status):
 		StatusService(self).update_status(status)
-
-	def update_subcontracting_order_status(self):
-		from erpnext.subcontracting.doctype.subcontracting_inward_order.subcontracting_inward_order import (
-			update_subcontracting_inward_order_status as update_scio_status,
-		)
-
-		if self.is_subcontracted:
-			scio = frappe.get_cached_value(
-				"Subcontracting Inward Order", {"sales_order": self.name, "docstatus": 1}, "name"
-			)
-
-			if scio:
-				update_scio_status(scio, "Closed" if self.status == "Closed" else None)
 
 	def update_reserved_qty(self, so_item_rows=None):
 		StockReservationService(self).update_reserved_qty(so_item_rows)
