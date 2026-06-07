@@ -6,9 +6,8 @@ import json
 
 import frappe
 from frappe import _
-from frappe.desk.notifications import clear_doctype_notifications
 from frappe.model.document import Document
-from frappe.utils import cint, cstr, flt
+from frappe.utils import cint, flt
 
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import (
 	unlink_inter_company_doc,
@@ -17,6 +16,7 @@ from erpnext.accounts.doctype.sales_invoice.sales_invoice import (
 )
 from erpnext.accounts.party import get_party_account_currency
 from erpnext.buying.doctype.purchase_order.services.drop_ship import DropShipService
+from erpnext.buying.doctype.purchase_order.services.status import StatusService
 from erpnext.buying.doctype.purchase_order.services.subcontracting import SubcontractingService
 from erpnext.buying.utils import validate_for_items
 from erpnext.controllers.buying_controller import BuyingController
@@ -365,24 +365,8 @@ class PurchaseOrder(BuyingController):
 		for item_code, warehouse in item_wh_list:
 			update_bin_qty(item_code, warehouse, {"ordered_qty": get_ordered_qty(item_code, warehouse)})
 
-	def check_modified_date(self):
-		modified_in_db = frappe.db.get_value("Purchase Order", self.name, "modified")
-
-		if modified_in_db and cstr(modified_in_db) != cstr(self.modified):
-			frappe.msgprint(
-				_("{0} {1} has been modified. Please refresh.").format(self.doctype, self.name),
-				raise_exception=True,
-			)
-
 	def update_status(self, status):
-		self.check_modified_date()
-		self.set_status(update=True, status=status)
-		self.update_requested_qty()
-		self.update_ordered_qty()
-		SubcontractingService(self).update_subcontracting_order_status()
-		self.update_blanket_order()
-		self.notify_update()
-		clear_doctype_notifications(self)
+		StatusService(self).update_status(status)
 
 	def on_submit(self):
 		super().on_submit()
@@ -500,14 +484,7 @@ class PurchaseOrder(BuyingController):
 		return any(d.production_plan for d in self.items if d.production_plan)
 
 	def update_receiving_percentage(self):
-		total_qty, received_qty = 0.0, 0.0
-		for item in self.items:
-			received_qty += min(item.received_qty, item.qty)
-			total_qty += item.qty
-		if total_qty and received_qty:
-			self.db_set("per_received", flt(received_qty / total_qty) * 100, update_modified=False)
-		else:
-			self.db_set("per_received", 0, update_modified=False)
+		StatusService(self).update_receiving_percentage()
 
 	def set_service_items_for_finished_goods(self):
 		SubcontractingService(self).set_service_items_for_finished_goods()
