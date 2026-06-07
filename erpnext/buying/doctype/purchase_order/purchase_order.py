@@ -16,6 +16,7 @@ from erpnext.accounts.doctype.sales_invoice.sales_invoice import (
 	validate_inter_company_party,
 )
 from erpnext.accounts.party import get_party_account_currency
+from erpnext.buying.doctype.purchase_order.services.drop_ship import DropShipService
 from erpnext.buying.doctype.purchase_order.services.subcontracting import SubcontractingService
 from erpnext.buying.utils import validate_for_items
 from erpnext.controllers.buying_controller import BuyingController
@@ -426,8 +427,9 @@ class PurchaseOrder(BuyingController):
 		if self.is_against_pp():
 			self.update_status_updater_if_from_pp()
 
-		if self.has_drop_ship_item():
-			self.set_received_qty_to_zero_for_drop_ship_items()
+		drop_ship_service = DropShipService(self)
+		if drop_ship_service.has_drop_ship_item():
+			drop_ship_service.set_received_qty_to_zero_for_drop_ship_items()
 			self.update_receiving_percentage()
 
 		self.check_for_on_hold_or_closed_status("Material Request", "material_request")
@@ -487,87 +489,9 @@ class PurchaseOrder(BuyingController):
 			}
 		)
 
-	def update_delivered_qty_in_sales_order(self):
-		"""Update delivered qty in Sales Order for drop ship"""
-		sales_orders_to_update = []
-		for item in self.items:
-			if item.sales_order and item.delivered_by_supplier == 1:
-				if item.sales_order not in sales_orders_to_update:
-					sales_orders_to_update.append(item.sales_order)
-
-		for so_name in sales_orders_to_update:
-			so = frappe.get_lazy_doc("Sales Order", so_name)
-			so.update_delivery_status()
-			so.set_status(update=True)
-			so.notify_update()
-
-	def set_received_qty_to_zero_for_drop_ship_items(self):
-		for item in self.items:
-			if item.delivered_by_supplier:
-				item.db_set("received_qty", 0)
-
-	def has_drop_ship_item(self):
-		return any(d.delivered_by_supplier for d in self.items)
-
 	@frappe.whitelist()
 	def update_dropship_received_qty(self, data: list[dict]):
-		if not data:
-			frappe.throw(_("Please select at least one item to update delivered quantity."))
-
-		for d in data:
-			item = next((item for item in self.items if item.name == d.get("name")), None)
-
-			if not item:
-				frappe.throw(
-					_("Item with name {0} not found in the Purchase Order").format(frappe.bold(d.get("name")))
-				)
-
-			if not item.delivered_by_supplier:
-				frappe.throw(
-					_(
-						"Item {0} is not a drop ship item. Only drop ship items can have Delivered Qty updated."
-					).format(frappe.bold(item.item_code))
-				)
-
-			if not item.has_permlevel_access_to("received_qty", permission_type="write"):
-				frappe.throw(
-					_("You don't have permission to update Received Qty DocField for item {0}").format(
-						frappe.bold(item.item_code)
-					)
-				)
-
-			if not d.get("qty_change"):
-				frappe.throw(
-					_(
-						"Item {0} has no changes in delivered quantity. Please unselect the row if you do not wish to update its quantity."
-					).format(frappe.bold(item.item_code))
-				)
-
-			if d.get("qty_change") < 0 and abs(d.get("qty_change")) > item.received_qty:
-				frappe.throw(
-					_("Delivered Qty cannot be reduced by more than {0} for item {1}").format(
-						item.received_qty, frappe.bold(item.item_code)
-					)
-				)
-
-			if d.get("qty_change") > 0 and item.received_qty + d.get("qty_change") > item.qty:
-				frappe.throw(
-					_("Delivered Qty cannot be increased by more than {0} for item {1}").format(
-						item.qty - item.received_qty, frappe.bold(item.item_code)
-					)
-				)
-
-			qty_change = item.received_qty + d.get("qty_change")
-			item.db_set("received_qty", qty_change, update_modified=True)
-			self.add_comment(
-				"Label",
-				_("updated delivered quantity for item {0} to {1}").format(
-					frappe.bold(item.item_code), frappe.bold(qty_change)
-				),
-			)
-		self.update_receiving_percentage()
-		self.set_status(update=True)
-		self.update_delivered_qty_in_sales_order()
+		DropShipService(self).update_dropship_received_qty(data)
 
 	def is_against_so(self):
 		return any(d.sales_order for d in self.items if d.sales_order)
@@ -689,4 +613,4 @@ def get_list_context(context=None):
 def update_status(status: str, name: str):
 	po = frappe.get_lazy_doc("Purchase Order", name, check_permission="submit")
 	po.update_status(status)
-	po.update_delivered_qty_in_sales_order()
+	DropShipService(po).update_delivered_qty_in_sales_order()
