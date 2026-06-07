@@ -35,7 +35,7 @@ from erpnext.assets.doctype.asset.asset import is_cwip_accounting_enabled
 from erpnext.assets.doctype.asset_category.asset_category import get_asset_category_account
 from erpnext.controllers.accounts_controller import validate_account_head
 from erpnext.controllers.buying_controller import BuyingController
-from erpnext.stock.doctype.purchase_receipt.purchase_receipt import (
+from erpnext.stock.doctype.purchase_receipt.services.billing_status import (
 	update_billed_amount_based_on_po,
 )
 
@@ -1024,7 +1024,9 @@ class PurchaseInvoice(BuyingController):
 		)
 
 		for pr in set(updated_pr):
-			from erpnext.stock.doctype.purchase_receipt.purchase_receipt import update_billing_percentage
+			from erpnext.stock.doctype.purchase_receipt.services.billing_status import (
+				update_billing_percentage,
+			)
 
 			pr_doc = frappe.get_lazy_doc("Purchase Receipt", pr)
 			update_billing_percentage(
