@@ -10,6 +10,7 @@ from frappe.utils import cint, cstr, flt, formatdate, get_link_to_form, getdate,
 
 import erpnext
 from erpnext.accounts.deferred_revenue import validate_service_stop_date
+from erpnext.accounts.doctype.purchase_invoice.services.expense_account import ExpenseAccountService
 from erpnext.accounts.doctype.repost_accounting_ledger.repost_accounting_ledger import (
 	validate_docs_for_deferred_accounting,
 	validate_docs_for_voucher_types,
@@ -32,8 +33,6 @@ from erpnext.accounts.general_ledger import (
 from erpnext.accounts.party import get_due_date, get_party_account
 from erpnext.accounts.utils import get_account_currency, get_fiscal_year, update_voucher_outstanding
 from erpnext.assets.doctype.asset.asset import is_cwip_accounting_enabled
-from erpnext.assets.doctype.asset_category.asset_category import get_asset_category_account
-from erpnext.controllers.accounts_controller import validate_account_head
 from erpnext.controllers.buying_controller import BuyingController
 from erpnext.stock.doctype.purchase_receipt.services.billing_status import (
 	update_billed_amount_based_on_po,
@@ -284,9 +283,10 @@ class PurchaseInvoice(BuyingController):
 		self.validate_with_previous_doc()
 		self.validate_uom_is_integer("uom", "qty")
 		self.validate_uom_is_integer("stock_uom", "stock_qty")
-		self.set_expense_account(for_validate=True)
-		self.validate_expense_account()
-		self.set_against_expense_account()
+		expense_account_service = ExpenseAccountService(self)
+		expense_account_service.set_expense_account(for_validate=True)
+		expense_account_service.validate_expense_account()
+		expense_account_service.set_against_expense_account()
 		self.validate_write_off_account()
 		self.validate_write_off_cost_center()
 
@@ -446,166 +446,10 @@ class PurchaseInvoice(BuyingController):
 				frappe.msgprint(_("Item Code required at Row No {0}").format(d.idx), raise_exception=True)
 
 	def set_expense_account(self, for_validate=False):
-		auto_accounting_for_stock = erpnext.is_perpetual_inventory_enabled(self.company)
-
-		if auto_accounting_for_stock:
-			stock_not_billed_account = self.get_company_default("stock_received_but_not_billed")
-			stock_items = self.get_stock_items()
-
-		self.asset_received_but_not_billed = None
-
-		inventory_account_map = {}
-		if self.update_stock:
-			self.validate_item_code()
-			self.validate_warehouse(for_validate)
-			if auto_accounting_for_stock:
-				inventory_account_map = self.get_inventory_account_map()
-
-		for item in self.get("items"):
-			# in case of auto inventory accounting,
-			# expense account is always "Stock Received But Not Billed" for a stock item
-			# except opening entry, drop-ship entry and fixed asset items
-			if (
-				auto_accounting_for_stock
-				and item.item_code in stock_items
-				and self.is_opening == "No"
-				and not item.is_fixed_asset
-				and (
-					not item.po_detail
-					or not frappe.db.get_value("Purchase Order Item", item.po_detail, "delivered_by_supplier")
-				)
-			):
-				if self.update_stock and item.warehouse and (not item.from_warehouse):
-					_inv_dict = self.get_inventory_account_dict(item, inventory_account_map)
-
-					if for_validate and item.expense_account and item.expense_account != _inv_dict["account"]:
-						msg = _(
-							"Row {0}: Expense Head changed to {1} because account {2} is not linked to warehouse {3} or it is not the default inventory account"
-						).format(
-							item.idx,
-							frappe.bold(_inv_dict["account"]),
-							frappe.bold(item.expense_account),
-							frappe.bold(item.warehouse),
-						)
-						frappe.msgprint(msg, title=_("Expense Head Changed"))
-					item.expense_account = _inv_dict["account"]
-				else:
-					# check if 'Stock Received But Not Billed' account is credited in Purchase receipt or not
-					if item.purchase_receipt:
-						negative_expense_booked_in_pr = frappe.db.sql(
-							"""select name from `tabGL Entry`
-							where voucher_type='Purchase Receipt' and voucher_no=%s and account = %s""",
-							(item.purchase_receipt, stock_not_billed_account),
-						)
-
-						if negative_expense_booked_in_pr:
-							if (
-								for_validate
-								and item.expense_account
-								and item.expense_account != stock_not_billed_account
-							):
-								msg = _(
-									"Row {0}: Expense Head changed to {1} because expense is booked against this account in Purchase Receipt {2}"
-								).format(
-									item.idx,
-									frappe.bold(stock_not_billed_account),
-									frappe.bold(item.purchase_receipt),
-								)
-								frappe.msgprint(msg, title=_("Expense Head Changed"))
-
-							item.expense_account = stock_not_billed_account
-					else:
-						# If no purchase receipt present then book expense in 'Stock Received But Not Billed'
-						# This is done in cases when Purchase Invoice is created before Purchase Receipt
-						if (
-							for_validate
-							and item.expense_account
-							and item.expense_account != stock_not_billed_account
-						):
-							msg = _(
-								"Row {0}: Expense Head changed to {1} as no Purchase Receipt is created against Item {2}."
-							).format(
-								item.idx, frappe.bold(stock_not_billed_account), frappe.bold(item.item_code)
-							)
-							msg += "<br>"
-							msg += _(
-								"This is done to handle accounting for cases when Purchase Receipt is created after Purchase Invoice"
-							)
-							frappe.msgprint(msg, title=_("Expense Head Changed"))
-
-						item.expense_account = stock_not_billed_account
-			elif item.is_fixed_asset:
-				account = None
-				if not item.pr_detail and item.po_detail:
-					receipt_item = frappe.get_cached_value(
-						"Purchase Receipt Item",
-						{
-							"purchase_order": item.purchase_order,
-							"purchase_order_item": item.po_detail,
-							"docstatus": 1,
-						},
-						["name", "parent"],
-						as_dict=1,
-					)
-					if receipt_item:
-						item.pr_detail = receipt_item.name
-						item.purchase_receipt = receipt_item.parent
-
-				if item.pr_detail:
-					if not self.asset_received_but_not_billed:
-						self.asset_received_but_not_billed = self.get_company_default(
-							"asset_received_but_not_billed"
-						)
-
-					# check if 'Asset Received But Not Billed' account is credited in Purchase receipt or not
-					arbnb_booked_in_pr = frappe.db.get_value(
-						"GL Entry",
-						{
-							"voucher_type": "Purchase Receipt",
-							"voucher_no": item.purchase_receipt,
-							"account": self.asset_received_but_not_billed,
-						},
-						"name",
-					)
-					if arbnb_booked_in_pr:
-						account = self.asset_received_but_not_billed
-
-				if not account:
-					account_type = (
-						"capital_work_in_progress_account"
-						if is_cwip_accounting_enabled(item.asset_category)
-						else "fixed_asset_account"
-					)
-					account = get_asset_category_account(
-						account_type, item=item.item_code, company=self.company
-					)
-					if not account:
-						form_link = get_link_to_form("Asset Category", item.asset_category)
-						throw(
-							_("Please set Fixed Asset Account in {} against {}.").format(
-								form_link, self.company
-							),
-							title=_("Missing Account"),
-						)
-				item.expense_account = account
-			elif not item.expense_account and for_validate:
-				throw(_("Expense account is mandatory for item {0}").format(item.item_code or item.item_name))
-
-	def validate_expense_account(self):
-		for item in self.get("items"):
-			validate_account_head(item.idx, item.expense_account, self.company, _("Expense"))
-
-	def set_against_expense_account(self, force=False):
-		against_accounts = []
-		for item in self.get("items"):
-			if item.expense_account and (item.expense_account not in against_accounts):
-				against_accounts.append(item.expense_account)
-
-		self.against_expense_account = ",".join(against_accounts)
+		ExpenseAccountService(self).set_expense_account(for_validate)
 
 	def force_set_against_expense_account(self):
-		self.set_against_expense_account()
-		frappe.db.set_value(self.doctype, self.name, "against_expense_account", self.against_expense_account)
+		ExpenseAccountService(self).force_set_against_expense_account()
 
 	def po_required(self):
 		if (
