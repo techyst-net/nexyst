@@ -6,7 +6,7 @@ import frappe
 from frappe import _, throw
 from frappe.desk.notifications import clear_doctype_notifications
 from frappe.model.document import Document
-from frappe.utils import cint, flt, get_datetime, getdate, nowdate
+from frappe.utils import cint, flt, getdate, nowdate
 
 import erpnext
 from erpnext.assets.doctype.asset.asset import get_asset_account, is_cwip_accounting_enabled
@@ -15,7 +15,7 @@ from erpnext.stock.doctype.purchase_receipt.services.billing_status import Billi
 from erpnext.stock.doctype.purchase_receipt.services.provisional_accounting import (
 	ProvisionalAccountingService,
 )
-from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import StockReservation
+from erpnext.stock.doctype.purchase_receipt.services.stock_reservation import StockReservationService
 
 form_grid_templates = {"items": "templates/form_grid/item_grid.html"}
 
@@ -374,7 +374,7 @@ class PurchaseReceipt(BuyingController):
 		self.make_gl_entries()
 		self.repost_future_sle_and_gle()
 		self.set_consumed_qty_in_subcontract_order()
-		self.reserve_stock()
+		StockReservationService(self).reserve_stock()
 		self.update_received_qty_if_from_pp()
 
 	def update_received_qty_if_from_pp(self):
@@ -512,110 +512,6 @@ class PurchaseReceipt(BuyingController):
 
 	def update_billing_status(self, update_modified=True):
 		BillingStatusService(self).update_billing_status(update_modified)
-
-	def reserve_stock(self):
-		self.reserve_stock_for_sales_order()
-		self.reserve_stock_for_production_plan()
-
-	def reserve_stock_for_sales_order(self):
-		if (
-			self.is_return
-			or not frappe.get_single_value("Stock Settings", "enable_stock_reservation")
-			or not frappe.get_single_value("Stock Settings", "auto_reserve_stock_for_sales_order_on_purchase")
-		):
-			return
-
-		self.reload()  # reload to get the Serial and Batch Bundle Details
-
-		so_items_details_map = {}
-		for item in self.items:
-			if item.sales_order and item.sales_order_item:
-				item_details = {
-					"sales_order_item": item.sales_order_item,
-					"item_code": item.item_code,
-					"warehouse": item.warehouse,
-					"qty_to_reserve": item.stock_qty,
-					"from_voucher_no": item.parent,
-					"from_voucher_detail_no": item.name,
-					"serial_and_batch_bundle": item.serial_and_batch_bundle,
-				}
-				so_items_details_map.setdefault(item.sales_order, []).append(item_details)
-
-		if so_items_details_map:
-			if get_datetime(f"{self.posting_date} {self.posting_time}") > get_datetime():
-				return frappe.msgprint(
-					_("Cannot create Stock Reservation Entries for future dated Purchase Receipts.")
-				)
-
-			for so, items_details in so_items_details_map.items():
-				so_doc = frappe.get_lazy_doc("Sales Order", so)
-				so_doc.create_stock_reservation_entries(
-					items_details=items_details,
-					from_voucher_type="Purchase Receipt",
-					notify=True,
-				)
-
-	def reserve_stock_for_production_plan(self):
-		if self.is_return or not frappe.get_single_value("Stock Settings", "enable_stock_reservation"):
-			return
-
-		production_plan_references = self.get_production_plan_references()
-		production_plan_items = []
-		self.reload()
-
-		docnames = []
-		for row in self.items:
-			if row.material_request_item and row.material_request_item in production_plan_references:
-				_ref = production_plan_references[row.material_request_item]
-				docnames.append(_ref.production_plan)
-				row.update(
-					{
-						"voucher_type": "Production Plan",
-						"voucher_no": _ref.production_plan,
-						"voucher_detail_no": _ref.material_request_plan_item,
-						"from_voucher_no": self.name,
-						"from_voucher_detail_no": row.name,
-						"from_voucher_type": self.doctype,
-						"serial_and_batch_bundles": [row.serial_and_batch_bundle],
-					}
-				)
-
-				production_plan_items.append(row)
-
-		if not production_plan_items:
-			return
-
-		sre = StockReservation(doc=self, items=production_plan_items)
-		sre.make_stock_reservation_entries()
-		if docnames:
-			sre.transfer_reservation_entries_to(
-				docnames, from_doctype="Production Plan", to_doctype="Work Order"
-			)
-
-	def get_production_plan_references(self):
-		production_plan_references = frappe._dict()
-		material_request_items = []
-
-		for row in self.items:
-			if row.material_request_item:
-				material_request_items.append(row.material_request_item)
-
-		if not material_request_items:
-			return frappe._dict()
-
-		items = frappe.get_all(
-			"Material Request Item",
-			fields=["material_request_plan_item", "production_plan", "name"],
-			filters={"name": ["in", material_request_items], "docstatus": 1},
-		)
-
-		for item in items:
-			if not item.production_plan:
-				continue
-
-			production_plan_references.setdefault(item.name, item)
-
-		return production_plan_references
 
 	def enable_recalculate_rate_in_sles(self):
 		rejected_warehouses = frappe.get_all(
