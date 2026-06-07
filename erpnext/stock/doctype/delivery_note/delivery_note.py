@@ -8,6 +8,7 @@ from frappe.utils import cint, flt
 
 from erpnext.controllers.selling_controller import SellingController
 from erpnext.stock.doctype.delivery_note.services.billing_status import BillingStatusService
+from erpnext.stock.doctype.delivery_note.services.packing import PackingService
 from erpnext.stock.doctype.packed_item.packed_item import make_packing_list
 
 form_grid_templates = {"items": "templates/form_grid/item_grid.html"}
@@ -509,7 +510,7 @@ class DeliveryNote(SellingController):
 		# because updating reserved qty in bin depends upon updated delivered qty in SO
 		self.update_stock_ledger()
 
-		self.cancel_packing_slips()
+		PackingService(self).cancel_packing_slips()
 		self.update_pick_list_status()
 
 		self.make_gl_entries_on_cancel()
@@ -600,20 +601,7 @@ class DeliveryNote(SellingController):
 
 	def validate_packed_qty(self):
 		"""Validate that if packed qty exists, it should be equal to qty"""
-
-		if frappe.db.exists("Packing Slip", {"docstatus": 1, "delivery_note": self.name}):
-			product_bundle_list = self.get_product_bundle_list()
-			for item in self.items + self.packed_items:
-				if (
-					item.item_code not in product_bundle_list
-					and flt(item.packed_qty)
-					and flt(item.packed_qty) != flt(item.qty)
-				):
-					frappe.throw(
-						_("Row {0}: Packed Qty must be equal to {1} Qty.").format(
-							item.idx, frappe.bold(item.doctype)
-						)
-					)
+		PackingService(self).validate_packed_qty()
 
 	def check_next_docstatus(self):
 		submit_rv = frappe.db.sql(
@@ -634,22 +622,6 @@ class DeliveryNote(SellingController):
 		if submit_in:
 			frappe.throw(_("Installation Note {0} has already been submitted").format(submit_in[0][0]))
 
-	def cancel_packing_slips(self):
-		"""
-		Cancel submitted packing slips related to this delivery note
-		"""
-		res = frappe.db.sql(
-			"""SELECT name FROM `tabPacking Slip` WHERE delivery_note = %s
-			AND docstatus = 1""",
-			self.name,
-		)
-
-		if res:
-			for r in res:
-				ps = frappe.get_doc("Packing Slip", r[0])
-				ps.cancel()
-			frappe.msgprint(_("Packing Slip(s) cancelled"))
-
 	def update_status(self, status):
 		BillingStatusService(self).update_status(status)
 
@@ -657,21 +629,7 @@ class DeliveryNote(SellingController):
 		BillingStatusService(self).update_billing_status(update_modified)
 
 	def has_unpacked_items(self):
-		product_bundle_list = self.get_product_bundle_list()
-
-		for item in self.items + self.packed_items:
-			if item.item_code not in product_bundle_list and flt(item.packed_qty) < flt(item.qty):
-				return True
-
-		return False
-
-	def get_product_bundle_list(self):
-		items_list = [item.item_code for item in self.items]
-		return frappe.db.get_all(
-			"Product Bundle",
-			filters={"new_item_code": ["in", items_list], "disabled": 0},
-			pluck="name",
-		)
+		return PackingService(self).has_unpacked_items()
 
 
 def get_list_context(context=None):
