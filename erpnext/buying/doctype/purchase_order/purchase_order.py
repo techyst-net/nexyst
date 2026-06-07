@@ -16,6 +16,7 @@ from erpnext.accounts.doctype.sales_invoice.sales_invoice import (
 	validate_inter_company_party,
 )
 from erpnext.accounts.party import get_party_account_currency
+from erpnext.buying.doctype.purchase_order.services.subcontracting import SubcontractingService
 from erpnext.buying.utils import validate_for_items
 from erpnext.controllers.buying_controller import BuyingController
 from erpnext.controllers.status_updater import get_allowance_for
@@ -24,13 +25,6 @@ from erpnext.manufacturing.doctype.blanket_order.blanket_order import (
 )
 from erpnext.stock.doctype.item.item import get_last_purchase_details
 from erpnext.stock.stock_balance import get_ordered_qty, update_bin_qty
-from erpnext.subcontracting.doctype.subcontracting_bom.subcontracting_bom import (
-	get_subcontracting_boms_for_finished_goods,
-)
-
-from .mapper import (
-	make_subcontracting_order,
-)
 
 form_grid_templates = {"items": "templates/form_grid/item_grid.html"}
 
@@ -214,7 +208,7 @@ class PurchaseOrder(BuyingController):
 		self.validate_minimum_order_qty()
 		validate_against_blanket_order(self)
 
-		self.validate_fg_item_for_subcontracting()
+		SubcontractingService(self).validate_fg_item_for_subcontracting()
 
 		if not self.advance_payment_status:
 			self.advance_payment_status = "Not Initiated"
@@ -322,35 +316,6 @@ class PurchaseOrder(BuyingController):
 					).format(item_code, qty, itemwise_min_order_qty.get(item_code))
 				)
 
-	def validate_fg_item_for_subcontracting(self):
-		if self.is_subcontracted:
-			for item in self.items:
-				if not item.fg_item:
-					frappe.throw(
-						_("Row #{0}: Finished Good Item is not specified for service item {1}").format(
-							item.idx, item.item_code
-						)
-					)
-				else:
-					if not frappe.get_value("Item", item.fg_item, "is_sub_contracted_item"):
-						frappe.throw(
-							_("Row #{0}: Finished Good Item {1} must be a sub-contracted item").format(
-								item.idx, item.fg_item
-							)
-						)
-					elif not item.bom and not frappe.get_value("Item", item.fg_item, "default_bom"):
-						frappe.throw(
-							_("Row #{0}: Default BOM not found for FG Item {1}").format(
-								item.idx, item.fg_item
-							)
-						)
-				if not item.fg_item_qty:
-					frappe.throw(_("Row #{0}: Finished Good Item Qty can not be zero").format(item.idx))
-		else:
-			for item in self.items:
-				item.set("fg_item", None)
-				item.set("fg_item_qty", 0)
-
 	def get_schedule_dates(self):
 		for d in self.get("items"):
 			if d.material_request_item and not d.schedule_date:
@@ -413,7 +378,7 @@ class PurchaseOrder(BuyingController):
 		self.set_status(update=True, status=status)
 		self.update_requested_qty()
 		self.update_ordered_qty()
-		self.update_subcontracting_order_status()
+		SubcontractingService(self).update_subcontracting_order_status()
 		self.update_blanket_order()
 		self.notify_update()
 		clear_doctype_notifications(self)
@@ -442,7 +407,7 @@ class PurchaseOrder(BuyingController):
 
 		update_linked_doc(self.doctype, self.name, self.inter_company_order_reference)
 
-		self.auto_create_subcontracting_order()
+		SubcontractingService(self).auto_create_subcontracting_order()
 
 	def on_cancel(self):
 		self.ignore_linked_doctypes = (
@@ -621,34 +586,10 @@ class PurchaseOrder(BuyingController):
 			self.db_set("per_received", 0, update_modified=False)
 
 	def set_service_items_for_finished_goods(self):
-		if not self.is_subcontracted:
-			return
-
-		finished_goods_without_service_item = {
-			d.fg_item for d in self.items if (not d.item_code and d.fg_item)
-		}
-
-		if subcontracting_boms := get_subcontracting_boms_for_finished_goods(
-			finished_goods_without_service_item
-		):
-			for item in self.items:
-				if not item.item_code and item.fg_item in subcontracting_boms:
-					subcontracting_bom = subcontracting_boms[item.fg_item]
-
-					item.item_code = subcontracting_bom.service_item
-					item.qty = flt(item.fg_item_qty) * flt(subcontracting_bom.conversion_factor)
-					item.uom = subcontracting_bom.service_item_uom
+		SubcontractingService(self).set_service_items_for_finished_goods()
 
 	def can_update_items(self) -> bool:
-		result = True
-
-		if self.is_subcontracted:
-			if frappe.db.exists(
-				"Subcontracting Order", {"purchase_order": self.name, "docstatus": ["!=", 2]}
-			):
-				result = False
-
-		return result
+		return SubcontractingService(self).can_update_items()
 
 	def has_pending_receivable_qty(self) -> bool:
 		"""Return True if any non-drop-ship item can still be received,
@@ -686,22 +627,6 @@ class PurchaseOrder(BuyingController):
 			frappe.db.set_value(
 				"Sales Order Item", sales_order_item, "ordered_qty", prev_ordered_qty - qty_in_stock_uom
 			)
-
-	def auto_create_subcontracting_order(self):
-		if self.is_subcontracted:
-			if frappe.db.get_single_value("Buying Settings", "auto_create_subcontracting_order"):
-				make_subcontracting_order(self.name, save=True, notify=True)
-
-	def update_subcontracting_order_status(self):
-		from erpnext.subcontracting.doctype.subcontracting_order.subcontracting_order import (
-			update_subcontracting_order_status as update_sco_status,
-		)
-
-		if self.is_subcontracted:
-			sco = frappe.db.get_value("Subcontracting Order", {"purchase_order": self.name, "docstatus": 1})
-
-			if sco:
-				update_sco_status(sco, "Closed" if self.status == "Closed" else None)
 
 
 @frappe.request_cache
