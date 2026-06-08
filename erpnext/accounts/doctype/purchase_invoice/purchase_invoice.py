@@ -935,7 +935,7 @@ def make_regional_gl_entries(gl_entries, doc):
 @frappe.whitelist()
 def change_release_date(name: str, release_date: str | None = None):
 	pi = frappe.get_lazy_doc("Purchase Invoice", name)
-	pi.check_permission("write")
+	pi.check_permission()
 	pi.db_set("release_date", release_date)
 
 
