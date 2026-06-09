@@ -544,69 +544,76 @@ class JournalEntry(AccountsController):
 			self.voucher_type == "Exchange Gain Or Loss" and self.multi_currency and self.is_system_generated
 		)
 
-	def validate_against_jv(self):
-		for d in self.get("accounts"):
-			if d.reference_type == "Journal Entry":
-				account_root_type = frappe.get_cached_value("Account", d.account, "root_type")
-				if (
-					account_root_type == "Asset"
-					and flt(d.debit) > 0
-					and not self.system_generated_gain_loss()
-				):
-					frappe.throw(
-						_(
-							"Row #{0}: For {1}, you can select reference document only if account gets credited"
-						).format(d.idx, d.account)
-					)
-				elif (
-					account_root_type == "Liability"
-					and flt(d.credit) > 0
-					and not self.system_generated_gain_loss()
-				):
-					frappe.throw(
-						_(
-							"Row #{0}: For {1}, you can select reference document only if account gets debited"
-						).format(d.idx, d.account)
-					)
+	def validate_against_jv(self) -> None:
+		"""Validate every account row that references another Journal Entry."""
+		for row in self.get("accounts"):
+			if row.reference_type == "Journal Entry":
+				self._validate_jv_reference(row)
 
-				if d.reference_name == self.name:
-					frappe.throw(_("You can not enter current voucher in 'Against Journal Entry' column"))
+	def _validate_jv_reference(self, row) -> None:
+		"""Validate a single 'Against Journal Entry' row: direction, no self-reference,
+		and the presence of an unmatched entry on the referenced Journal Entry."""
+		self._validate_jv_reference_direction(row)
 
-				jea = frappe.qb.DocType("Journal Entry Account")
-				against_entries = (
-					frappe.qb.from_(jea)
-					.select(jea.star)
-					.where(
-						(jea.account == d.account)
-						& (jea.docstatus == 1)
-						& (jea.parent == d.reference_name)
-						& (
-							jea.reference_type.isnull()
-							| jea.reference_type.isin(["", "Sales Order", "Purchase Order"])
-						)
-					)
-					.run(as_dict=True)
+		if row.reference_name == self.name:
+			frappe.throw(_("You can not enter current voucher in 'Against Journal Entry' column"))
+
+		against_entries = self._against_jv_entries(row)
+		if not against_entries:
+			if self.voucher_type != "Exchange Gain Or Loss":
+				frappe.throw(
+					_(
+						"Journal Entry {0} does not have account {1} or already matched against other voucher"
+					).format(row.reference_name, row.account)
 				)
+			return
 
-				if not against_entries:
-					if self.voucher_type != "Exchange Gain Or Loss":
-						frappe.throw(
-							_(
-								"Journal Entry {0} does not have account {1} or already matched against other voucher"
-							).format(d.reference_name, d.account)
-						)
-				else:
-					dr_or_cr = "debit" if flt(d.credit) > 0 else "credit"
-					valid = False
-					for jvd in against_entries:
-						if flt(jvd[dr_or_cr]) > 0:
-							valid = True
-					if not valid and not self.system_generated_gain_loss():
-						frappe.throw(
-							_("Against Journal Entry {0} does not have any unmatched {1} entry").format(
-								d.reference_name, dr_or_cr
-							)
-						)
+		dr_or_cr = "debit" if flt(row.credit) > 0 else "credit"
+		has_unmatched_entry = any(flt(entry[dr_or_cr]) > 0 for entry in against_entries)
+		if not has_unmatched_entry and not self.system_generated_gain_loss():
+			frappe.throw(
+				_("Against Journal Entry {0} does not have any unmatched {1} entry").format(
+					row.reference_name, dr_or_cr
+				)
+			)
+
+	def _validate_jv_reference_direction(self, row) -> None:
+		"""An asset account can reference a JE only when credited, a liability only when debited."""
+		if self.system_generated_gain_loss():
+			return
+
+		account_root_type = frappe.get_cached_value("Account", row.account, "root_type")
+		if account_root_type == "Asset" and flt(row.debit) > 0:
+			frappe.throw(
+				_(
+					"Row #{0}: For {1}, you can select reference document only if account gets credited"
+				).format(row.idx, row.account)
+			)
+		if account_root_type == "Liability" and flt(row.credit) > 0:
+			frappe.throw(
+				_("Row #{0}: For {1}, you can select reference document only if account gets debited").format(
+					row.idx, row.account
+				)
+			)
+
+	def _against_jv_entries(self, row) -> list[dict]:
+		"""Submitted Journal Entry Account rows on the referenced JE for the same account
+		that are not themselves linked to an order."""
+		jea = frappe.qb.DocType("Journal Entry Account")
+		return (
+			frappe.qb.from_(jea)
+			.select(jea.star)
+			.where(
+				(jea.account == row.account)
+				& (jea.docstatus == 1)
+				& (jea.parent == row.reference_name)
+				& (
+					jea.reference_type.isnull()
+					| jea.reference_type.isin(["", "Sales Order", "Purchase Order"])
+				)
+			)
+			.run(as_dict=True)
+		)
 
 	def set_against_account(self):
 		accounts_debited, accounts_credited = [], []
@@ -728,58 +735,61 @@ class JournalEntry(AccountsController):
 			if not d.exchange_rate:
 				frappe.throw(_("Row {0}: Exchange Rate is mandatory").format(d.idx))
 
-	def create_remarks(self):
-		r = []
-
-		if self.flags.skip_remarks_creation:
+	def create_remarks(self) -> None:
+		"""Build the auto remark from the cheque reference and each account row's linked
+		document, unless remark creation is skipped or a custom remark is set."""
+		if self.flags.skip_remarks_creation or self.get("custom_remark"):
 			return
 
-		if self.get("custom_remark"):
-			return
+		remarks = []
+		if cheque_remark := self._cheque_remark():
+			remarks.append(cheque_remark)
 
-		if self.cheque_no:
-			if self.cheque_date:
-				r.append(_("Reference #{0} dated {1}").format(self.cheque_no, formatdate(self.cheque_date)))
-			else:
-				msgprint(_("Please enter Reference date"), raise_exception=frappe.MandatoryError)
+		for row in self.get("accounts"):
+			if reference_remark := self._reference_remark(row):
+				remarks.append(reference_remark)
 
-		for d in self.get("accounts"):
-			if d.reference_type == "Sales Invoice" and d.credit:
-				r.append(
-					_("{0} against Sales Invoice {1}").format(
-						fmt_money(flt(d.credit), currency=self.company_currency), d.reference_name
-					)
-				)
+		if remarks:
+			self.remark = "\n".join(remarks)  # User Remarks is not mandatory
 
-			if d.reference_type == "Sales Order" and d.credit:
-				r.append(
-					_("{0} against Sales Order {1}").format(
-						fmt_money(flt(d.credit), currency=self.company_currency), d.reference_name
-					)
-				)
+	def _cheque_remark(self) -> str | None:
+		"""Remark line for the cheque reference; raises if the cheque date is missing."""
+		if not self.cheque_no:
+			return None
+		if not self.cheque_date:
+			msgprint(_("Please enter Reference date"), raise_exception=frappe.MandatoryError)
+		return _("Reference #{0} dated {1}").format(self.cheque_no, formatdate(self.cheque_date))
 
-			if d.reference_type == "Purchase Invoice" and d.debit:
-				bill_no, bill_date = frappe.db.get_value(
-					"Purchase Invoice", d.reference_name, ["bill_no", "bill_date"]
-				) or (None, None)
-				if bill_no and bill_no.lower().strip() not in ["na", "not applicable", "none"]:
-					r.append(
-						_("{0} against Bill {1} dated {2}").format(
-							fmt_money(flt(d.debit), currency=self.company_currency),
-							bill_no,
-							bill_date and formatdate(bill_date.strftime("%Y-%m-%d")),
-						)
-					)
+	def _reference_remark(self, row) -> str | None:
+		"""Remark line for a single account row's linked Invoice/Order, or None."""
+		if row.reference_type == "Sales Invoice" and row.credit:
+			return _("{0} against Sales Invoice {1}").format(
+				fmt_money(flt(row.credit), currency=self.company_currency), row.reference_name
+			)
+		if row.reference_type == "Sales Order" and row.credit:
+			return _("{0} against Sales Order {1}").format(
+				fmt_money(flt(row.credit), currency=self.company_currency), row.reference_name
+			)
+		if row.reference_type == "Purchase Invoice" and row.debit:
+			return self._bill_remark(row)
+		if row.reference_type == "Purchase Order" and row.debit:
+			return _("{0} against Purchase Order {1}").format(
+				fmt_money(flt(row.credit), currency=self.company_currency), row.reference_name
+			)
+		return None
 
-			if d.reference_type == "Purchase Order" and d.debit:
-				r.append(
-					_("{0} against Purchase Order {1}").format(
-						fmt_money(flt(d.credit), currency=self.company_currency), d.reference_name
-					)
-				)
-
-		if r:
-			self.remark = ("\n").join(r)  # User Remarks is not mandatory
+	def _bill_remark(self, row) -> str | None:
+		"""Remark line referencing the supplier bill number/date of a Purchase Invoice row."""
+		bill_no, bill_date = frappe.db.get_value(
+			"Purchase Invoice", row.reference_name, ["bill_no", "bill_date"]
+		) or (None, None)
+		if not bill_no or bill_no.lower().strip() in ["na", "not applicable", "none"]:
+			return None
+		return _("{0} against Bill {1} dated {2}").format(
+			fmt_money(flt(row.debit), currency=self.company_currency),
+			bill_no,
+			bill_date and formatdate(bill_date.strftime("%Y-%m-%d")),
+		)
 
 	def set_print_format_fields(self):
 		bank_amount = party_amount = total_amount = 0.0
