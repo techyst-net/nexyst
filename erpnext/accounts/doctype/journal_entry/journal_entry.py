@@ -222,18 +222,16 @@ class JournalEntry(AccountsController):
 		JournalTaxWithholding(self).on_submit()
 
 	@frappe.whitelist()
-	def get_balance_for_periodic_accounting(self):
+	def get_balance_for_periodic_accounting(self) -> None:
+		"""Rebuild the entry rows from the stock-vs-ledger difference of each stock account."""
 		self.validate_company_for_periodic_accounting()
 
-		stock_accounts = self.get_stock_accounts_for_periodic_accounting()
 		self.set("accounts", [])
-		for account in stock_accounts:
-			account_bal, stock_bal, warehouse_list = get_stock_and_account_balance(
+		for account in self.get_stock_accounts_for_periodic_accounting():
+			account_bal, stock_bal, _warehouse_list = get_stock_and_account_balance(
 				account, self.posting_date, self.company
 			)
-
 			difference_value = flt(stock_bal - account_bal, self.precision("difference"))
-
 			if difference_value == 0:
 				frappe.msgprint(
 					_("No difference found for stock account {0}").format(frappe.bold(account)),
@@ -241,23 +239,26 @@ class JournalEntry(AccountsController):
 				)
 				continue
 
-			self.append(
-				"accounts",
-				{
-					"account": account,
-					"debit_in_account_currency": difference_value if difference_value > 0 else 0,
-					"credit_in_account_currency": abs(difference_value) if difference_value < 0 else 0,
-				},
-			)
+			self._append_periodic_difference_rows(account, difference_value)
 
-			self.append(
-				"accounts",
-				{
-					"account": self.periodic_entry_difference_account,
-					"credit_in_account_currency": difference_value if difference_value > 0 else 0,
-					"debit_in_account_currency": abs(difference_value) if difference_value < 0 else 0,
-				},
-			)
+	def _append_periodic_difference_rows(self, account: str, difference_value: float) -> None:
+		"""Append the stock account row and its offsetting difference-account row."""
+		self.append(
+			"accounts",
+			{
+				"account": account,
+				"debit_in_account_currency": difference_value if difference_value > 0 else 0,
+				"credit_in_account_currency": abs(difference_value) if difference_value < 0 else 0,
+			},
+		)
+		self.append(
+			"accounts",
+			{
+				"account": self.periodic_entry_difference_account,
+				"credit_in_account_currency": difference_value if difference_value > 0 else 0,
+				"debit_in_account_currency": abs(difference_value) if difference_value < 0 else 0,
+			},
+		)
 
 	def validate_company_for_periodic_accounting(self):
 		if erpnext.is_perpetual_inventory_enabled(self.company):
@@ -386,49 +387,44 @@ class JournalEntry(AccountsController):
 				self.name,
 			)
 
-	def update_invoice_discounting(self):
-		def _validate_invoice_discounting_status(inv_disc, id_status, expected_status, row_id):
-			id_link = get_link_to_form("Invoice Discounting", inv_disc)
-			if id_status != expected_status:
-				frappe.throw(
-					_("Row #{0}: Status must be {1} for Invoice Discounting {2}").format(
-						d.idx, expected_status, id_link
-					)
-				)
+	def update_invoice_discounting(self) -> None:
+		"""Advance each linked Invoice Discounting to its next status on submit/cancel."""
+		discounting_names = {
+			row.reference_name for row in self.accounts if row.reference_type == "Invoice Discounting"
+		}
+		for name in discounting_names:
+			inv_disc = frappe.get_doc("Invoice Discounting", name)
+			if status := self._get_next_invoice_discounting_status(inv_disc):
+				inv_disc.set_status(status=status)
 
-		invoice_discounting_list = list(
-			set([d.reference_name for d in self.accounts if d.reference_type == "Invoice Discounting"])
-		)
-		for inv_disc in invoice_discounting_list:
-			inv_disc_doc = frappe.get_doc("Invoice Discounting", inv_disc)
-			status = None
-			for d in self.accounts:
-				if d.account == inv_disc_doc.short_term_loan and d.reference_name == inv_disc:
-					if self.docstatus == 1:
-						if d.credit > 0:
-							_validate_invoice_discounting_status(
-								inv_disc, inv_disc_doc.status, "Sanctioned", d.idx
-							)
-							status = "Disbursed"
-						elif d.debit > 0:
-							_validate_invoice_discounting_status(
-								inv_disc, inv_disc_doc.status, "Disbursed", d.idx
-							)
-							status = "Settled"
-					else:
-						if d.credit > 0:
-							_validate_invoice_discounting_status(
-								inv_disc, inv_disc_doc.status, "Disbursed", d.idx
-							)
-							status = "Sanctioned"
-						elif d.debit > 0:
-							_validate_invoice_discounting_status(
-								inv_disc, inv_disc_doc.status, "Settled", d.idx
-							)
-							status = "Disbursed"
-					break
-			if status:
-				inv_disc_doc.set_status(status=status)
+	def _get_next_invoice_discounting_status(self, inv_disc) -> str | None:
+		"""Validate the current status and return the next one from the loan account row."""
+		for row in self.accounts:
+			if row.account != inv_disc.short_term_loan or row.reference_name != inv_disc.name:
+				continue
+
+			submitting = self.docstatus == 1
+			if row.credit > 0:
+				expected, next_status = (
+					("Sanctioned", "Disbursed") if submitting else ("Disbursed", "Sanctioned")
+				)
+			elif row.debit > 0:
+				expected, next_status = ("Disbursed", "Settled") if submitting else ("Settled", "Disbursed")
+			else:
+				return None
+
+			self._validate_invoice_discounting_status(inv_disc, expected, row.idx)
+			return next_status
+		return None
+
+	def _validate_invoice_discounting_status(self, inv_disc, expected_status: str, row_idx: int) -> None:
+		"""Throw unless the Invoice Discounting is in the status expected for this transition."""
+		if inv_disc.status != expected_status:
+			frappe.throw(
+				_("Row #{0}: Status must be {1} for Invoice Discounting {2}").format(
+					row_idx, expected_status, get_link_to_form("Invoice Discounting", inv_disc.name)
+				)
+			)
 
 	def unlink_advance_entry_reference(self):
 		for d in self.get("accounts"):
@@ -558,7 +554,7 @@ class JournalEntry(AccountsController):
 		if row.reference_name == self.name:
 			frappe.throw(_("You can not enter current voucher in 'Against Journal Entry' column"))
 
-		against_entries = self._against_jv_entries(row)
+		against_entries = self._get_against_jv_entries(row)
 		if not against_entries:
 			if self.voucher_type != "Exchange Gain Or Loss":
 				frappe.throw(
@@ -596,7 +592,7 @@ class JournalEntry(AccountsController):
 				)
 			)
 
-	def _against_jv_entries(self, row) -> list[dict]:
+	def _get_against_jv_entries(self, row) -> list[dict]:
 		"""Submitted Journal Entry Account rows on the referenced JE for the same account
 		that are not themselves linked to an order."""
 		jea = frappe.qb.DocType("Journal Entry Account")
@@ -701,39 +697,43 @@ class JournalEntry(AccountsController):
 				d.debit = flt(d.debit_in_account_currency * flt(d.exchange_rate), d.precision("debit"))
 				d.credit = flt(d.credit_in_account_currency * flt(d.exchange_rate), d.precision("credit"))
 
-	def set_exchange_rate(self):
-		for d in self.get("accounts"):
-			if d.account_currency == self.company_currency:
-				d.exchange_rate = 1
-			elif (
-				not d.exchange_rate
-				or d.exchange_rate == 1
-				or (
-					d.reference_type in ("Sales Invoice", "Purchase Invoice")
-					and d.reference_name
-					and self.posting_date
-				)
-			):
-				ignore_exchange_rate = False
-				if self.get("flags") and self.flags.get("ignore_exchange_rate"):
-					ignore_exchange_rate = True
+	def set_exchange_rate(self) -> None:
+		"""Resolve a mandatory exchange rate for every account row."""
+		for row in self.get("accounts"):
+			self._set_row_exchange_rate(row)
+			if not row.exchange_rate:
+				frappe.throw(_("Row {0}: Exchange Rate is mandatory").format(row.idx))
 
-				if not ignore_exchange_rate:
-					# Modified to include the posting date for which to retreive the exchange rate
-					d.exchange_rate = get_exchange_rate(
-						self.posting_date,
-						d.account,
-						d.account_currency,
-						self.company,
-						d.reference_type,
-						d.reference_name,
-						d.debit,
-						d.credit,
-						d.exchange_rate,
-					)
+	def _set_row_exchange_rate(self, row) -> None:
+		"""Set a row's exchange rate: 1 for company currency, otherwise fetched when stale."""
+		if row.account_currency == self.company_currency:
+			row.exchange_rate = 1
+			return
 
-			if not d.exchange_rate:
-				frappe.throw(_("Row {0}: Exchange Rate is mandatory").format(d.idx))
+		needs_refresh = (
+			not row.exchange_rate
+			or row.exchange_rate == 1
+			or (
+				row.reference_type in ("Sales Invoice", "Purchase Invoice")
+				and row.reference_name
+				and self.posting_date
+			)
+		)
+		if not needs_refresh or self.flags.get("ignore_exchange_rate"):
+			return
+
+		# Includes the posting date for which to retrieve the exchange rate
+		row.exchange_rate = get_exchange_rate(
+			self.posting_date,
+			row.account,
+			row.account_currency,
+			self.company,
+			row.reference_type,
+			row.reference_name,
+			row.debit,
+			row.credit,
+			row.exchange_rate,
+		)
 
 	def create_remarks(self) -> None:
 		"""Build the auto remark from the cheque reference and each account row's linked
@@ -742,17 +742,17 @@ class JournalEntry(AccountsController):
 			return
 
 		remarks = []
-		if cheque_remark := self._cheque_remark():
+		if cheque_remark := self._get_cheque_remark():
 			remarks.append(cheque_remark)
 
 		for row in self.get("accounts"):
-			if reference_remark := self._reference_remark(row):
+			if reference_remark := self._get_reference_remark(row):
 				remarks.append(reference_remark)
 
 		if remarks:
 			self.remark = "\n".join(remarks)  # User Remarks is not mandatory
 
-	def _cheque_remark(self) -> str | None:
+	def _get_cheque_remark(self) -> str | None:
 		"""Remark line for the cheque reference; raises if the cheque date is missing."""
 		if not self.cheque_no:
 			return None
@@ -760,7 +760,7 @@ class JournalEntry(AccountsController):
 			msgprint(_("Please enter Reference date"), raise_exception=frappe.MandatoryError)
 		return _("Reference #{0} dated {1}").format(self.cheque_no, formatdate(self.cheque_date))
 
-	def _reference_remark(self, row) -> str | None:
+	def _get_reference_remark(self, row) -> str | None:
 		"""Remark line for a single account row's linked Invoice/Order, or None."""
 		if row.reference_type == "Sales Invoice" and row.credit:
 			return _("{0} against Sales Invoice {1}").format(
@@ -771,14 +771,14 @@ class JournalEntry(AccountsController):
 				fmt_money(flt(row.credit), currency=self.company_currency), row.reference_name
 			)
 		if row.reference_type == "Purchase Invoice" and row.debit:
-			return self._bill_remark(row)
+			return self._get_bill_remark(row)
 		if row.reference_type == "Purchase Order" and row.debit:
 			return _("{0} against Purchase Order {1}").format(
 				fmt_money(flt(row.credit), currency=self.company_currency), row.reference_name
 			)
 		return None
 
-	def _bill_remark(self, row) -> str | None:
+	def _get_bill_remark(self, row) -> str | None:
 		"""Remark line referencing the supplier bill number/date of a Purchase Invoice row."""
 		bill_no, bill_date = frappe.db.get_value(
 			"Purchase Invoice", row.reference_name, ["bill_no", "bill_date"]
@@ -791,36 +791,46 @@ class JournalEntry(AccountsController):
 			bill_date and formatdate(bill_date.strftime("%Y-%m-%d")),
 		)
 
-	def set_print_format_fields(self):
-		bank_amount = party_amount = total_amount = 0.0
-		currency = bank_account_currency = party_account_currency = pay_to_recd_from = None
-		party_type = None
-		for d in self.get("accounts"):
-			if d.party_type in ["Customer", "Supplier"] and d.party:
-				party_type = d.party_type
-				if not pay_to_recd_from:
-					pay_to_recd_from = d.party
+	def set_print_format_fields(self) -> None:
+		"""Populate pay_to_recd_from and the total amount/currency shown on the print format."""
+		amounts = self._get_party_and_bank_amounts()
 
-				if pay_to_recd_from and pay_to_recd_from == d.party:
-					party_amount += flt(d.debit_in_account_currency) or flt(d.credit_in_account_currency)
-					party_account_currency = d.account_currency
-
-			elif frappe.get_cached_value("Account", d.account, "account_type") in ["Bank", "Cash"]:
-				bank_amount += flt(d.debit_in_account_currency) or flt(d.credit_in_account_currency)
-				bank_account_currency = d.account_currency
-
-		if party_type and pay_to_recd_from:
+		total_amount, currency = 0.0, None
+		if amounts.party_type and amounts.pay_to_recd_from:
 			self.pay_to_recd_from = frappe.db.get_value(
-				party_type, pay_to_recd_from, "customer_name" if party_type == "Customer" else "supplier_name"
+				amounts.party_type,
+				amounts.pay_to_recd_from,
+				"customer_name" if amounts.party_type == "Customer" else "supplier_name",
 			)
-			if bank_amount:
-				total_amount = bank_amount
-				currency = bank_account_currency
+			if amounts.bank_amount:
+				total_amount, currency = amounts.bank_amount, amounts.bank_account_currency
 			else:
-				total_amount = party_amount
-				currency = party_account_currency
+				total_amount, currency = amounts.party_amount, amounts.party_account_currency
 
 		self.set_total_amount(total_amount, currency)
+
+	def _get_party_and_bank_amounts(self) -> frappe._dict:
+		"""Sum the party and bank/cash amounts, with their currencies, across the account rows."""
+		totals = frappe._dict(
+			bank_amount=0.0,
+			party_amount=0.0,
+			bank_account_currency=None,
+			party_account_currency=None,
+			pay_to_recd_from=None,
+			party_type=None,
+		)
+		for row in self.get("accounts"):
+			amount = flt(row.debit_in_account_currency) or flt(row.credit_in_account_currency)
+			if row.party_type in ["Customer", "Supplier"] and row.party:
+				totals.party_type = row.party_type
+				totals.pay_to_recd_from = totals.pay_to_recd_from or row.party
+				if totals.pay_to_recd_from == row.party:
+					totals.party_amount += amount
+					totals.party_account_currency = row.account_currency
+			elif frappe.get_cached_value("Account", row.account, "account_type") in ["Bank", "Cash"]:
+				totals.bank_amount += amount
+				totals.bank_account_currency = row.account_currency
+		return totals
 
 	def set_total_amount(self, amt: float, currency: str) -> None:
 		self.total_amount = amt
@@ -859,69 +869,80 @@ class JournalEntry(AccountsController):
 
 	@frappe.whitelist()
 	def get_balance(self, difference_account: str | None = None) -> None:
+		"""Balance the entry by placing any difference on a blank (or newly added) row."""
 		if not self.get("accounts"):
 			msgprint(_("'Entries' cannot be empty"), raise_exception=True)
-		else:
-			self.total_debit, self.total_credit = 0, 0
-			diff = flt(self.difference, self.precision("difference"))
+			return
 
-			# If any row without amount, set the diff on that row
-			if diff:
-				blank_row = None
-				for d in self.get("accounts"):
-					if not d.credit_in_account_currency and not d.debit_in_account_currency and diff != 0:
-						blank_row = d
+		self.total_debit, self.total_credit = 0, 0
+		diff = flt(self.difference, self.precision("difference"))
+		if diff:
+			self._apply_difference_to_blank_row(diff, difference_account)
 
-				if not blank_row:
-					blank_row = self.append(
-						"accounts",
-						{
-							"account": difference_account,
-							"cost_center": erpnext.get_default_cost_center(self.company),
-						},
-					)
+		self.set_total_debit_credit()
+		self.validate_total_debit_and_credit()
 
-				blank_row.exchange_rate = 1
-				if diff > 0:
-					blank_row.credit_in_account_currency = diff
-					blank_row.credit = diff
-				elif diff < 0:
-					blank_row.debit_in_account_currency = abs(diff)
-					blank_row.debit = abs(diff)
+	def _apply_difference_to_blank_row(self, diff: float, difference_account: str | None) -> None:
+		"""Set the balancing difference on the last amountless row, adding one if none exists."""
+		blank_row = None
+		for row in self.get("accounts"):
+			if not row.credit_in_account_currency and not row.debit_in_account_currency:
+				blank_row = row
 
-			self.set_total_debit_credit()
-			self.validate_total_debit_and_credit()
+		if not blank_row:
+			blank_row = self.append(
+				"accounts",
+				{
+					"account": difference_account,
+					"cost_center": erpnext.get_default_cost_center(self.company),
+				},
+			)
+
+		blank_row.exchange_rate = 1
+		if diff > 0:
+			blank_row.credit_in_account_currency = diff
+			blank_row.credit = diff
+		elif diff < 0:
+			blank_row.debit_in_account_currency = abs(diff)
+			blank_row.debit = abs(diff)
 
 	@frappe.whitelist()
-	def get_outstanding_invoices(self):
+	def get_outstanding_invoices(self) -> None:
+		"""Populate the entry with a write-off row per outstanding invoice plus a balancing row."""
 		self.set("accounts", [])
 		total = 0
-		for d in self.get_values():
-			total += flt(d.outstanding_amount, self.precision("credit", "accounts"))
-			jd1 = self.append("accounts", {})
-			jd1.account = d.account
-			jd1.party = d.party
+		for invoice in self.get_values():
+			total += flt(invoice.outstanding_amount, self.precision("credit", "accounts"))
+			self._append_outstanding_invoice_row(invoice)
 
-			if self.write_off_based_on == "Accounts Receivable":
-				jd1.party_type = "Customer"
-				jd1.credit_in_account_currency = flt(
-					d.outstanding_amount, self.precision("credit", "accounts")
-				)
-				jd1.reference_type = "Sales Invoice"
-				jd1.reference_name = cstr(d.name)
-			elif self.write_off_based_on == "Accounts Payable":
-				jd1.party_type = "Supplier"
-				jd1.debit_in_account_currency = flt(d.outstanding_amount, self.precision("debit", "accounts"))
-				jd1.reference_type = "Purchase Invoice"
-				jd1.reference_name = cstr(d.name)
-
-		jd2 = self.append("accounts", {})
+		balancing_row = self.append("accounts", {})
 		if self.write_off_based_on == "Accounts Receivable":
-			jd2.debit_in_account_currency = total
+			balancing_row.debit_in_account_currency = total
 		elif self.write_off_based_on == "Accounts Payable":
-			jd2.credit_in_account_currency = total
+			balancing_row.credit_in_account_currency = total
 
 		self.validate_total_debit_and_credit()
+
+	def _append_outstanding_invoice_row(self, invoice) -> None:
+		"""Append a party row for a single outstanding invoice per the write-off basis."""
+		row = self.append("accounts", {})
+		row.account = invoice.account
+		row.party = invoice.party
+
+		if self.write_off_based_on == "Accounts Receivable":
+			row.party_type = "Customer"
+			row.credit_in_account_currency = flt(
+				invoice.outstanding_amount, self.precision("credit", "accounts")
+			)
+			row.reference_type = "Sales Invoice"
+			row.reference_name = cstr(invoice.name)
+		elif self.write_off_based_on == "Accounts Payable":
+			row.party_type = "Supplier"
+			row.debit_in_account_currency = flt(
+				invoice.outstanding_amount, self.precision("debit", "accounts")
+			)
+			row.reference_type = "Purchase Invoice"
+			row.reference_name = cstr(invoice.name)
 
 	def get_values(self):
 		if self.write_off_based_on == "Accounts Receivable":
