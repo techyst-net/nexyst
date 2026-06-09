@@ -8,6 +8,7 @@ import frappe
 from frappe import _, msgprint, scrub
 from frappe.core.doctype.submission_queue.submission_queue import queue_submission
 from frappe.model.document import Document
+from frappe.query_builder.functions import Sum
 from frappe.utils import comma_and, cstr, flt, fmt_money, formatdate, get_link_to_form, nowdate
 
 import erpnext
@@ -571,13 +572,20 @@ class JournalEntry(AccountsController):
 				if d.reference_name == self.name:
 					frappe.throw(_("You can not enter current voucher in 'Against Journal Entry' column"))
 
-				against_entries = frappe.db.sql(
-					"""select * from `tabJournal Entry Account`
-					where account = %s and docstatus = 1 and parent = %s
-					and (reference_type is null or reference_type in ('', 'Sales Order', 'Purchase Order'))
-					""",
-					(d.account, d.reference_name),
-					as_dict=True,
+				jea = frappe.qb.DocType("Journal Entry Account")
+				against_entries = (
+					frappe.qb.from_(jea)
+					.select(jea.star)
+					.where(
+						(jea.account == d.account)
+						& (jea.docstatus == 1)
+						& (jea.parent == d.reference_name)
+						& (
+							jea.reference_type.isnull()
+							| jea.reference_type.isin(["", "Sales Order", "Purchase Order"])
+						)
+					)
+					.run(as_dict=True)
 				)
 
 				if not against_entries:
@@ -751,21 +759,15 @@ class JournalEntry(AccountsController):
 				)
 
 			if d.reference_type == "Purchase Invoice" and d.debit:
-				bill_no = frappe.db.sql(
-					"""select bill_no, bill_date
-					from `tabPurchase Invoice` where name=%s""",
-					d.reference_name,
-				)
-				if (
-					bill_no
-					and bill_no[0][0]
-					and bill_no[0][0].lower().strip() not in ["na", "not applicable", "none"]
-				):
+				bill_no, bill_date = frappe.db.get_value(
+					"Purchase Invoice", d.reference_name, ["bill_no", "bill_date"]
+				) or (None, None)
+				if bill_no and bill_no.lower().strip() not in ["na", "not applicable", "none"]:
 					r.append(
 						_("{0} against Bill {1} dated {2}").format(
 							fmt_money(flt(d.debit), currency=self.company_currency),
-							bill_no[0][0],
-							bill_no[0][1] and formatdate(bill_no[0][1].strftime("%Y-%m-%d")),
+							bill_no,
+							bill_date and formatdate(bill_date.strftime("%Y-%m-%d")),
 						)
 					)
 
@@ -912,28 +914,32 @@ class JournalEntry(AccountsController):
 		self.validate_total_debit_and_credit()
 
 	def get_values(self):
-		cond = (
-			f" and outstanding_amount <= {flt(self.write_off_amount)}"
-			if flt(self.write_off_amount) > 0
-			else ""
-		)
-
 		if self.write_off_based_on == "Accounts Receivable":
-			return frappe.db.sql(
-				"""select name, debit_to as account, customer as party, outstanding_amount
-				from `tabSales Invoice` where docstatus = 1 and company = {}
-				and outstanding_amount > 0 {}""".format("%s", cond),
-				self.company,
-				as_dict=True,
-			)
+			doctype, account_field, party_field = "Sales Invoice", "debit_to", "customer"
 		elif self.write_off_based_on == "Accounts Payable":
-			return frappe.db.sql(
-				"""select name, credit_to as account, supplier as party, outstanding_amount
-				from `tabPurchase Invoice` where docstatus = 1 and company = {}
-				and outstanding_amount > 0 {}""".format("%s", cond),
-				self.company,
-				as_dict=True,
+			doctype, account_field, party_field = "Purchase Invoice", "credit_to", "supplier"
+		else:
+			return
+
+		invoice = frappe.qb.DocType(doctype)
+		query = (
+			frappe.qb.from_(invoice)
+			.select(
+				invoice.name,
+				invoice[account_field].as_("account"),
+				invoice[party_field].as_("party"),
+				invoice.outstanding_amount,
 			)
+			.where(
+				(invoice.docstatus == 1)
+				& (invoice.company == self.company)
+				& (invoice.outstanding_amount > 0)
+			)
+		)
+		if flt(self.write_off_amount) > 0:
+			query = query.where(invoice.outstanding_amount <= flt(self.write_off_amount))
+
+		return query.run(as_dict=True)
 
 	def validate_credit_debit_note(self):
 		if self.stock_entry:
@@ -1059,16 +1065,20 @@ def get_outstanding(args: str | dict):
 	due_date = None
 
 	if args.get("doctype") == "Journal Entry":
-		condition = " and party=%(party)s" if args.get("party") else ""
-
-		against_jv_amount = frappe.db.sql(
-			f"""
-			select sum(debit_in_account_currency) - sum(credit_in_account_currency)
-			from `tabJournal Entry Account` where parent=%(docname)s and account=%(account)s {condition}
-			and (reference_type is null or reference_type = '')""",
-			args,
+		jea = frappe.qb.DocType("Journal Entry Account")
+		query = (
+			frappe.qb.from_(jea)
+			.select(Sum(jea.debit_in_account_currency) - Sum(jea.credit_in_account_currency))
+			.where(
+				(jea.parent == args.get("docname"))
+				& (jea.account == args.get("account"))
+				& (jea.reference_type.isnull() | (jea.reference_type == ""))
+			)
 		)
+		if args.get("party"):
+			query = query.where(jea.party == args.get("party"))
 
+		against_jv_amount = query.run()
 		against_jv_amount = flt(against_jv_amount[0][0]) if against_jv_amount else 0
 		amount_field = "credit_in_account_currency" if against_jv_amount > 0 else "debit_in_account_currency"
 		return {amount_field: abs(against_jv_amount)}
