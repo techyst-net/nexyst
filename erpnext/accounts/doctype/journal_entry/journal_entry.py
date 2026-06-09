@@ -44,6 +44,14 @@ class StockAccountInvalidTransaction(frappe.ValidationError):
 
 
 class JournalEntry(AccountsController):
+	"""Double-entry accounting voucher for manual and system-generated postings.
+
+	Besides plain journal entries it also backs depreciation, asset disposal,
+	exchange gain/loss, deferred revenue/expense, inter-company and periodic
+	accounting entries: it validates the account rows (party, references,
+	currency) and posts the corresponding GL entries on submit.
+	"""
+
 	# begin: auto-generated types
 	# This code is auto-generated. Do not modify anything in this block.
 
@@ -129,6 +137,7 @@ class JournalEntry(AccountsController):
 		super().__init__(*args, **kwargs)
 
 	def validate(self):
+		"""Validate the account rows (party, references, currency, stock) and build derived fields."""
 		from erpnext.accounts.doctype.journal_entry.services.asset_service import AssetService
 		from erpnext.accounts.doctype.journal_entry.services.reference_validator import (
 			JournalEntryReferenceValidator,
@@ -189,28 +198,33 @@ class JournalEntry(AccountsController):
 		validate_docs_for_deferred_accounting([self.name], [])
 
 	def submit(self):
+		"""Submit inline, or queue submission in the background for large entries."""
 		if len(self.accounts) > 100 and not self.meta.queue_in_background:
 			queue_submission(self, "_submit")
 		else:
 			return self._submit()
 
 	def before_cancel(self):
+		"""Block cancellation when a submitted Asset Value Adjustment is linked to this entry."""
 		from erpnext.accounts.doctype.journal_entry.services.asset_service import AssetService
 
 		AssetService(self).has_asset_adjustment_entry()
 
 	def cancel(self):
+		"""Cancel inline, or queue cancellation in the background for large entries."""
 		if len(self.accounts) > 100:
 			queue_submission(self, "_cancel")
 		else:
 			return self._cancel()
 
 	def before_submit(self):
+		"""Ensure total debit equals total credit before submission (skipped on data import)."""
 		# Do not validate while importing via data import
 		if not frappe.flags.in_import:
 			self.validate_total_debit_and_credit()
 
 	def on_submit(self):
+		"""Post GL entries and propagate the submission to assets, inter-company JE and invoice discounting."""
 		from erpnext.accounts.doctype.journal_entry.services.asset_service import AssetService
 
 		self.validate_cheque_info()
@@ -304,6 +318,7 @@ class JournalEntry(AccountsController):
 			self.repost_accounting_entries()
 
 	def on_cancel(self):
+		"""Reverse GL entries and unlink asset, inter-company and advance references on cancel."""
 		# Cancel tax withholding entries
 
 		from erpnext.accounts.doctype.journal_entry.services.asset_service import AssetService
@@ -1055,6 +1070,7 @@ def get_against_jv(
 	page_len: int,
 	filters: dict,
 ) -> list:
+	"""Link-field search for submitted Journal Entries having an unreferenced row on an account."""
 	if not frappe.db.has_column("Journal Entry", searchfield):
 		return []
 
@@ -1086,6 +1102,7 @@ def get_against_jv(
 
 @frappe.whitelist()
 def get_outstanding(args: str | dict) -> dict:
+	"""Return the outstanding amount and side to set when referencing a JV / Invoice."""
 	if not frappe.has_permission("Account"):
 		frappe.msgprint(_("No Permission"), raise_exception=1)
 
@@ -1150,6 +1167,7 @@ def get_outstanding(args: str | dict) -> dict:
 
 @frappe.whitelist()
 def get_party_account_and_currency(company: str, party_type: str, party: str) -> dict:
+	"""Return the receivable/payable account for a party and its account currency."""
 	if not frappe.has_permission("Account"):
 		frappe.msgprint(_("No Permission"), raise_exception=1)
 
@@ -1228,6 +1246,7 @@ def get_exchange_rate(
 	credit: float | str | None = None,
 	exchange_rate: str | float | None = None,
 ) -> float:
+	"""Resolve the exchange rate for an account row, by reference, balance or settings."""
 	# Ensure exchange_rate is always numeric to avoid calculation errors
 	if isinstance(exchange_rate, str):
 		exchange_rate = flt(exchange_rate) or 1
@@ -1264,6 +1283,7 @@ def get_exchange_rate(
 
 @frappe.whitelist()
 def get_average_exchange_rate(account: str) -> float:
+	"""Implied exchange rate from an account's company-currency vs account-currency balance."""
 	exchange_rate = 0
 	bank_balance_in_account_currency = get_balance_on(account)
 	if bank_balance_in_account_currency:
