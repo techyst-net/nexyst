@@ -1101,68 +1101,92 @@ def get_against_jv(
 
 
 @frappe.whitelist()
-def get_outstanding(args: str | dict) -> dict:
-	"""Return the outstanding amount and side to set when referencing a JV / Invoice."""
+def get_outstanding(
+	doctype: str | None = None,
+	docname: str | None = None,
+	company: str | None = None,
+	account: str | None = None,
+	party: str | None = None,
+	account_currency: str | None = None,
+	**kwargs,
+) -> dict | None:
+	"""Return the outstanding amount and side to set when referencing a JV / Invoice.
+
+	The named parameters are the supported interface. The legacy `args` payload dict
+	(captured via kwargs) is still accepted for backward compatibility with callers,
+	including custom apps, and is unpacked into the named parameters below.
+	"""
 	if not frappe.has_permission("Account"):
 		frappe.msgprint(_("No Permission"), raise_exception=1)
 
-	if isinstance(args, str):
-		args = json.loads(args)
+	if legacy_payload := kwargs.get("args"):
+		if isinstance(legacy_payload, str):
+			legacy_payload = json.loads(legacy_payload)
+		doctype = legacy_payload.get("doctype")
+		docname = legacy_payload.get("docname")
+		company = legacy_payload.get("company")
+		account = legacy_payload.get("account")
+		party = legacy_payload.get("party")
+		account_currency = legacy_payload.get("account_currency")
 
-	company_currency = erpnext.get_company_currency(args.get("company"))
-	due_date = None
+	if doctype == "Journal Entry":
+		return _get_journal_entry_outstanding(docname, account, party)
 
-	if args.get("doctype") == "Journal Entry":
-		jea = frappe.qb.DocType("Journal Entry Account")
-		query = (
-			frappe.qb.from_(jea)
-			.select(Sum(jea.debit_in_account_currency) - Sum(jea.credit_in_account_currency))
-			.where(
-				(jea.parent == args.get("docname"))
-				& (jea.account == args.get("account"))
-				& (jea.reference_type.isnull() | (jea.reference_type == ""))
-			)
+	if doctype in ("Sales Invoice", "Purchase Invoice"):
+		return _get_invoice_outstanding(doctype, docname, company, account_currency)
+
+
+def _get_journal_entry_outstanding(docname: str, account: str | None, party: str | None) -> dict:
+	"""Unreferenced debit-minus-credit balance for an account on a Journal Entry."""
+	jea = frappe.qb.DocType("Journal Entry Account")
+	query = (
+		frappe.qb.from_(jea)
+		.select(Sum(jea.debit_in_account_currency) - Sum(jea.credit_in_account_currency))
+		.where(
+			(jea.parent == docname)
+			& (jea.account == account)
+			& (jea.reference_type.isnull() | (jea.reference_type == ""))
 		)
-		if args.get("party"):
-			query = query.where(jea.party == args.get("party"))
+	)
+	if party:
+		query = query.where(jea.party == party)
 
-		against_jv_amount = query.run()
-		against_jv_amount = flt(against_jv_amount[0][0]) if against_jv_amount else 0
-		amount_field = "credit_in_account_currency" if against_jv_amount > 0 else "debit_in_account_currency"
-		return {amount_field: abs(against_jv_amount)}
-	elif args.get("doctype") in ("Sales Invoice", "Purchase Invoice"):
-		party_type = "Customer" if args.get("doctype") == "Sales Invoice" else "Supplier"
-		invoice = frappe.db.get_value(
-			args["doctype"],
-			args["docname"],
-			["outstanding_amount", "conversion_rate", scrub(party_type), "due_date"],
-			as_dict=1,
+	result = query.run()
+	balance = flt(result[0][0]) if result else 0
+	amount_field = "credit_in_account_currency" if balance > 0 else "debit_in_account_currency"
+	return {amount_field: abs(balance)}
+
+
+def _get_invoice_outstanding(doctype: str, docname: str, company: str, account_currency: str | None) -> dict:
+	"""Outstanding amount, side, party and exchange rate for a Sales/Purchase Invoice."""
+	party_type = "Customer" if doctype == "Sales Invoice" else "Supplier"
+	invoice = frappe.db.get_value(
+		doctype,
+		docname,
+		["outstanding_amount", "conversion_rate", scrub(party_type), "due_date"],
+		as_dict=1,
+	)
+
+	company_currency = erpnext.get_company_currency(company)
+	exchange_rate = invoice.conversion_rate if account_currency != company_currency else 1
+
+	outstanding_is_positive = flt(invoice.outstanding_amount) > 0
+	if doctype == "Sales Invoice":
+		amount_field = (
+			"credit_in_account_currency" if outstanding_is_positive else "debit_in_account_currency"
+		)
+	else:
+		amount_field = (
+			"debit_in_account_currency" if outstanding_is_positive else "credit_in_account_currency"
 		)
 
-		due_date = invoice.get("due_date")
-
-		exchange_rate = invoice.conversion_rate if (args.get("account_currency") != company_currency) else 1
-
-		if args["doctype"] == "Sales Invoice":
-			amount_field = (
-				"credit_in_account_currency"
-				if flt(invoice.outstanding_amount) > 0
-				else "debit_in_account_currency"
-			)
-		else:
-			amount_field = (
-				"debit_in_account_currency"
-				if flt(invoice.outstanding_amount) > 0
-				else "credit_in_account_currency"
-			)
-
-		return {
-			amount_field: abs(flt(invoice.outstanding_amount)),
-			"exchange_rate": exchange_rate,
-			"party_type": party_type,
-			"party": invoice.get(scrub(party_type)),
-			"reference_due_date": due_date,
-		}
+	return {
+		amount_field: abs(flt(invoice.outstanding_amount)),
+		"exchange_rate": exchange_rate,
+		"party_type": party_type,
+		"party": invoice.get(scrub(party_type)),
+		"reference_due_date": invoice.get("due_date"),
+	}
 
 
 @frappe.whitelist()

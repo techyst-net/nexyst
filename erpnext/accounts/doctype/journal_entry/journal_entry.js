@@ -409,18 +409,16 @@ erpnext.accounts.JournalEntry = class JournalEntry extends frappe.ui.form.Contro
 	}
 
 	get_outstanding(doctype, docname, company, child) {
-		var args = {
-			doctype: doctype,
-			docname: docname,
-			party: child.party,
-			account: child.account,
-			account_currency: child.account_currency,
-			company: company,
-		};
-
 		return frappe.call({
 			method: "erpnext.accounts.doctype.journal_entry.journal_entry.get_outstanding",
-			args: { args: args },
+			args: {
+				doctype: doctype,
+				docname: docname,
+				company: company,
+				account: child.account,
+				party: child.party,
+				account_currency: child.account_currency,
+			},
 			callback: function (r) {
 				if (r.message) {
 					$.each(r.message, function (field, value) {
