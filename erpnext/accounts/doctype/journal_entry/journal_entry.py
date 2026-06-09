@@ -27,9 +27,6 @@ from erpnext.accounts.utils import (
 	get_stock_accounts,
 	get_stock_and_account_balance,
 )
-from erpnext.assets.doctype.asset_depreciation_schedule.asset_depreciation_schedule import (
-	get_depr_schedule,
-)
 from erpnext.controllers.accounts_controller import AccountsController
 from erpnext.setup.utils import get_exchange_rate as _get_exchange_rate
 
@@ -124,6 +121,7 @@ class JournalEntry(AccountsController):
 		super().__init__(*args, **kwargs)
 
 	def validate(self):
+		from erpnext.accounts.doctype.journal_entry.services.asset_linkage import JournalEntryAssetLinkage
 		from erpnext.accounts.doctype.journal_entry.services.reference_validator import (
 			JournalEntryReferenceValidator,
 		)
@@ -155,7 +153,7 @@ class JournalEntry(AccountsController):
 		self.validate_credit_debit_note()
 		self.validate_empty_accounts_table()
 		self.validate_inter_company_accounts()
-		self.validate_depr_account_and_depr_entry_voucher_type()
+		JournalEntryAssetLinkage(self).validate_depr_account_and_depr_entry_voucher_type()
 		self.validate_company_in_accounting_dimension()
 		self.validate_advance_accounts()
 
@@ -189,7 +187,9 @@ class JournalEntry(AccountsController):
 			return self._submit()
 
 	def before_cancel(self):
-		self.has_asset_adjustment_entry()
+		from erpnext.accounts.doctype.journal_entry.services.asset_linkage import JournalEntryAssetLinkage
+
+		JournalEntryAssetLinkage(self).has_asset_adjustment_entry()
 
 	def cancel(self):
 		if len(self.accounts) > 100:
@@ -203,10 +203,12 @@ class JournalEntry(AccountsController):
 			self.validate_total_debit_and_credit()
 
 	def on_submit(self):
+		from erpnext.accounts.doctype.journal_entry.services.asset_linkage import JournalEntryAssetLinkage
+
 		self.validate_cheque_info()
 		self.make_gl_entries()
 		self.check_credit_limit()
-		self.update_asset_value()
+		JournalEntryAssetLinkage(self).update_asset_value()
 		self.update_inter_company_jv()
 		self.update_invoice_discounting()
 		JournalTaxWithholding(self).on_submit()
@@ -295,6 +297,8 @@ class JournalEntry(AccountsController):
 	def on_cancel(self):
 		# Cancel tax withholding entries
 
+		from erpnext.accounts.doctype.journal_entry.services.asset_linkage import JournalEntryAssetLinkage
+
 		# References for this Journal are removed on the `on_cancel` event in accounts_controller
 		super().on_cancel()
 
@@ -319,9 +323,9 @@ class JournalEntry(AccountsController):
 		self.make_gl_entries(1)
 		JournalTaxWithholding(self).on_cancel()
 		self.unlink_advance_entry_reference()
-		self.unlink_asset_reference()
+		JournalEntryAssetLinkage(self).unlink_asset_reference()
 		self.unlink_inter_company_jv()
-		self.unlink_asset_adjustment_entry()
+		JournalEntryAssetLinkage(self).unlink_asset_adjustment_entry()
 		self.update_invoice_discounting()
 
 	def get_title(self):
@@ -345,17 +349,6 @@ class JournalEntry(AccountsController):
 				):
 					frappe.throw(_("Total Credit/ Debit Amount should be same as linked Journal Entry"))
 
-	def validate_depr_account_and_depr_entry_voucher_type(self):
-		for d in self.get("accounts"):
-			if d.account_type == "Depreciation":
-				if self.voucher_type != "Depreciation Entry":
-					frappe.throw(
-						_("Journal Entry type should be set as Depreciation Entry for asset depreciation")
-					)
-
-				if frappe.get_cached_value("Account", d.account, "root_type") != "Expense":
-					frappe.throw(_("Account {0} should be of type Expense").format(d.account))
-
 	def validate_stock_accounts(self):
 		if (
 			not erpnext.is_perpetual_inventory_enabled(self.company)
@@ -375,75 +368,6 @@ class JournalEntry(AccountsController):
 					_("Account: {0} can only be updated via Stock Transactions").format(account),
 					StockAccountInvalidTransaction,
 				)
-
-	def update_asset_value(self):
-		self.update_asset_on_depreciation()
-		self.update_asset_on_disposal()
-
-	def update_asset_on_depreciation(self):
-		if self.voucher_type != "Depreciation Entry":
-			return
-
-		for d in self.get("accounts"):
-			if (
-				d.reference_type == "Asset"
-				and d.reference_name
-				and frappe.get_cached_value("Account", d.account, "root_type") == "Expense"
-				and d.debit
-			):
-				asset = frappe.get_cached_doc("Asset", d.reference_name)
-
-				if asset.calculate_depreciation:
-					self.update_journal_entry_link_on_depr_schedule(asset, d)
-					self.update_value_after_depreciation(asset, d.debit)
-
-				asset.db_set("value_after_depreciation", asset.value_after_depreciation - d.debit)
-				asset.set_status()
-				asset.set_total_booked_depreciations()
-
-	def update_value_after_depreciation(self, asset, depr_amount):
-		fb_idx = 1
-		if self.finance_book:
-			for fb_row in asset.get("finance_books"):
-				if fb_row.finance_book == self.finance_book:
-					fb_idx = fb_row.idx
-					break
-		fb_row = asset.get("finance_books")[fb_idx - 1]
-		fb_row.value_after_depreciation -= depr_amount
-		frappe.db.set_value(
-			"Asset Finance Book", fb_row.name, "value_after_depreciation", fb_row.value_after_depreciation
-		)
-
-	def update_journal_entry_link_on_depr_schedule(self, asset, je_row):
-		depr_schedule = get_depr_schedule(asset.name, "Active", self.finance_book)
-		for d in depr_schedule or []:
-			if (
-				d.schedule_date == self.posting_date
-				and not d.journal_entry
-				and d.depreciation_amount == flt(je_row.debit)
-			):
-				frappe.db.set_value("Depreciation Schedule", d.name, "journal_entry", self.name)
-
-	def update_asset_on_disposal(self):
-		if self.voucher_type == "Asset Disposal":
-			disposed_assets = []
-			for d in self.get("accounts"):
-				if (
-					d.reference_type == "Asset"
-					and d.reference_name
-					and d.reference_name not in disposed_assets
-				):
-					frappe.db.set_value(
-						"Asset",
-						d.reference_name,
-						{
-							"disposal_date": self.posting_date,
-							"journal_entry_for_scrap": self.name,
-						},
-					)
-					asset_doc = frappe.get_doc("Asset", d.reference_name)
-					asset_doc.set_status()
-					disposed_assets.append(d.reference_name)
 
 	def update_inter_company_jv(self):
 		if self.voucher_type == "Inter Company Journal Entry" and self.inter_company_journal_entry_reference:
@@ -507,59 +431,6 @@ class JournalEntry(AccountsController):
 				d.reference_name = ""
 				d.db_update()
 
-	def unlink_asset_reference(self):
-		for d in self.get("accounts"):
-			if (
-				self.voucher_type == "Depreciation Entry"
-				and d.reference_type == "Asset"
-				and d.reference_name
-				and frappe.get_cached_value("Account", d.account, "root_type") == "Expense"
-				and d.debit
-			):
-				asset = frappe.get_doc("Asset", d.reference_name)
-
-				if asset.calculate_depreciation:
-					je_found = False
-
-					for fb_row in asset.get("finance_books"):
-						if je_found:
-							break
-
-						depr_schedule = get_depr_schedule(asset.name, "Active", fb_row.finance_book)
-
-						for s in depr_schedule or []:
-							if s.journal_entry == self.name:
-								s.db_set("journal_entry", None)
-
-								fb_row.value_after_depreciation += d.debit
-								fb_row.db_update()
-
-								je_found = True
-								break
-					if not je_found:
-						fb_idx = 1
-						if self.finance_book:
-							for fb_row in asset.get("finance_books"):
-								if fb_row.finance_book == self.finance_book:
-									fb_idx = fb_row.idx
-									break
-
-						fb_row = asset.get("finance_books")[fb_idx - 1]
-						fb_row.value_after_depreciation += d.debit
-						fb_row.db_update()
-				asset.db_set("value_after_depreciation", asset.value_after_depreciation + d.debit)
-				asset.set_status()
-				asset.set_total_booked_depreciations()
-			elif self.voucher_type == "Journal Entry" and d.reference_type == "Asset" and d.reference_name:
-				journal_entry_for_scrap = frappe.db.get_value(
-					"Asset", d.reference_name, "journal_entry_for_scrap"
-				)
-
-				if journal_entry_for_scrap == self.name:
-					frappe.throw(
-						_("Journal Entry for Asset scrapping cannot be cancelled. Please restore the Asset.")
-					)
-
 	def unlink_inter_company_jv(self):
 		if self.voucher_type == "Inter Company Journal Entry" and self.inter_company_journal_entry_reference:
 			frappe.db.set_value(
@@ -569,28 +440,6 @@ class JournalEntry(AccountsController):
 				"",
 			)
 			frappe.db.set_value("Journal Entry", self.name, "inter_company_journal_entry_reference", "")
-
-	def has_asset_adjustment_entry(self):
-		if self.flags.get("via_asset_value_adjustment"):
-			return
-
-		asset_value_adjustment = frappe.db.get_value(
-			"Asset Value Adjustment", {"docstatus": 1, "journal_entry": self.name}, "name"
-		)
-		if asset_value_adjustment:
-			frappe.throw(
-				_(
-					"Cannot cancel this document as it is linked with the submitted Asset Value Adjustment <b>{0}</b>. Please cancel the Asset Value Adjustment to continue."
-				).format(frappe.utils.get_link_to_form("Asset Value Adjustment", asset_value_adjustment))
-			)
-
-	def unlink_asset_adjustment_entry(self):
-		AssetValueAdjustment = frappe.qb.DocType("Asset Value Adjustment")
-		(
-			frappe.qb.update(AssetValueAdjustment)
-			.set(AssetValueAdjustment.journal_entry, None)
-			.where(AssetValueAdjustment.journal_entry == self.name)
-		).run()
 
 	def validate_party(self):
 		for d in self.get("accounts"):
