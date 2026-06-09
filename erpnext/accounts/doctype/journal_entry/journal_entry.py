@@ -1279,15 +1279,3 @@ def get_exchange_rate(
 
 	# don't return None or 0 as it is multipled with a value and that value could be lost
 	return exchange_rate or 1
-
-
-@frappe.whitelist()
-def get_average_exchange_rate(account: str) -> float:
-	"""Implied exchange rate from an account's company-currency vs account-currency balance."""
-	exchange_rate = 0
-	bank_balance_in_account_currency = get_balance_on(account)
-	if bank_balance_in_account_currency:
-		bank_balance_in_company_currency = get_balance_on(account, in_account_currency=False)
-		exchange_rate = bank_balance_in_company_currency / bank_balance_in_account_currency
-
-	return exchange_rate
