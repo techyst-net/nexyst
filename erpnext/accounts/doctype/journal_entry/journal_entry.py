@@ -34,6 +34,13 @@ from erpnext.assets.doctype.asset_depreciation_schedule.asset_depreciation_sched
 from erpnext.controllers.accounts_controller import AccountsController
 from erpnext.setup.utils import get_exchange_rate as _get_exchange_rate
 
+REFERENCE_PARTY_ACCOUNT_FIELDS = {
+	"Sales Invoice": ["Customer", "Debit To"],
+	"Purchase Invoice": ["Supplier", "Credit To"],
+	"Sales Order": ["Customer"],
+	"Purchase Order": ["Supplier"],
+}
+
 
 class StockAccountInvalidTransaction(frappe.ValidationError):
 	pass
@@ -743,104 +750,100 @@ class JournalEntry(AccountsController):
 
 	def validate_reference_doc(self):
 		"""Validates reference document"""
-		field_dict = {
-			"Sales Invoice": ["Customer", "Debit To"],
-			"Purchase Invoice": ["Supplier", "Credit To"],
-			"Sales Order": ["Customer"],
-			"Purchase Order": ["Supplier"],
-		}
-
 		self.reference_totals = {}
 		self.reference_types = {}
 		self.reference_accounts = {}
-
 		for d in self.get("accounts"):
-			if not d.reference_type:
-				d.reference_name = None
-			if not d.reference_name:
-				d.reference_type = None
-			if d.reference_type and d.reference_name and (d.reference_type in list(field_dict)):
-				dr_or_cr = (
-					"credit_in_account_currency"
-					if d.reference_type in ("Sales Order", "Sales Invoice")
-					else "debit_in_account_currency"
-				)
-
-				# check debit or credit type Sales / Purchase Order
-				if d.reference_type == "Sales Order" and flt(d.debit) > 0:
-					frappe.throw(
-						_("Row {0}: Debit entry can not be linked with a {1}").format(d.idx, d.reference_type)
-					)
-
-				if d.reference_type == "Purchase Order" and flt(d.credit) > 0:
-					frappe.throw(
-						_("Row {0}: Credit entry can not be linked with a {1}").format(
-							d.idx, d.reference_type
-						)
-					)
-
-				# set totals
-				if d.reference_name not in self.reference_totals:
-					self.reference_totals[d.reference_name] = 0.0
-
-				if self.voucher_type not in ("Deferred Revenue", "Deferred Expense"):
-					self.reference_totals[d.reference_name] += flt(d.get(dr_or_cr))
-
-				self.reference_types[d.reference_name] = d.reference_type
-				self.reference_accounts[d.reference_name] = d.account
-
-				against_voucher = frappe.db.get_value(
-					d.reference_type, d.reference_name, [scrub(dt) for dt in field_dict.get(d.reference_type)]
-				)
-
-				if not against_voucher:
-					frappe.throw(_("Row {0}: Invalid reference {1}").format(d.idx, d.reference_name))
-
-				# check if party and account match
-				if d.reference_type in ("Sales Invoice", "Purchase Invoice"):
-					if (
-						self.voucher_type in ("Deferred Revenue", "Deferred Expense")
-						and d.reference_detail_no
-					):
-						debit_or_credit = "Debit" if d.debit else "Credit"
-						party_account = get_deferred_booking_accounts(
-							d.reference_type, d.reference_detail_no, debit_or_credit
-						)
-						against_voucher = ["", against_voucher[1]]
-					else:
-						if d.reference_type == "Sales Invoice":
-							party_account = (
-								get_party_account_based_on_invoice_discounting(d.reference_name)
-								or against_voucher[1]
-							)
-						else:
-							party_account = against_voucher[1]
-
-					if (
-						against_voucher[0] != cstr(d.party) or party_account != d.account
-					) and self.voucher_type != "Exchange Gain Or Loss":
-						frappe.throw(
-							_("Row {0}: Party / Account does not match with {1} / {2} in {3} {4}").format(
-								d.idx,
-								field_dict.get(d.reference_type)[0],
-								field_dict.get(d.reference_type)[1],
-								d.reference_type,
-								d.reference_name,
-							)
-						)
-
-				# check if party matches for Sales / Purchase Order
-				if d.reference_type in ("Sales Order", "Purchase Order"):
-					# set totals
-					if against_voucher != d.party:
-						frappe.throw(
-							_("Row {0}: {1} {2} does not match with {3}").format(
-								d.idx, d.party_type, d.party, d.reference_type
-							)
-						)
+			self._normalize_reference_fields(d)
+			if not self._has_party_reference(d):
+				continue
+			self._validate_order_direction(d)
+			self._register_reference(d)
+			self._validate_reference_party_and_account(d)
 
 		self.validate_orders()
 		self.validate_invoices()
+
+	def _normalize_reference_fields(self, row):
+		if not row.reference_type:
+			row.reference_name = None
+		if not row.reference_name:
+			row.reference_type = None
+
+	def _has_party_reference(self, row):
+		return bool(
+			row.reference_type and row.reference_name and row.reference_type in REFERENCE_PARTY_ACCOUNT_FIELDS
+		)
+
+	def _reference_amount_field(self, row):
+		if row.reference_type in ("Sales Order", "Sales Invoice"):
+			return "credit_in_account_currency"
+		return "debit_in_account_currency"
+
+	def _validate_order_direction(self, row):
+		if row.reference_type == "Sales Order" and flt(row.debit) > 0:
+			frappe.throw(
+				_("Row {0}: Debit entry can not be linked with a {1}").format(row.idx, row.reference_type)
+			)
+		if row.reference_type == "Purchase Order" and flt(row.credit) > 0:
+			frappe.throw(
+				_("Row {0}: Credit entry can not be linked with a {1}").format(row.idx, row.reference_type)
+			)
+
+	def _register_reference(self, row):
+		if row.reference_name not in self.reference_totals:
+			self.reference_totals[row.reference_name] = 0.0
+		if self.voucher_type not in ("Deferred Revenue", "Deferred Expense"):
+			self.reference_totals[row.reference_name] += flt(row.get(self._reference_amount_field(row)))
+		self.reference_types[row.reference_name] = row.reference_type
+		self.reference_accounts[row.reference_name] = row.account
+
+	def _validate_reference_party_and_account(self, row):
+		party_fields = REFERENCE_PARTY_ACCOUNT_FIELDS[row.reference_type]
+		against_voucher = frappe.db.get_value(
+			row.reference_type, row.reference_name, [scrub(f) for f in party_fields]
+		)
+		if not against_voucher:
+			frappe.throw(_("Row {0}: Invalid reference {1}").format(row.idx, row.reference_name))
+
+		if row.reference_type in ("Sales Invoice", "Purchase Invoice"):
+			self._validate_invoice_party_and_account(row, against_voucher, party_fields)
+		elif row.reference_type in ("Sales Order", "Purchase Order"):
+			self._validate_order_party(row, against_voucher)
+
+	def _validate_invoice_party_and_account(self, row, against_voucher, party_fields):
+		party_account, against_party = self._resolve_invoice_party_account(row, against_voucher)
+		if self.voucher_type == "Exchange Gain Or Loss":
+			return
+		if against_party != cstr(row.party) or party_account != row.account:
+			frappe.throw(
+				_("Row {0}: Party / Account does not match with {1} / {2} in {3} {4}").format(
+					row.idx, party_fields[0], party_fields[1], row.reference_type, row.reference_name
+				)
+			)
+
+	def _resolve_invoice_party_account(self, row, against_voucher):
+		if self.voucher_type in ("Deferred Revenue", "Deferred Expense") and row.reference_detail_no:
+			debit_or_credit = "Debit" if row.debit else "Credit"
+			party_account = get_deferred_booking_accounts(
+				row.reference_type, row.reference_detail_no, debit_or_credit
+			)
+			return party_account, ""
+		if row.reference_type == "Sales Invoice":
+			party_account = (
+				get_party_account_based_on_invoice_discounting(row.reference_name) or against_voucher[1]
+			)
+		else:
+			party_account = against_voucher[1]
+		return party_account, against_voucher[0]
+
+	def _validate_order_party(self, row, against_voucher):
+		if against_voucher != row.party:
+			frappe.throw(
+				_("Row {0}: {1} {2} does not match with {3}").format(
+					row.idx, row.party_type, row.party, row.reference_type
+				)
+			)
 
 	def validate_orders(self):
 		"""Validate totals, closed and docstatus for orders"""

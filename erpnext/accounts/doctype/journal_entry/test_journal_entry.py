@@ -609,6 +609,85 @@ class TestJournalEntry(ERPNextTestSuite):
 		jv.save()
 		self.assertRaises(frappe.ValidationError, jv.submit)
 
+	def test_validate_reference_doc_debit_against_sales_order_throws(self):
+		"""Characterize: a debit entry linked to a Sales Order is rejected."""
+		from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
+
+		sales_order = make_sales_order()
+		jv = make_journal_entry("Debtors - _TC", "_Test Cash - _TC", 100, save=False)
+		jv.accounts[0].party_type = "Customer"
+		jv.accounts[0].party = "_Test Customer"
+		jv.accounts[0].reference_type = "Sales Order"
+		jv.accounts[0].reference_name = sales_order.name
+		self.assertRaisesRegex(frappe.ValidationError, "Debit entry can not be linked", jv.insert)
+
+	def test_validate_reference_doc_credit_against_purchase_order_throws(self):
+		"""Characterize: a credit entry linked to a Purchase Order is rejected."""
+		from erpnext.buying.doctype.purchase_order.test_purchase_order import create_purchase_order
+
+		purchase_order = create_purchase_order()
+		jv = make_journal_entry("_Test Cash - _TC", "Creditors - _TC", 100, save=False)
+		jv.accounts[1].party_type = "Supplier"
+		jv.accounts[1].party = "_Test Supplier"
+		jv.accounts[1].reference_type = "Purchase Order"
+		jv.accounts[1].reference_name = purchase_order.name
+		self.assertRaisesRegex(frappe.ValidationError, "Credit entry can not be linked", jv.insert)
+
+	def test_validate_reference_doc_nonexistent_reference_rejected(self):
+		"""Characterize: a JE referencing a non-existent invoice is rejected by link validation.
+
+		Note: the controller's own "Invalid reference" branch is unreachable in normal flow
+		because Frappe link validation rejects the missing reference before validate_reference_doc.
+		"""
+		jv = make_journal_entry("_Test Cash - _TC", "Debtors - _TC", 100, save=False)
+		jv.accounts[1].party_type = "Customer"
+		jv.accounts[1].party = "_Test Customer"
+		jv.accounts[1].reference_type = "Sales Invoice"
+		jv.accounts[1].reference_name = "NON-EXISTENT-SI"
+		self.assertRaises(frappe.LinkValidationError, jv.insert)
+
+	def test_validate_reference_doc_invoice_party_mismatch_throws(self):
+		"""Characterize: an invoice reference whose party differs from the row party is rejected."""
+		from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
+
+		invoice = create_sales_invoice(rate=500)
+		other_customer = make_customer("_Test JE Mismatch Customer")
+		jv = make_journal_entry("_Test Cash - _TC", "Debtors - _TC", 100, save=False)
+		jv.accounts[1].party_type = "Customer"
+		jv.accounts[1].party = other_customer
+		jv.accounts[1].reference_type = "Sales Invoice"
+		jv.accounts[1].reference_name = invoice.name
+		self.assertRaisesRegex(frappe.ValidationError, "Party / Account does not match", jv.insert)
+
+	def test_validate_reference_doc_order_party_mismatch_throws(self):
+		"""Characterize: a Sales Order reference whose party differs from the row party is rejected."""
+		from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
+
+		sales_order = make_sales_order()
+		other_customer = make_customer("_Test JE Mismatch Customer")
+		jv = make_journal_entry("_Test Cash - _TC", "Debtors - _TC", 100, save=False)
+		jv.accounts[1].party_type = "Customer"
+		jv.accounts[1].party = other_customer
+		jv.accounts[1].is_advance = "Yes"
+		jv.accounts[1].reference_type = "Sales Order"
+		jv.accounts[1].reference_name = sales_order.name
+		self.assertRaisesRegex(frappe.ValidationError, "does not match", jv.insert)
+
+	def test_validate_reference_doc_populates_reference_side_effects(self):
+		"""Characterize: a valid invoice reference populates reference_totals/types/accounts."""
+		from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
+
+		invoice = create_sales_invoice(rate=500)
+		jv = make_journal_entry("_Test Cash - _TC", "Debtors - _TC", 100, save=False)
+		jv.accounts[1].party_type = "Customer"
+		jv.accounts[1].party = "_Test Customer"
+		jv.accounts[1].reference_type = "Sales Invoice"
+		jv.accounts[1].reference_name = invoice.name
+		jv.insert()
+		self.assertEqual(jv.reference_totals[invoice.name], 100.0)
+		self.assertEqual(jv.reference_types[invoice.name], "Sales Invoice")
+		self.assertEqual(jv.reference_accounts[invoice.name], "Debtors - _TC")
+
 
 def make_journal_entry(
 	account1,
