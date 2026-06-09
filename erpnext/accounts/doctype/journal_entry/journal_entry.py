@@ -755,10 +755,10 @@ class JournalEntry(AccountsController):
 		self.reference_accounts = {}
 		for d in self.get("accounts"):
 			self._normalize_reference_fields(d)
-			if not self._is_validatable_reference(d):
+			if not self._has_party_reference(d):
 				continue
 			self._validate_order_direction(d)
-			self._accumulate_reference(d)
+			self._register_reference(d)
 			self._validate_reference_party_and_account(d)
 
 		self.validate_orders()
@@ -770,12 +770,12 @@ class JournalEntry(AccountsController):
 		if not row.reference_name:
 			row.reference_type = None
 
-	def _is_validatable_reference(self, row):
+	def _has_party_reference(self, row):
 		return bool(
 			row.reference_type and row.reference_name and row.reference_type in REFERENCE_PARTY_ACCOUNT_FIELDS
 		)
 
-	def _reference_dr_or_cr(self, row):
+	def _reference_amount_field(self, row):
 		if row.reference_type in ("Sales Order", "Sales Invoice"):
 			return "credit_in_account_currency"
 		return "debit_in_account_currency"
@@ -790,11 +790,11 @@ class JournalEntry(AccountsController):
 				_("Row {0}: Credit entry can not be linked with a {1}").format(row.idx, row.reference_type)
 			)
 
-	def _accumulate_reference(self, row):
+	def _register_reference(self, row):
 		if row.reference_name not in self.reference_totals:
 			self.reference_totals[row.reference_name] = 0.0
 		if self.voucher_type not in ("Deferred Revenue", "Deferred Expense"):
-			self.reference_totals[row.reference_name] += flt(row.get(self._reference_dr_or_cr(row)))
+			self.reference_totals[row.reference_name] += flt(row.get(self._reference_amount_field(row)))
 		self.reference_types[row.reference_name] = row.reference_type
 		self.reference_accounts[row.reference_name] = row.account
 
