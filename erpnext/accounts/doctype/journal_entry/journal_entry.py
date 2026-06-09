@@ -121,7 +121,7 @@ class JournalEntry(AccountsController):
 		super().__init__(*args, **kwargs)
 
 	def validate(self):
-		from erpnext.accounts.doctype.journal_entry.services.asset_linkage import JournalEntryAssetLinkage
+		from erpnext.accounts.doctype.journal_entry.services.asset_service import AssetService
 		from erpnext.accounts.doctype.journal_entry.services.reference_validator import (
 			JournalEntryReferenceValidator,
 		)
@@ -153,7 +153,7 @@ class JournalEntry(AccountsController):
 		self.validate_credit_debit_note()
 		self.validate_empty_accounts_table()
 		self.validate_inter_company_accounts()
-		JournalEntryAssetLinkage(self).validate_depr_account_and_depr_entry_voucher_type()
+		AssetService(self).validate_depr_account_and_depr_entry_voucher_type()
 		self.validate_company_in_accounting_dimension()
 		self.validate_advance_accounts()
 
@@ -187,9 +187,9 @@ class JournalEntry(AccountsController):
 			return self._submit()
 
 	def before_cancel(self):
-		from erpnext.accounts.doctype.journal_entry.services.asset_linkage import JournalEntryAssetLinkage
+		from erpnext.accounts.doctype.journal_entry.services.asset_service import AssetService
 
-		JournalEntryAssetLinkage(self).has_asset_adjustment_entry()
+		AssetService(self).has_asset_adjustment_entry()
 
 	def cancel(self):
 		if len(self.accounts) > 100:
@@ -203,12 +203,12 @@ class JournalEntry(AccountsController):
 			self.validate_total_debit_and_credit()
 
 	def on_submit(self):
-		from erpnext.accounts.doctype.journal_entry.services.asset_linkage import JournalEntryAssetLinkage
+		from erpnext.accounts.doctype.journal_entry.services.asset_service import AssetService
 
 		self.validate_cheque_info()
 		self.make_gl_entries()
 		self.check_credit_limit()
-		JournalEntryAssetLinkage(self).update_asset_value()
+		AssetService(self).update_asset_value()
 		self.update_inter_company_jv()
 		self.update_invoice_discounting()
 		JournalTaxWithholding(self).on_submit()
@@ -297,7 +297,7 @@ class JournalEntry(AccountsController):
 	def on_cancel(self):
 		# Cancel tax withholding entries
 
-		from erpnext.accounts.doctype.journal_entry.services.asset_linkage import JournalEntryAssetLinkage
+		from erpnext.accounts.doctype.journal_entry.services.asset_service import AssetService
 
 		# References for this Journal are removed on the `on_cancel` event in accounts_controller
 		super().on_cancel()
@@ -323,9 +323,9 @@ class JournalEntry(AccountsController):
 		self.make_gl_entries(1)
 		JournalTaxWithholding(self).on_cancel()
 		self.unlink_advance_entry_reference()
-		JournalEntryAssetLinkage(self).unlink_asset_reference()
+		AssetService(self).unlink_asset_reference()
 		self.unlink_inter_company_jv()
-		JournalEntryAssetLinkage(self).unlink_asset_adjustment_entry()
+		AssetService(self).unlink_asset_adjustment_entry()
 		self.update_invoice_discounting()
 
 	def get_title(self):

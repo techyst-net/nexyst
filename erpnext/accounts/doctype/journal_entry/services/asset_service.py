@@ -10,7 +10,7 @@ from erpnext.assets.doctype.asset_depreciation_schedule.asset_depreciation_sched
 )
 
 
-class JournalEntryAssetLinkage:
+class AssetService:
 	"""Keeps Assets in sync with the Journal Entries that depreciate, dispose or
 	adjust them.
 
