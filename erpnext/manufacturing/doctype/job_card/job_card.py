@@ -912,8 +912,18 @@ class JobCard(Document):
 				)
 			)
 
+		self.validate_not_on_hold()
 		self.validate_time_logs_present()
 		self.validate_completed_qty_matches_for_quantity()
+
+	def validate_not_on_hold(self):
+		if self.is_paused:
+			frappe.throw(
+				_(
+					"Cannot submit Job Card {0} while it is On Hold. Please resume and complete the job before submission."
+				).format(get_link_to_form("Job Card", self.name)),
+				title=_("Job Card On Hold"),
+			)
 
 	def validate_time_logs_present(self):
 		if not self.time_logs:
