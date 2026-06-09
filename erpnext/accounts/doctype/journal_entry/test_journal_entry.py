@@ -749,6 +749,34 @@ class TestJournalEntry(ERPNextTestSuite):
 		self.assertFalse(jv.accounts[1].reference_type)
 		self.assertFalse(jv.accounts[1].reference_name)
 
+	def test_get_payment_entry_against_order_builds_advance_je(self):
+		"""Characterize the mapper: an advance Bank Entry JE is built against an unbilled order."""
+		from erpnext.accounts.doctype.journal_entry.mapper import get_payment_entry_against_order
+		from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
+
+		sales_order = make_sales_order()
+		je = get_payment_entry_against_order("Sales Order", sales_order.name, journal_entry=True)
+
+		self.assertEqual(je.voucher_type, "Bank Entry")
+		party_rows = [row for row in je.accounts if row.party_type == "Customer"]
+		self.assertTrue(party_rows)
+		self.assertEqual(party_rows[0].reference_type, "Sales Order")
+		self.assertEqual(party_rows[0].reference_name, sales_order.name)
+		self.assertEqual(party_rows[0].is_advance, "Yes")
+
+	def test_make_inter_company_journal_entry_builds_linked_draft(self):
+		"""Characterize the mapper: the counterpart JE carries the company and back-reference."""
+		from erpnext.accounts.doctype.journal_entry.mapper import make_inter_company_journal_entry
+
+		source = make_journal_entry("_Test Cash - _TC", "_Test Bank - _TC", 100, submit=True)
+		result = make_inter_company_journal_entry(
+			source.name, "Inter Company Journal Entry", "_Test Company 1"
+		)
+
+		self.assertEqual(result.get("voucher_type"), "Inter Company Journal Entry")
+		self.assertEqual(result.get("company"), "_Test Company 1")
+		self.assertEqual(result.get("inter_company_journal_entry_reference"), source.name)
+
 
 def make_journal_entry(
 	account1,
