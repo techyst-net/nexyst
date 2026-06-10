@@ -458,9 +458,29 @@ def on_doctype_update():
 
 @frappe.whitelist()
 def get_items_from_product_bundle(row: str):
+	"""Item details for each component of a Product Bundle.
+
+	``row.product_bundle`` selects a specific version by document name (the buying
+	dialog passes this); ``row.item_code`` is the legacy contract, resolving the
+	parent item's active version.
+	"""
 	row, items = ItemDetailsCtx(json.loads(row)), []
 
-	bundled_items = get_product_bundle_items(row["item_code"])
+	if bundle_name := row.get("product_bundle"):
+		bundle = frappe.db.get_value(
+			"Product Bundle", bundle_name, ["docstatus", "disabled"], as_dict=True
+		)
+		if not bundle or bundle.docstatus != 1:
+			frappe.throw(_("Product Bundle {0} is not submitted").format(frappe.bold(bundle_name)))
+		if bundle.disabled:
+			frappe.throw(
+				_("Product Bundle {0} is disabled and cannot be used in transactions.").format(
+					frappe.bold(bundle_name)
+				)
+			)
+		bundled_items = get_product_bundle_items_by_name(bundle_name)
+	else:
+		bundled_items = get_product_bundle_items(row["item_code"])
 	for item in bundled_items:
 		row.update(
 			{
