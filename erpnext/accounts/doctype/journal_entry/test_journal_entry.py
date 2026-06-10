@@ -688,6 +688,67 @@ class TestJournalEntry(ERPNextTestSuite):
 		self.assertEqual(jv.reference_types[invoice.name], "Sales Invoice")
 		self.assertEqual(jv.reference_accounts[invoice.name], "Debtors - _TC")
 
+	def test_get_balance_places_difference_on_blank_row(self):
+		"""Characterize: get_balance puts the unbalanced difference on an amountless row."""
+		jv = frappe.new_doc("Journal Entry")
+		jv.company = "_Test Company"
+		jv.posting_date = nowdate()
+		jv.append(
+			"accounts",
+			{
+				"account": "_Test Cash - _TC",
+				"debit_in_account_currency": 100,
+				"debit": 100,
+				"exchange_rate": 1,
+			},
+		)
+		jv.append("accounts", {"account": "_Test Bank - _TC", "exchange_rate": 1})  # amountless row
+		jv.set_total_debit_credit()
+		self.assertEqual(jv.difference, 100)
+
+		jv.get_balance()
+		blank_row = jv.accounts[1]
+		self.assertEqual(blank_row.credit_in_account_currency, 100)
+		self.assertEqual(jv.total_debit, jv.total_credit)
+
+	def test_get_outstanding_invoices_builds_write_off_rows(self):
+		"""Characterize: get_outstanding_invoices adds a party row for each outstanding invoice."""
+		from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
+
+		invoice = create_sales_invoice(rate=700)
+		jv = frappe.new_doc("Journal Entry")
+		jv.company = "_Test Company"
+		jv.posting_date = nowdate()
+		jv.voucher_type = "Write Off Entry"
+		jv.write_off_based_on = "Accounts Receivable"
+		jv.write_off_amount = 1000
+		jv.get_outstanding_invoices()
+
+		invoice_rows = [row for row in jv.accounts if row.reference_name == invoice.name]
+		self.assertTrue(invoice_rows)
+		self.assertEqual(invoice_rows[0].party_type, "Customer")
+		self.assertEqual(invoice_rows[0].reference_type, "Sales Invoice")
+		self.assertEqual(flt(invoice_rows[0].credit_in_account_currency), 700)
+
+	def test_unlink_advance_entry_reference_on_cancel(self):
+		"""Characterize: cancelling an advance JE against an invoice clears the row's reference."""
+		from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
+
+		invoice = create_sales_invoice(rate=700)
+		jv = make_journal_entry("_Test Cash - _TC", "Debtors - _TC", 100, save=False)
+		advance_row = jv.accounts[1]
+		advance_row.party_type = "Customer"
+		advance_row.party = "_Test Customer"
+		advance_row.is_advance = "Yes"
+		advance_row.reference_type = "Sales Invoice"
+		advance_row.reference_name = invoice.name
+		jv.submit()
+
+		jv.cancel()
+		jv.reload()
+		self.assertFalse(jv.accounts[1].reference_type)
+		self.assertFalse(jv.accounts[1].reference_name)
+
 
 def make_journal_entry(
 	account1,
