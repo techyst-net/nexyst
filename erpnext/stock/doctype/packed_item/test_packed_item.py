@@ -165,6 +165,29 @@ class TestPackedItem(ERPNextTestSuite):
 		self.assertEqual(so.items[0].product_bundle, v1)
 		self.assertEqual(sorted(pi.item_code for pi in so.packed_items), sorted(self.bundle_items))
 
+	def test_disabled_bundle_blocks_transaction(self):
+		"A row that explicitly references a disabled version cannot be saved."
+		from erpnext.selling.doctype.product_bundle.product_bundle import get_active_product_bundle
+
+		version = get_active_product_bundle(self.bundle)
+		so = make_sales_order(item_code=self.bundle, qty=1, warehouse=self.warehouse, do_not_submit=True)
+		self.assertEqual(so.items[0].product_bundle, version)
+
+		frappe.db.set_value("Product Bundle", version, "disabled", 1)
+		self.assertRaises(frappe.ValidationError, so.save)
+
+	def test_disabled_bundle_is_not_packed(self):
+		"Without an explicit version, a disabled bundle is not treated as a bundle at all."
+		from erpnext.selling.doctype.product_bundle.product_bundle import get_active_product_bundle
+
+		version = get_active_product_bundle(self.bundle2)
+		frappe.db.set_value("Product Bundle", version, "disabled", 1)
+
+		so = make_sales_order(item_code=self.bundle2, qty=1, warehouse=self.warehouse, do_not_submit=True)
+		self.assertEqual(so.items[0].is_product_bundle, 0)
+		self.assertFalse(so.items[0].product_bundle)
+		self.assertFalse(so.get("packed_items"))
+
 	@ERPNextTestSuite.change_settings("Selling Settings", {"allow_multiple_items": 1})
 	def test_recurring_bundle_item(self):
 		"Test impact on packed items if same bundle item is added and removed."
