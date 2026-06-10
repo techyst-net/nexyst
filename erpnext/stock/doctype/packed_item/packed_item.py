@@ -465,6 +465,7 @@ def get_items_from_product_bundle(row: str):
 	parent item's active version.
 	"""
 	row, items = ItemDetailsCtx(json.loads(row)), []
+	frappe.has_permission("Product Bundle", "read", row.get("product_bundle"), throw=True)
 
 	if bundle_name := row.get("product_bundle"):
 		bundle = frappe.db.get_value("Product Bundle", bundle_name, ["docstatus", "disabled"], as_dict=True)
