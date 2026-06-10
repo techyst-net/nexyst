@@ -3417,6 +3417,137 @@ class TestWorkOrder(ERPNextTestSuite):
 
 		self.assertRaises(frappe.ValidationError, transfer_entry.submit)
 
+	def test_stock_reservation_moves_from_store_to_wip_on_transfer(self):
+		# Spec #7: a Material Transfer for Manufacture (Store -> WIP) for a reserve_stock Work Order
+		# must move the reservation from the Store warehouse to the WIP warehouse; cancelling the
+		# transfer must move it back.
+		from erpnext.stock.doctype.stock_entry.stock_entry_utils import (
+			make_stock_entry as make_stock_entry_test_record,
+		)
+
+		frappe.db.set_single_value("Stock Settings", "enable_stock_reservation", 1)
+		try:
+			store = "Stores - _TC"
+			wip = "Work In Progress - _TC"
+			fg = make_item("Test SR Move FG", {"is_stock_item": 1}).name
+			rm = make_item("Test SR Move RM", {"is_stock_item": 1}).name
+
+			bom = make_bom(item=fg, raw_materials=[rm], source_warehouse=store, do_not_submit=True)
+			bom.save()
+			bom.submit()
+			make_stock_entry_test_record(item_code=rm, target=store, qty=10, basic_rate=100)
+
+			wo = make_wo_order_test_record(
+				production_item=fg,
+				qty=10,
+				bom_no=bom.name,
+				reserve_stock=1,
+				source_warehouse=store,
+				wip_warehouse=wip,
+				fg_warehouse=wip,
+				do_not_save=True,
+			)
+			wo.save()
+			wo.submit()
+
+			def reserved_in(warehouse):
+				return sum(
+					flt(r.reserved_qty) - flt(r.transferred_qty) - flt(r.delivered_qty) - flt(r.consumed_qty)
+					for r in frappe.get_all(
+						"Stock Reservation Entry",
+						filters={
+							"voucher_no": wo.name,
+							"item_code": rm,
+							"warehouse": warehouse,
+							"docstatus": 1,
+						},
+						fields=["reserved_qty", "transferred_qty", "delivered_qty", "consumed_qty"],
+					)
+				)
+
+			self.assertEqual(reserved_in(store), 10, "RM should be reserved in Store after WO submit")
+			self.assertEqual(reserved_in(wip), 0)
+
+			# Transfer Store -> WIP.
+			se = frappe.get_doc(make_stock_entry(wo.name, "Material Transfer for Manufacture", 10))
+			se.submit()
+
+			self.assertEqual(reserved_in(store), 0, "Store reservation should be freed after transfer")
+			self.assertEqual(reserved_in(wip), 10, "Reservation should move to WIP after transfer")
+
+			# Cancel the transfer -> reservation returns to Store.
+			se.cancel()
+			self.assertEqual(reserved_in(store), 10, "Cancelling transfer must restore Store reservation")
+			self.assertEqual(reserved_in(wip), 0)
+		finally:
+			frappe.db.set_single_value("Stock Settings", "enable_stock_reservation", 0)
+
+	def test_sales_order_linked_work_order_reserves_finished_good(self):
+		# Spec #8: when a Work Order is linked to a Sales Order, manufacturing the finished good must
+		# reserve it against that Sales Order; cancelling the manufacture must release the reservation.
+		from erpnext.stock.doctype.stock_entry.stock_entry_utils import (
+			make_stock_entry as make_stock_entry_test_record,
+		)
+
+		frappe.db.set_single_value("Stock Settings", "enable_stock_reservation", 1)
+		try:
+			warehouse = "_Test Warehouse - _TC"
+			wip = "_Test Warehouse 1 - _TC"
+			fg = make_item("Test SR SO-WO FG", {"is_stock_item": 1}).name
+			rm = make_item("Test SR SO-WO RM", {"is_stock_item": 1}).name
+
+			bom = make_bom(item=fg, raw_materials=[rm], source_warehouse=warehouse, do_not_submit=True)
+			bom.save()
+			bom.submit()
+			make_stock_entry_test_record(item_code=rm, target=warehouse, qty=10, basic_rate=100)
+
+			# The finished good is reserved in the Sales Order item's warehouse, so the WO must produce
+			# the FG into that same warehouse.
+			so = make_sales_order(item_code=fg, warehouse=warehouse, qty=10, rate=500)
+
+			wo = make_wo_order_test_record(
+				production_item=fg,
+				qty=10,
+				bom_no=bom.name,
+				sales_order=so.name,
+				reserve_stock=1,
+				source_warehouse=warehouse,
+				wip_warehouse=wip,
+				fg_warehouse=warehouse,
+				do_not_save=True,
+			)
+			wo.save()
+			wo.submit()
+
+			# Transfer the raw material to WIP, then manufacture the finished good.
+			transfer = frappe.get_doc(make_stock_entry(wo.name, "Material Transfer for Manufacture", 10))
+			transfer.submit()
+			manufacture = frappe.get_doc(make_stock_entry(wo.name, "Manufacture", 10))
+			manufacture.submit()
+
+			def so_fg_reserved():
+				return sum(
+					flt(r.reserved_qty)
+					for r in frappe.get_all(
+						"Stock Reservation Entry",
+						filters={
+							"voucher_type": "Sales Order",
+							"voucher_no": so.name,
+							"item_code": fg,
+							"docstatus": 1,
+						},
+						fields=["reserved_qty"],
+					)
+				)
+
+			self.assertEqual(so_fg_reserved(), 10, "Finished good should be reserved against the Sales Order")
+
+			# Cancelling the manufacture releases the finished-good reservation.
+			manufacture.cancel()
+			self.assertEqual(so_fg_reserved(), 0, "Cancelling manufacture must release the SO reservation")
+		finally:
+			frappe.db.set_single_value("Stock Settings", "enable_stock_reservation", 0)
+
 	def test_send_to_subcontractor_can_consume_work_order_reserved_stock(self):
 		from erpnext.buying.doctype.purchase_order.mapper import make_subcontracting_order
 		from erpnext.controllers.subcontracting_controller import make_rm_stock_entry

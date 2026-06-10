@@ -1061,8 +1061,8 @@ class StockEntry(StockController, SubcontractingInwardController):
 		return getattr(self, "_wo_doc", None)
 
 	def make_stock_reserve_for_wip_and_fg(self):
-		from erpnext.manufacturing.doctype.work_order.services.stock_reservation import (
-			StockReservationService,
+		from erpnext.manufacturing.doctype.work_order.services.reservation import (
+			WorkOrderStockReservation,
 		)
 
 		if self.is_stock_reserve_for_work_order():
@@ -1076,7 +1076,7 @@ class StockEntry(StockController, SubcontractingInwardController):
 			):
 				return
 
-			StockReservationService(pro_doc).set_reserved_qty_for_wip_and_fg(self)
+			WorkOrderStockReservation(pro_doc).set_reserved_qty_for_wip_and_fg(self)
 
 	def reserve_stock_for_subcontracting(self):
 		if self.purpose == "Send to Subcontractor" and frappe.get_value(
@@ -1103,8 +1103,8 @@ class StockEntry(StockController, SubcontractingInwardController):
 			)
 
 	def cancel_stock_reserve_for_wip_and_fg(self):
-		from erpnext.manufacturing.doctype.work_order.services.stock_reservation import (
-			StockReservationService,
+		from erpnext.manufacturing.doctype.work_order.services.reservation import (
+			WorkOrderStockReservation,
 		)
 
 		if self.is_stock_reserve_for_work_order():
@@ -1116,7 +1116,7 @@ class StockEntry(StockController, SubcontractingInwardController):
 			):
 				return
 
-			StockReservationService(pro_doc).cancel_reserved_qty_for_wip_and_fg(self)
+			WorkOrderStockReservation(pro_doc).cancel_reserved_qty_for_wip_and_fg(self)
 
 	def is_stock_reserve_for_work_order(self):
 		if (
@@ -1133,8 +1133,8 @@ class StockEntry(StockController, SubcontractingInwardController):
 		# purpose), so the owning Work Order is derived from the Subcontracting Order / Purchase Order
 		# that raised the transfer. Each such Work Order that reserves stock gets its reservation for
 		# the sent items released, so the negative-stock guard stops blocking the consumption.
-		from erpnext.manufacturing.doctype.work_order.services.stock_reservation import (
-			StockReservationService,
+		from erpnext.manufacturing.doctype.work_order.services.reservation import (
+			WorkOrderStockReservation,
 		)
 
 		if self.purpose != "Send to Subcontractor":
@@ -1142,7 +1142,7 @@ class StockEntry(StockController, SubcontractingInwardController):
 
 		for wo_name in self.get_reserved_work_orders_for_subcontracting():
 			pro_doc = frappe.get_doc("Work Order", wo_name)
-			StockReservationService(pro_doc).release_reserved_qty_for_subcontract_transfer()
+			WorkOrderStockReservation(pro_doc).release_reserved_qty_for_subcontract_transfer()
 
 	def get_reserved_work_orders_for_subcontracting(self):
 		job_cards = set()
