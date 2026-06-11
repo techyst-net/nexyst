@@ -19,6 +19,7 @@ from erpnext.manufacturing.doctype.work_order.services.reservation import (
 	get_consumed_qty,
 	get_row_wise_serial_batch,
 )
+from erpnext.manufacturing.doctype.work_order.services.status import StatusService
 from erpnext.stock.utils import get_bin, get_latest_stock_qty
 
 
@@ -145,6 +146,38 @@ class RequiredItemsService:
 				WorkOrderStockReservation(self.doc).update_qty_in_stock_reservation(
 					row, transferred_qty, row_wise_serial_batch
 				)
+
+		self.recompute_material_transferred_for_manufacturing(transferred_items)
+
+	def recompute_material_transferred_for_manufacturing(self, transferred_items):
+		"""Set material_transferred_for_manufacturing based on actual item-level transfers, not fg_completed_qty."""
+		# When fg_completed_qty > 0 (direct stock entries, excess transfer), preserve the
+		# SUM(fg_completed_qty) approach so excess-transfer tracking works correctly.
+		sum_fg_completed_qty = StatusService(self.doc).get_transferred_or_manufactured_qty(
+			"Material Transfer for Manufacture", "material_transferred_for_manufacturing"
+		)
+		if sum_fg_completed_qty:
+			self.doc.db_set("material_transferred_for_manufacturing", sum_fg_completed_qty)
+			return
+
+		# Pick list flow sets fg_completed_qty=0; use min-fraction of actual item transfers
+		# so partial availability does not prematurely mark the work order as fully transferred.
+		required_by_item = {}
+		for row in self.doc.required_items:
+			if not row.include_item_in_manufacturing or flt(row.required_qty) <= 0:
+				continue
+			required_by_item[row.item_code] = required_by_item.get(row.item_code, 0.0) + flt(row.required_qty)
+
+		if not required_by_item:
+			return
+
+		min_fraction = min(
+			flt(transferred_items.get(item_code) or 0) / required_qty
+			for item_code, required_qty in required_by_item.items()
+		)
+		min_fraction = min(min_fraction, 1.0)
+		material_transferred = min_fraction * flt(self.doc.qty)
+		self.doc.db_set("material_transferred_for_manufacturing", material_transferred)
 
 	def update_returned_qty(self):
 		returned_dict = self._material_transfer_qty_by_item(is_return=1)
