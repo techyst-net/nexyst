@@ -74,7 +74,6 @@ class BOMConfigurator {
 			onload: function (me) {
 				me.args["parent_id"] = frm_obj.frm.doc.name;
 				me.args["parent"] = frm_obj.frm.doc.item_code;
-				delete me.args["doctype"];
 				me.parent = frm_obj.$wrapper.get(0);
 				me.body = frm_obj.$wrapper.get(0);
 				me.make_tree();
@@ -241,9 +240,9 @@ class BOMConfigurator {
 				}
 
 				frappe.call({
-					method: "erpnext.manufacturing.doctype.bom_creator.bom_creator.add_item",
+					method: "add_item",
+					doc: this.frm.doc,
 					args: {
-						parent: node.data.parent_id,
 						fg_item: node.data.value,
 						item_code: data.item_code,
 						fg_reference_id: node.data.name || this.frm.doc.name,
@@ -296,9 +295,9 @@ class BOMConfigurator {
 			}
 
 			frappe.call({
-				method: "erpnext.manufacturing.doctype.bom_creator.bom_creator.add_sub_assembly",
+				method: "add_sub_assembly",
+				doc: this.frm.doc,
 				args: {
-					parent: node.data.parent_id,
 					fg_item: node.data.value,
 					fg_reference_id: node.data.name || this.frm.doc.name,
 					bom_item: bom_item,
@@ -443,9 +442,9 @@ class BOMConfigurator {
 			}
 
 			frappe.call({
-				method: "erpnext.manufacturing.doctype.bom_creator.bom_creator.add_sub_assembly",
+				method: "add_sub_assembly",
+				doc: this.frm.doc,
 				args: {
-					parent: node.data.parent_id,
 					fg_item: node.data.value,
 					bom_item: bom_item,
 					fg_reference_id: node.data.name || this.frm.doc.name,
@@ -480,9 +479,9 @@ class BOMConfigurator {
 	delete_node(node, view) {
 		frappe.confirm(__("Are you sure you want to delete this Item?"), () => {
 			frappe.call({
-				method: "erpnext.manufacturing.doctype.bom_creator.bom_creator.delete_node",
+				method: "delete_node",
+				doc: this.frm.doc,
 				args: {
-					parent: node.data.parent_id,
 					fg_item: node.data.value,
 					doctype: node.data.doctype,
 					docname: node.data.name,
@@ -502,15 +501,14 @@ class BOMConfigurator {
 		this.frm.edit_bom_dialog = frappe.prompt(
 			fields,
 			(data) => {
-				let doctype = node.data.doctype || this.frm.doc.doctype;
 				let docname = node.data.name || this.frm.doc.name;
 
 				frappe.call({
-					method: "erpnext.manufacturing.doctype.bom_creator.bom_creator.edit_bom_creator",
+					method: "edit_bom_creator",
+					doc: me.frm.doc,
 					args: {
 						docname: docname,
 						data: data,
-						parent: node.data.parent_id || this.frm.doc.name,
 					},
 					callback: (r) => {
 						for (let key in data) {
