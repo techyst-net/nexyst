@@ -386,6 +386,30 @@ class BOMCreator(Document):
 
 		production_item_wise_rm[(row.item_code, row.name)].bom_no = bom.name
 
+	@frappe.whitelist()
+	def edit_bom_creator(self, docname: str, data: str | dict):
+		frappe.has_permission("BOM Creator", "write", throw=True)
+
+		if not frappe.db.exists("BOM Creator Item", {"parent": self.name, "name": docname}):
+			frappe.throw(_("BOM Creator Item with name {0} does not exist").format(docname))
+
+		if isinstance(data, str):
+			data = frappe.parse_json(data)
+
+		for row in self.items:
+			if row.name == docname:
+				for key, value in data.items():
+					if key in BOM_ITEM_FIELDS:
+						row.set(key, value)
+				break
+
+		self.set_rate_for_items()
+		self.save()
+
+		frappe.msgprint(_("Updated successfully"), alert=True)
+
+		return self
+
 	def has_operations(self):
 		for row in self.items:
 			if row.operation:
@@ -399,7 +423,7 @@ class BOMCreator(Document):
 
 
 @frappe.whitelist()
-def get_children(parent: str | None = None, **kwargs):
+def get_children(doctype: str | None = None, parent: str | None = None, **kwargs):
 	frappe.has_permission("BOM Creator", "read", throw=True)
 
 	if isinstance(kwargs, str):
@@ -594,29 +618,3 @@ def delete_node(**kwargs):
 		return doc
 
 	return frappe._dict()
-
-
-@frappe.whitelist()
-def edit_bom_creator(docname: str, data: str | dict, parent: str):
-	frappe.has_permission("BOM Creator", "write", throw=True)
-
-	if not frappe.db.exists("BOM Creator Item", {"parent": parent, "name": docname}):
-		frappe.throw(_("BOM Creator Item with name {0} does not exist").format(docname))
-
-	if isinstance(data, str):
-		data = frappe.parse_json(data)
-
-	doc = frappe.get_doc("BOM Creator", parent)
-	for row in doc.items:
-		if row.name == docname:
-			for key, value in data.items():
-				if key in BOM_ITEM_FIELDS:
-					row.set(key, value)
-			break
-
-	doc.set_rate_for_items()
-	doc.save()
-
-	frappe.msgprint(_("Updated successfully"), alert=True)
-
-	return doc
