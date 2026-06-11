@@ -2388,7 +2388,7 @@ class TestStockEntry(ERPNextTestSuite):
 		"Stock Settings", {"sample_retention_warehouse": "_Test Warehouse 1 - _TC"}
 	)
 	def test_sample_retention_stock_entry(self):
-		from erpnext.stock.doctype.stock_entry.stock_entry_handler.manufacturing import (
+		from erpnext.stock.doctype.stock_entry.services.manufacturing import (
 			move_sample_to_retention_warehouse,
 		)
 
@@ -2558,7 +2558,7 @@ class TestStockEntryCoverage(ERPNextTestSuite):
 	# ── ceil_qty_if_uom_has_whole_number ──────────────────────────────────────
 
 	def test_ceil_qty_rounds_up_for_whole_number_uom(self):
-		from erpnext.stock.doctype.stock_entry.stock_entry_handler.manufacturing import (
+		from erpnext.stock.doctype.stock_entry.services.manufacturing import (
 			ceil_qty_if_uom_has_whole_number,
 		)
 
@@ -2567,7 +2567,7 @@ class TestStockEntryCoverage(ERPNextTestSuite):
 		frappe.set_value("UOM", "Nos", "must_be_whole_number", 0)
 
 	def test_ceil_qty_no_rounding_for_decimal_uom(self):
-		from erpnext.stock.doctype.stock_entry.stock_entry_handler.manufacturing import (
+		from erpnext.stock.doctype.stock_entry.services.manufacturing import (
 			ceil_qty_if_uom_has_whole_number,
 		)
 
@@ -2644,7 +2644,7 @@ class TestStockEntryCoverage(ERPNextTestSuite):
 	# ── get_production_item_details ────────────────────────────────────────────
 
 	def test_get_production_item_details_from_bom(self):
-		from erpnext.stock.doctype.stock_entry.stock_entry_handler.manufacturing import (
+		from erpnext.stock.doctype.stock_entry.services.manufacturing import (
 			get_production_item_details,
 		)
 
@@ -2654,7 +2654,7 @@ class TestStockEntryCoverage(ERPNextTestSuite):
 		self.assertIsNotNone(result.stock_uom)
 
 	def test_get_production_item_details_from_work_order(self):
-		from erpnext.stock.doctype.stock_entry.stock_entry_handler.manufacturing import (
+		from erpnext.stock.doctype.stock_entry.services.manufacturing import (
 			get_production_item_details,
 		)
 
@@ -2680,7 +2680,7 @@ class TestStockEntryCoverage(ERPNextTestSuite):
 	# ── get_bom_items ──────────────────────────────────────────────────────────
 
 	def test_get_bom_items_returns_raw_materials_with_structure(self):
-		from erpnext.stock.doctype.stock_entry.stock_entry_handler.manufacturing import get_bom_items
+		from erpnext.stock.doctype.stock_entry.services.manufacturing import get_bom_items
 
 		bom_no = frappe.db.get_value("BOM", {"item": "_Test FG Item 2", "is_default": 1, "docstatus": 1})
 		items = get_bom_items(bom_no)
@@ -2690,7 +2690,7 @@ class TestStockEntryCoverage(ERPNextTestSuite):
 			self.assertIn("qty", item)
 
 	def test_get_bom_items_scales_qty_proportionally(self):
-		from erpnext.stock.doctype.stock_entry.stock_entry_handler.manufacturing import get_bom_items
+		from erpnext.stock.doctype.stock_entry.services.manufacturing import get_bom_items
 
 		bom_no = frappe.db.get_value("BOM", {"item": "_Test FG Item 2", "is_default": 1, "docstatus": 1})
 		items_1 = {i["item_code"]: i["qty"] for i in get_bom_items(bom_no, qty=1)}
@@ -2704,7 +2704,7 @@ class TestStockEntryCoverage(ERPNextTestSuite):
 		"Stock Settings", {"sample_retention_warehouse": "_Test Warehouse 1 - _TC"}
 	)
 	def test_validate_sample_quantity_raises_when_sample_exceeds_received_qty(self):
-		from erpnext.stock.doctype.stock_entry.stock_entry_handler.manufacturing import (
+		from erpnext.stock.doctype.stock_entry.services.manufacturing import (
 			validate_sample_quantity,
 		)
 
@@ -2718,7 +2718,7 @@ class TestStockEntryCoverage(ERPNextTestSuite):
 
 	def test_get_expired_batches_includes_expired_batch(self):
 		from erpnext.stock.doctype.batch.test_batch import make_new_batch
-		from erpnext.stock.doctype.stock_entry.stock_entry_handler.serial_batch import (
+		from erpnext.stock.doctype.stock_entry.services.serial_batch import (
 			get_expired_batches,
 		)
 
@@ -2735,7 +2735,7 @@ class TestStockEntryCoverage(ERPNextTestSuite):
 
 	def test_get_expired_batches_excludes_future_batch(self):
 		from erpnext.stock.doctype.batch.test_batch import make_new_batch
-		from erpnext.stock.doctype.stock_entry.stock_entry_handler.serial_batch import (
+		from erpnext.stock.doctype.stock_entry.services.serial_batch import (
 			get_expired_batches,
 		)
 
@@ -2848,7 +2848,7 @@ class TestStockEntryCoverage(ERPNextTestSuite):
 		from erpnext.manufacturing.doctype.work_order.mapper import (
 			make_stock_entry as _make_stock_entry,
 		)
-		from erpnext.stock.doctype.stock_entry.stock_entry_handler.disassemble import (
+		from erpnext.stock.doctype.stock_entry.services.disassemble import (
 			get_available_materials,
 		)
 
@@ -2893,7 +2893,7 @@ class TestStockEntryCoverage(ERPNextTestSuite):
 		from erpnext.manufacturing.doctype.work_order.mapper import (
 			make_stock_entry as _make_stock_entry,
 		)
-		from erpnext.stock.doctype.stock_entry.stock_entry_handler.disassemble import (
+		from erpnext.stock.doctype.stock_entry.services.disassemble import (
 			get_available_materials,
 		)
 
