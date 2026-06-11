@@ -3,7 +3,7 @@
 
 """Stock reservation logic for Work Order.
 
-Extracted from work_order.py. ``StockReservationService`` wraps a Work Order
+Extracted from work_order.py. ``WorkOrderStockReservation`` wraps a Work Order
 document (composition) and owns the reservation-related behaviour; the
 module-level helpers are reused by the controller and by Production Plan.
 work_order.py re-exports them to preserve whitelist dotted-paths and imports.
@@ -51,7 +51,7 @@ _SERIAL_BATCH_FIELDS = [
 ]
 
 
-class StockReservationService:
+class WorkOrderStockReservation:
 	def __init__(self, doc):
 		self.doc = doc
 
@@ -94,6 +94,11 @@ class StockReservationService:
 		self.doc.db_set("status", self.doc.get_status())
 
 	def update_qty_in_stock_reservation(self, row, transferred_qty, row_wise_serial_batch):
+		# `transferred_qty` is the absolute qty transferred to WIP recomputed from submitted stock
+		# entries, so this method must also be able to *lower* it (e.g. when a transfer is cancelled).
+		# A fully-transferred entry is "Closed"; it must stay eligible here, otherwise cancelling the
+		# transfer can never reset its transferred_qty and the Store reservation is lost. Only truly
+		# cancelled entries (docstatus 2) are excluded.
 		names = frappe.get_all(
 			"Stock Reservation Entry",
 			filters={
@@ -101,9 +106,10 @@ class StockReservationService:
 				"item_code": row.item_code,
 				"voucher_detail_no": row.name,
 				"warehouse": row.source_warehouse,
-				"status": ("not in", ["Closed", "Cancelled", "Completed"]),
+				"docstatus": 1,
 			},
 			pluck="name",
+			order_by="creation",
 		)
 		for name in names:
 			transferred_qty = self._apply_transferred_qty(name, transferred_qty, row_wise_serial_batch)
@@ -424,14 +430,26 @@ class StockReservationService:
 		)
 
 	def cancel_reserved_qty_for_wip_and_fg(self, ste_doc):
+		# Reservations created by this stock entry are identified by `from_voucher_no`. They can be
+		# held against the Work Order *or* against another voucher -- e.g. the finished good of an
+		# SO-linked Work Order is reserved against the Sales Order. They must be cancelled directly:
+		# routing through the Work-Order-scoped `cancel_stock_reservation_entries` would silently skip
+		# any entry whose `voucher_type`/`voucher_no` is not the Work Order, leaving the finished good
+		# reserved and making the manufacture impossible to cancel (NegativeStockError).
+		cancelled = False
 		for row in ste_doc.items:
 			sre_list = frappe.get_all(
 				"Stock Reservation Entry",
 				filters={"from_voucher_no": ste_doc.name, "from_voucher_detail_no": row.name, "docstatus": 1},
 				pluck="name",
 			)
-			if sre_list:
-				unreserve_stock_for_work_order(self.doc, sre_list)
+			for name in sre_list:
+				frappe.get_doc("Stock Reservation Entry", name).cancel()
+				cancelled = True
+
+		if cancelled:
+			self.doc.reload()
+			self.doc.db_set("status", self.doc.get_status())
 
 	def release_reserved_qty_for_subcontract_transfer(self):
 		"""Free this Work Order's own reservation for items sent to a subcontractor.
