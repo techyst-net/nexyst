@@ -484,4 +484,5 @@ def update_subcontracting_order_status(sco: str | Document, status: str | None =
 	if isinstance(sco, str):
 		sco = frappe.get_doc("Subcontracting Order", sco)
 
+	sco.check_permission("write")
 	sco.update_status(status)
