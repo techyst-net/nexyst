@@ -233,7 +233,7 @@
    "type": "Link"
   }
  ],
- "modified": "2025-07-02 14:12:28.407612",
+ "modified": "2026-06-11 11:51:22.225174",
  "modified_by": "Administrator",
  "module": "Setup",
  "name": "Home",
@@ -267,6 +267,69 @@
    "type": "DocType"
   }
  ],
+ "sidebar_items": [
+  {
+   "child": 0,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Item",
+   "link_to": "Item",
+   "link_type": "DocType",
+   "open_in_new_tab": 0,
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Home",
+   "link_to": "Home",
+   "link_type": "Workspace",
+   "open_in_new_tab": 0,
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Customer",
+   "link_to": "Customer",
+   "link_type": "DocType",
+   "open_in_new_tab": 0,
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Supplier",
+   "link_to": "Supplier",
+   "link_type": "DocType",
+   "open_in_new_tab": 0,
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Sales Invoice",
+   "link_to": "Sales Invoice",
+   "link_type": "DocType",
+   "open_in_new_tab": 0,
+   "show_arrow": 0,
+   "type": "Link"
+  }
+ ],
+ "standard": 1,
  "title": "Home",
  "type": "Workspace"
 }
