@@ -562,4 +562,5 @@ def update_subcontracting_inward_order_status(scio: str | Document, status: str 
 	if isinstance(scio, str):
 		scio = frappe.get_doc("Subcontracting Inward Order", scio)
 
+	scio.check_permission("write")
 	scio.update_status(status)
