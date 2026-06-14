@@ -2,9 +2,13 @@
 # For license information, please see license.txt
 
 
+from html import escape
+from urllib.parse import urlencode
+
 import frappe
 from frappe import _
-from frappe.query_builder.functions import Sum
+from frappe.query_builder.functions import Coalesce, Sum
+from frappe.utils import flt
 
 from erpnext import get_region
 
@@ -12,6 +16,25 @@ from erpnext import get_region
 # Cleared at the start of every execute() call so each report run gets
 # fresh data; within a single run, repeated calls reuse the result.
 _cache = {}
+
+
+def _drill_down_link(text, filters, **extra):
+	"""Return an `<a>` tag pointing at the UAE VAT Register report.
+
+	Filter values are URL-encoded so company names with ``&`` or other
+	reserved characters don't break the query string, and the link text
+	is HTML-escaped to prevent injection from user-controlled fields.
+	"""
+	params = {}
+	for key in ("company", "from_date", "to_date"):
+		value = (filters or {}).get(key)
+		if value:
+			params[key] = value
+	for key, value in extra.items():
+		if value is not None:
+			params[key] = value
+	query = urlencode(params)
+	return f'<a href="/app/query-report/UAE VAT Register?{query}">{escape(str(text))}</a>'
 
 
 def _cached(fn):
@@ -68,177 +91,66 @@ def get_data(filters=None):
 	append_vat_on_expenses(data, filters)
 	net_vat_due(data, filters, amounts_by_emirate)
 
+	emirate_drill_downs = {f"Standard rated supplies in {emirate}": emirate for emirate in get_emirates()}
+	dubai_legend = "Standard rated supplies in Dubai"
+	dubai_label_override = _company_emirate_label(filters)
+
 	final_data = []
-	for i in range(0, len(data)):
-		if data[i].get("legend") == "Standard rated supplies in Abu Dhabi":
-			legend_link = f"""
-			<a href= "/app/query-report/UAE%20VAT%20Register?company={filters.get("company")}&from_date={filters.get("from_date")}&to_date={filters.get("to_date")}&doc_type=Sales%20Invoice&vat=Abu%20Dhabi&category=Standard">{data[i].get("legend")}</a>
-			"""
-			final_data.append(
-				{
-					"no": data[i].get("no"),
-					"legend": legend_link,
-					"amount": data[i].get("amount"),
-					"vat_amount": data[i].get("vat_amount"),
-				}
-			)
-		elif data[i].get("legend") == "Standard rated supplies in Dubai":
-			company = frappe.defaults.get_user_default("Company")
-			company_filters = [
-				["Dynamic Link", "link_doctype", "=", "Company"],
-				["Dynamic Link", "link_name", "=", company],
-				["Address", "is_your_company_address", "=", 1],
-			]
-			company_fields = [
-				"name",
-				"address_line1",
-				"address_line2",
-				"city",
-				"state",
-				"country",
-				"emirate",
-			]
-			address = frappe.get_all("Address", filters=company_filters, fields=company_fields)
+	for row in data:
+		legend = row.get("legend")
+		new_legend = legend
 
-			if address:
-				if address[0].get("emirate"):
-					name = "Standard rated supplies in" + " " + address[0].get("emirate")
-				else:
-					name = "Standard rated supplies in Dubai"
-			else:
-				name = "Standard rated supplies in Dubai"
+		if legend in emirate_drill_downs:
+			emirate = emirate_drill_downs[legend]
+			label = dubai_label_override if legend == dubai_legend and dubai_label_override else legend
+			new_legend = _drill_down_link(
+				label, filters, doc_type="Sales Invoice", vat=emirate, category="Standard"
+			)
+		elif legend == "Supplies subject to the reverse charge provision":
+			new_legend = _drill_down_link(legend, filters, doc_type="Purchase Invoice", reverse_charge="Y")
+		elif legend == "Zero Rated":
+			new_legend = _drill_down_link(legend, filters, doc_type="Sales Invoice", category="Zero Rated")
+		elif legend == "Exempt Supplies":
+			new_legend = _drill_down_link(legend, filters, doc_type="Sales Invoice", category="Exempt Rated")
+		elif legend == "Standard Rated Expenses":
+			new_legend = _drill_down_link(legend, filters, doc_type="Purchase Invoice")
 
-			legend_link = f"""
-			<a href= "/app/query-report/UAE%20VAT%20Register?company={filters.get("company")}&from_date={filters.get("from_date")}&to_date={filters.get("to_date")}&doc_type=Sales%20Invoice&vat=Dubai&category=Standard">{name}</a>
-			"""
-			final_data.append(
-				{
-					"no": data[i].get("no"),
-					"legend": legend_link,
-					"amount": data[i].get("amount"),
-					"vat_amount": data[i].get("vat_amount"),
-				}
-			)
-
-		elif data[i].get("legend") == "Standard rated supplies in Sharjah":
-			legend_link = f"""
-			<a href= "/app/query-report/UAE%20VAT%20Register?company={filters.get("company")}&from_date={filters.get("from_date")}&to_date={filters.get("to_date")}&doc_type=Sales%20Invoice&vat=Sharjah&category=Standard">{data[i].get("legend")}</a>
-			"""
-			final_data.append(
-				{
-					"no": data[i].get("no"),
-					"legend": legend_link,
-					"amount": data[i].get("amount"),
-					"vat_amount": data[i].get("vat_amount"),
-				}
-			)
-		elif data[i].get("legend") == "Standard rated supplies in Ajman":
-			legend_link = f"""
-			<a href= "/app/query-report/UAE%20VAT%20Register?company={filters.get("company")}&from_date={filters.get("from_date")}&to_date={filters.get("to_date")}&doc_type=Sales%20Invoice&vat=Ajman&category=Standard">{data[i].get("legend")}</a>
-			"""
-			final_data.append(
-				{
-					"no": data[i].get("no"),
-					"legend": legend_link,
-					"amount": data[i].get("amount"),
-					"vat_amount": data[i].get("vat_amount"),
-				}
-			)
-		elif data[i].get("legend") == "Standard rated supplies in Umm Al Quwain":
-			legend_link = f"""
-			<a href= "/app/query-report/UAE%20VAT%20Register?company={filters.get("company")}&from_date={filters.get("from_date")}&to_date={filters.get("to_date")}&doc_type=Sales%20Invoice&vat=Umm%20Al%20Quwain&category=Standard">{data[i].get("legend")}</a>
-			"""
-			final_data.append(
-				{
-					"no": data[i].get("no"),
-					"legend": legend_link,
-					"amount": data[i].get("amount"),
-					"vat_amount": data[i].get("vat_amount"),
-				}
-			)
-		elif data[i].get("legend") == "Standard rated supplies in Ras Al Khaimah":
-			legend_link = f"""
-			<a href= "/app/query-report/UAE%20VAT%20Register?company={filters.get("company")}&from_date={filters.get("from_date")}&to_date={filters.get("to_date")}&doc_type=Sales%20Invoice&vat=Ras%20Al%20Khaimah&category=Standard">{data[i].get("legend")}</a>
-			"""
-			final_data.append(
-				{
-					"no": data[i].get("no"),
-					"legend": legend_link,
-					"amount": data[i].get("amount"),
-					"vat_amount": data[i].get("vat_amount"),
-				}
-			)
-		elif data[i].get("legend") == "Standard rated supplies in Fujairah":
-			legend_link = f"""
-			<a href= "/app/query-report/UAE%20VAT%20Register?company={filters.get("company")}&from_date={filters.get("from_date")}&to_date={filters.get("to_date")}&doc_type=Sales%20Invoice&vat=Fujairah&category=Standard">{data[i].get("legend")}</a>
-			"""
-			final_data.append(
-				{
-					"no": data[i].get("no"),
-					"legend": legend_link,
-					"amount": data[i].get("amount"),
-					"vat_amount": data[i].get("vat_amount"),
-				}
-			)
-		elif data[i].get("legend") == "Supplies subject to the reverse charge provision":
-			legend_link = f"""
-			<a href= "/app/query-report/UAE%20VAT%20Register?company={filters.get("company")}&from_date={filters.get("from_date")}&to_date={filters.get("to_date")}&doc_type=Purchase%20Invoice&reverse_charge=Y">{data[i].get("legend")}</a>
-			"""
-			final_data.append(
-				{
-					"no": data[i].get("no"),
-					"legend": legend_link,
-					"amount": data[i].get("amount"),
-					"vat_amount": data[i].get("vat_amount"),
-				}
-			)
-		elif data[i].get("legend") == "Zero Rated":
-			legend_link = f"""
-			<a href= "/app/query-report/UAE%20VAT%20Register?company={filters.get("company")}&from_date={filters.get("from_date")}&to_date={filters.get("to_date")}&doc_type=Sales%20Invoice&category=Zero%20Rated">{data[i].get("legend")}</a>
-			"""
-			final_data.append(
-				{
-					"no": data[i].get("no"),
-					"legend": legend_link,
-					"amount": data[i].get("amount"),
-					"vat_amount": data[i].get("vat_amount"),
-				}
-			)
-		elif data[i].get("legend") == "Exempt Supplies":
-			legend_link = f"""
-			<a href= "/app/query-report/UAE%20VAT%20Register?company={filters.get("company")}&from_date={filters.get("from_date")}&to_date={filters.get("to_date")}&doc_type=Sales%20Invoice&category=Exempt%20Rated">{data[i].get("legend")}</a>
-			"""
-			final_data.append(
-				{
-					"no": data[i].get("no"),
-					"legend": legend_link,
-					"amount": data[i].get("amount"),
-					"vat_amount": data[i].get("vat_amount"),
-				}
-			)
-		elif data[i].get("legend") == "Standard Rated Expenses":
-			legend_link = f"""
-			<a href= "/app/query-report/UAE%20VAT%20Register?company={filters.get("company")}&from_date={filters.get("from_date")}&to_date={filters.get("to_date")}&doc_type=Purchase%20Invoice">{data[i].get("legend")}</a>
-			"""
-			final_data.append(
-				{
-					"no": data[i].get("no"),
-					"legend": legend_link,
-					"amount": data[i].get("amount"),
-					"vat_amount": data[i].get("vat_amount"),
-				}
-			)
-		else:
-			final_data.append(
-				{
-					"no": data[i].get("no"),
-					"legend": data[i].get("legend"),
-					"amount": data[i].get("amount"),
-					"vat_amount": data[i].get("vat_amount"),
-				}
-			)
+		final_data.append(
+			{
+				"no": row.get("no"),
+				"legend": new_legend,
+				"amount": row.get("amount"),
+				"vat_amount": row.get("vat_amount"),
+			}
+		)
 
 	return final_data
+
+
+def _company_emirate_label(filters):
+	"""Return the home-emirate label for the company in ``filters`` if any.
+
+	The Dubai row is conventionally relabeled with the actual emirate of
+	the filtered company's primary address. Falls back to ``None`` when
+	no company filter is set or the address has no emirate, in which case
+	callers keep the original "Standard rated supplies in Dubai" wording.
+	"""
+	company = (filters or {}).get("company")
+	if not company:
+		return None
+	address = frappe.get_all(
+		"Address",
+		filters=[
+			["Dynamic Link", "link_doctype", "=", "Company"],
+			["Dynamic Link", "link_name", "=", company],
+			["Address", "is_your_company_address", "=", 1],
+		],
+		fields=["emirate"],
+		limit=1,
+	)
+	if address and address[0].get("emirate"):
+		return _("Standard rated supplies in {0}").format(address[0]["emirate"])
+	return None
 
 
 def append_vat_on_sales(data, filters):
@@ -384,7 +296,7 @@ def net_vat_due(data, filters, amounts_by_emirate):
 	append_data(
 		data,
 		"13",
-		_("Total value of recoverable tax for the period "),
+		_("Total value of recoverable tax for the period"),
 		frappe.format(0.00, "Currency"),
 		frappe.format(
 			get_standard_rated_expenses_tax(filters) + get_reverse_charge_recoverable_tax(filters),
@@ -424,22 +336,24 @@ def format_currency_signed(value):
 @_cached
 def get_total_emiratewise(filters):
 	"""Returns Emiratewise Amount and Taxes."""
-	i = frappe.qb.DocType("Sales Invoice Item")
-	s = frappe.qb.DocType("Sales Invoice")
+	si = frappe.qb.DocType("Sales Invoice")
+	sii = frappe.qb.DocType("Sales Invoice Item")
 	query = (
-		frappe.qb.from_(i)
-		.inner_join(s)
-		.on(i.parent == s.name)
-		.select(s.vat_emirate.as_("emirate"), Sum(i.base_net_amount).as_("total"), Sum(i.tax_amount))
-		.where((s.docstatus == 1) & (i.is_exempt != 1) & (i.is_zero_rated != 1))
-		.groupby(s.vat_emirate)
+		frappe.qb.from_(sii)
+		.inner_join(si)
+		.on(sii.parent == si.name)
+		.where(si.docstatus == 1)
+		.where(sii.is_exempt != 1)
+		.where(sii.is_zero_rated != 1)
+		.groupby(si.vat_emirate)
+		.select(
+			si.vat_emirate.as_("emirate"),
+			Coalesce(Sum(sii.base_net_amount), 0).as_("total"),
+			Coalesce(Sum(sii.tax_amount), 0),
+		)
 	)
-	for condition in get_conditions(filters, s):
-		query = query.where(condition)
-	try:
-		return query.run()
-	except (IndexError, TypeError):
-		return 0
+	query = _apply_period_filters(query, si, filters)
+	return query.run()
 
 
 def get_emirates():
@@ -447,255 +361,185 @@ def get_emirates():
 	return ["Abu Dhabi", "Dubai", "Sharjah", "Ajman", "Umm Al Quwain", "Ras Al Khaimah", "Fujairah"]
 
 
-def get_filters(filters):
-	"""The conditions to be used to filter data to calculate the total sale."""
-	query_filters = []
+def _apply_period_filters(query, table, filters):
+	"""Apply company / posting-date filters from ``filters`` to a frappe.qb query."""
+	filters = filters or {}
 	if filters.get("company"):
-		query_filters.append(["company", "=", filters["company"]])
+		query = query.where(table.company == filters["company"])
 	if filters.get("from_date"):
-		query_filters.append(["posting_date", ">=", filters["from_date"]])
+		query = query.where(table.posting_date >= filters["from_date"])
 	if filters.get("to_date"):
-		query_filters.append(["posting_date", "<=", filters["to_date"]])
-	return query_filters
+		query = query.where(table.posting_date <= filters["to_date"])
+	return query
+
+
+def _sum_invoice_field(doctype, field, filters, extra_where=None):
+	"""Return ``sum(field)`` on a submitted invoice doctype with the standard
+	period filters. ``extra_where(table)`` may yield additional ``Criterion``s."""
+	table = frappe.qb.DocType(doctype)
+	query = frappe.qb.from_(table).where(table.docstatus == 1).select(Coalesce(Sum(table[field]), 0))
+	query = _apply_period_filters(query, table, filters)
+	if extra_where is not None:
+		for criterion in extra_where(table):
+			query = query.where(criterion)
+	result = query.run()
+	return flt(result[0][0]) if result else 0
+
+
+def _sum_item_field(parent_doctype, child_doctype, field, filters, extra_item_where=None):
+	"""Return ``sum(child.field)`` for child rows of submitted parents in the period."""
+	parent = frappe.qb.DocType(parent_doctype)
+	child = frappe.qb.DocType(child_doctype)
+	query = (
+		frappe.qb.from_(child)
+		.inner_join(parent)
+		.on(child.parent == parent.name)
+		.where(parent.docstatus == 1)
+		.select(Coalesce(Sum(child[field]), 0))
+	)
+	query = _apply_period_filters(query, parent, filters)
+	if extra_item_where is not None:
+		for criterion in extra_item_where(child):
+			query = query.where(criterion)
+	result = query.run()
+	return flt(result[0][0]) if result else 0
+
+
+def _sum_vat_account_debit(filters, recoverable=False):
+	"""Sum of GL debit for reverse-charge purchases booked to UAE VAT Accounts.
+
+	With ``recoverable=True``, multiplies the debit by the invoice's
+	``recoverable_reverse_charge`` percentage (and only sums rows with a
+	non-zero recoverable rate). Returns 0 when no company filter is set,
+	since UAE VAT Accounts are scoped per company.
+	"""
+	if not (filters or {}).get("company"):
+		return 0
+
+	pi = frappe.qb.DocType("Purchase Invoice")
+	gl = frappe.qb.DocType("GL Entry")
+	uva = frappe.qb.DocType("UAE VAT Account")
+
+	vat_accounts = frappe.qb.from_(uva).where(uva.parent == filters["company"]).select(uva.account)
+
+	amount = gl.debit
+	if recoverable:
+		amount = amount * pi.recoverable_reverse_charge / 100
+
+	query = (
+		frappe.qb.from_(pi)
+		.inner_join(gl)
+		.on(gl.voucher_no == pi.name)
+		.where(pi.reverse_charge == "Y")
+		.where(pi.docstatus == 1)
+		.where(gl.docstatus == 1)
+		.where(gl.account.isin(vat_accounts))
+		.select(Coalesce(Sum(amount), 0))
+	)
+	if recoverable:
+		query = query.where(pi.recoverable_reverse_charge > 0)
+	query = _apply_period_filters(query, pi, filters)
+	result = query.run()
+	return flt(result[0][0]) if result else 0
 
 
 @_cached
 def get_reverse_charge_total(filters):
 	"""Returns the sum of the total of each Purchase invoice made."""
-	query_filters = get_filters(filters)
-	query_filters.append(["reverse_charge", "=", "Y"])
-	query_filters.append(["docstatus", "=", 1])
-	try:
-		return (
-			frappe.db.get_all(
-				"Purchase Invoice",
-				filters=query_filters,
-				fields=["sum(base_net_total)"],
-				as_list=True,
-				limit=1,
-			)[0][0]
-			or 0
-		)
-	except (IndexError, TypeError):
-		return 0
+	return _sum_invoice_field(
+		"Purchase Invoice",
+		"base_net_total",
+		filters,
+		extra_where=lambda t: [t.reverse_charge == "Y"],
+	)
 
 
 @_cached
 def get_reverse_charge_tax(filters):
 	"""Returns the sum of the tax of each Purchase invoice made."""
-	p = frappe.qb.DocType("Purchase Invoice")
-	gl = frappe.qb.DocType("GL Entry")
-	uae_vat = frappe.qb.DocType("UAE VAT Account")
-	query = (
-		frappe.qb.from_(p)
-		.inner_join(gl)
-		.on(gl.voucher_no == p.name)
-		.select(Sum(gl.debit))
-		.where(
-			(p.reverse_charge == "Y")
-			& (p.docstatus == 1)
-			& (gl.docstatus == 1)
-			& gl.account.isin(
-				frappe.qb.from_(uae_vat)
-				.select(uae_vat.account)
-				.where(uae_vat.parent == filters.get("company"))
-			)
-		)
-	)
-	for condition in get_conditions_join(filters, p):
-		query = query.where(condition)
-	return query.run()[0][0] or 0
+	return _sum_vat_account_debit(filters)
 
 
 @_cached
 def get_reverse_charge_recoverable_total(filters):
 	"""Returns the sum of the total of each Purchase invoice made with recoverable reverse charge."""
-	query_filters = get_filters(filters)
-	query_filters.append(["reverse_charge", "=", "Y"])
-	query_filters.append(["recoverable_reverse_charge", ">", "0"])
-	query_filters.append(["docstatus", "=", 1])
-	try:
-		return (
-			frappe.db.get_all(
-				"Purchase Invoice",
-				filters=query_filters,
-				fields=["sum(base_net_total)"],
-				as_list=True,
-				limit=1,
-			)[0][0]
-			or 0
-		)
-	except (IndexError, TypeError):
-		return 0
+	return _sum_invoice_field(
+		"Purchase Invoice",
+		"base_net_total",
+		filters,
+		extra_where=lambda t: [t.reverse_charge == "Y", t.recoverable_reverse_charge > 0],
+	)
 
 
 @_cached
 def get_reverse_charge_recoverable_tax(filters):
 	"""Returns the sum of the tax of each Purchase invoice made."""
-	p = frappe.qb.DocType("Purchase Invoice")
-	gl = frappe.qb.DocType("GL Entry")
-	uae_vat = frappe.qb.DocType("UAE VAT Account")
-	query = (
-		frappe.qb.from_(p)
-		.inner_join(gl)
-		.on(gl.voucher_no == p.name)
-		.select(Sum(gl.debit * p.recoverable_reverse_charge / 100))
-		.where(
-			(p.reverse_charge == "Y")
-			& (p.docstatus == 1)
-			& (p.recoverable_reverse_charge > 0)
-			& (gl.docstatus == 1)
-			& gl.account.isin(
-				frappe.qb.from_(uae_vat)
-				.select(uae_vat.account)
-				.where(uae_vat.parent == filters.get("company"))
-			)
-		)
-	)
-	for condition in get_conditions_join(filters, p):
-		query = query.where(condition)
-	return query.run()[0][0] or 0
-
-
-def get_conditions_join(filters, p):
-	"""The conditions to be used to filter data to calculate the total vat."""
-	conditions = []
-	if filters.get("company"):
-		conditions.append(p.company == filters.get("company"))
-	if filters.get("from_date"):
-		conditions.append(p.posting_date >= filters.get("from_date"))
-	if filters.get("to_date"):
-		conditions.append(p.posting_date <= filters.get("to_date"))
-	return conditions
+	return _sum_vat_account_debit(filters, recoverable=True)
 
 
 @_cached
 def get_standard_rated_expenses_total(filters):
 	"""Returns the sum of the total of each Purchase invoice made with recoverable reverse charge."""
-	query_filters = get_filters(filters)
-	query_filters.append(["recoverable_standard_rated_expenses", ">", 0])
-	query_filters.append(["docstatus", "=", 1])
-	try:
-		return (
-			frappe.db.get_all(
-				"Purchase Invoice",
-				filters=query_filters,
-				fields=["sum(base_net_total)"],
-				as_list=True,
-				limit=1,
-			)[0][0]
-			or 0
-		)
-	except (IndexError, TypeError):
-		return 0
+	return _sum_invoice_field(
+		"Purchase Invoice",
+		"base_net_total",
+		filters,
+		extra_where=lambda t: [t.recoverable_standard_rated_expenses > 0],
+	)
 
 
 @_cached
 def get_standard_rated_expenses_tax(filters):
 	"""Returns the sum of the tax of each Purchase invoice made."""
-	query_filters = get_filters(filters)
-	query_filters.append(["recoverable_standard_rated_expenses", ">", 0])
-	query_filters.append(["docstatus", "=", 1])
-	try:
-		return (
-			frappe.db.get_all(
-				"Purchase Invoice",
-				filters=query_filters,
-				fields=["sum(recoverable_standard_rated_expenses)"],
-				as_list=True,
-				limit=1,
-			)[0][0]
-			or 0
-		)
-	except (IndexError, TypeError):
-		return 0
+	return _sum_invoice_field(
+		"Purchase Invoice",
+		"recoverable_standard_rated_expenses",
+		filters,
+		extra_where=lambda t: [t.recoverable_standard_rated_expenses > 0],
+	)
 
 
 @_cached
 def get_tourist_tax_return_total(filters):
 	"""Returns the sum of the total of each Sales invoice with non zero tourist_tax_return."""
-	query_filters = get_filters(filters)
-	query_filters.append(["tourist_tax_return", ">", 0])
-	query_filters.append(["docstatus", "=", 1])
-	try:
-		return (
-			frappe.db.get_all(
-				"Sales Invoice", filters=query_filters, fields=["sum(base_net_total)"], as_list=True, limit=1
-			)[0][0]
-			or 0
-		)
-	except (IndexError, TypeError):
-		return 0
+	return _sum_invoice_field(
+		"Sales Invoice",
+		"base_net_total",
+		filters,
+		extra_where=lambda t: [t.tourist_tax_return > 0],
+	)
 
 
 @_cached
 def get_tourist_tax_return_tax(filters):
 	"""Returns the sum of the tax of each Sales invoice with non zero tourist_tax_return."""
-	query_filters = get_filters(filters)
-	query_filters.append(["tourist_tax_return", ">", 0])
-	query_filters.append(["docstatus", "=", 1])
-	try:
-		return (
-			frappe.db.get_all(
-				"Sales Invoice",
-				filters=query_filters,
-				fields=["sum(tourist_tax_return)"],
-				as_list=True,
-				limit=1,
-			)[0][0]
-			or 0
-		)
-	except (IndexError, TypeError):
-		return 0
+	return _sum_invoice_field(
+		"Sales Invoice",
+		"tourist_tax_return",
+		filters,
+		extra_where=lambda t: [t.tourist_tax_return > 0],
+	)
 
 
 @_cached
 def get_zero_rated_total(filters):
 	"""Returns the sum of each Sales Invoice Item Amount which is zero rated."""
-	i = frappe.qb.DocType("Sales Invoice Item")
-	s = frappe.qb.DocType("Sales Invoice")
-	query = (
-		frappe.qb.from_(i)
-		.inner_join(s)
-		.on(i.parent == s.name)
-		.select(Sum(i.base_net_amount).as_("total"))
-		.where((s.docstatus == 1) & (i.is_zero_rated == 1))
+	return _sum_item_field(
+		"Sales Invoice",
+		"Sales Invoice Item",
+		"base_net_amount",
+		filters,
+		extra_item_where=lambda i: [i.is_zero_rated == 1],
 	)
-	for condition in get_conditions(filters, s):
-		query = query.where(condition)
-	try:
-		return query.run()[0][0] or 0
-	except (IndexError, TypeError):
-		return 0
 
 
 @_cached
 def get_exempt_total(filters):
 	"""Returns the sum of each Sales Invoice Item Amount which is Vat Exempt."""
-	i = frappe.qb.DocType("Sales Invoice Item")
-	s = frappe.qb.DocType("Sales Invoice")
-	query = (
-		frappe.qb.from_(i)
-		.inner_join(s)
-		.on(i.parent == s.name)
-		.select(Sum(i.base_net_amount).as_("total"))
-		.where((s.docstatus == 1) & (i.is_exempt == 1))
+	return _sum_item_field(
+		"Sales Invoice",
+		"Sales Invoice Item",
+		"base_net_amount",
+		filters,
+		extra_item_where=lambda i: [i.is_exempt == 1],
 	)
-	for condition in get_conditions(filters, s):
-		query = query.where(condition)
-	try:
-		return query.run()[0][0] or 0
-	except (IndexError, TypeError):
-		return 0
-
-
-def get_conditions(filters, s):
-	"""The conditions to be used to filter data to calculate the total sale."""
-	conditions = []
-	if filters.get("company"):
-		conditions.append(s.company == filters.get("company"))
-	if filters.get("from_date"):
-		conditions.append(s.posting_date >= filters.get("from_date"))
-	if filters.get("to_date"):
-		conditions.append(s.posting_date <= filters.get("to_date"))
-	return conditions

@@ -1,10 +1,21 @@
 import frappe
-
-from erpnext.regional.united_arab_emirates.setup import make_custom_fields
+from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 
 def execute():
-	if not frappe.db.get_value("Company", {"country": "United Arab Emirates"}):
+	if not frappe.db.exists("Company", {"country": "United Arab Emirates"}):
 		return
 
-	make_custom_fields()
+	create_custom_fields(
+		{
+			"Company": [
+				{
+					"fieldname": "company_name_in_arabic",
+					"label": "Company Name in Arabic",
+					"fieldtype": "Data",
+					"insert_after": "company_name",
+				}
+			]
+		},
+		ignore_validate=True,
+	)

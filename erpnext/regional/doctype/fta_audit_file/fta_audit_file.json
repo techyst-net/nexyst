@@ -112,7 +112,7 @@
    "fieldname": "file_type",
    "fieldtype": "Select",
    "label": "File Type",
-   "options": "VAT\nExcise",
+   "options": "VAT",
    "default": "VAT",
    "reqd": 1
   },

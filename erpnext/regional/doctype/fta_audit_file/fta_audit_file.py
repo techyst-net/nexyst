@@ -35,6 +35,23 @@ DEFAULT_COUNTRY = "United Arab Emirates"
 DEFAULT_DATE = "31-12-9999"
 PRODUCT_VERSION = "ERPNext"
 
+# Inputs that define what the FAF file represents. Once the file has been
+# Generated or Submitted, changing any of these would silently desync the
+# attached CSV from the form, so we lock them.
+LOCKED_INPUT_FIELDS = (
+	"company",
+	"from_date",
+	"to_date",
+	"file_type",
+	"include_opening_balance",
+	"tax_agency_name",
+	"tan",
+	"tax_agent_name",
+	"taan",
+)
+LOCKED_STATUSES = ("Generated", "Submitted")
+IN_FLIGHT_STATUSES = ("Queued", "Generating")
+
 
 class FTAAuditFile(Document):
 	def validate(self):
@@ -48,8 +65,30 @@ class FTAAuditFile(Document):
 				)
 			)
 
+		self._guard_locked_fields()
+
 		if self.status != "Error":
 			self.error_message = None
+
+	def _guard_locked_fields(self):
+		"""Block edits to FAF inputs once the file is Generated or Submitted.
+
+		The status field alone is read-only in the UI, but a user with write
+		permission can still patch fields via REST or scripts; this enforces
+		immutability server-side so the attached CSV always matches the form.
+		"""
+		if self.is_new():
+			return
+
+		previous_status = self.get_db_value("status")
+		if previous_status not in LOCKED_STATUSES:
+			return
+
+		changed = [f for f in LOCKED_INPUT_FIELDS if self.has_value_changed(f)]
+		if changed:
+			frappe.throw(
+				_("Cannot modify {0} after the FAF has been {1}.").format(", ".join(changed), previous_status)
+			)
 
 	@frappe.whitelist()
 	def generate_faf(self):
@@ -64,6 +103,14 @@ class FTAAuditFile(Document):
 		Under ``frappe.flags.in_test`` the job runs synchronously so tests
 		can assert on the post-generation state without polling.
 		"""
+		# Re-read status from DB so two concurrent button clicks can't both
+		# enqueue a job — the second one sees Queued/Generating and bails.
+		current_status = frappe.db.get_value(self.doctype, self.name, "status", for_update=True)
+		if current_status in IN_FLIGHT_STATUSES:
+			frappe.throw(_("FAF generation is already {0} for this document.").format(current_status))
+		if current_status == "Submitted":
+			frappe.throw(_("Cannot regenerate a Submitted FAF."))
+
 		self.status = "Queued"
 		self.generation_log = ""
 		self.error_message = None
@@ -139,9 +186,6 @@ class FTAAuditFile(Document):
 		log(f"Starting FAF generation for {self.company}")
 		log(f"Period: {self.from_date} to {self.to_date}")
 		log(f"File Type: {self.file_type}")
-
-		if self.file_type != "VAT":
-			frappe.throw(_("FAF generation for {0} is not yet implemented").format(self.file_type))
 
 		output = io.StringIO()
 		writer = csv.writer(output)
@@ -252,11 +296,14 @@ class FTAAuditFile(Document):
 				"item_tax_template",
 			],
 		)
-		tax_code_map = {
-			t: _resolve_tax_code(t)
-			for t in {item.item_tax_template for items in items_by_invoice.values() for item in items}
-			if t
-		}
+		tax_code_bands = _bulk_tax_code_bands(
+			{
+				item.item_tax_template
+				for items in items_by_invoice.values()
+				for item in items
+				if item.item_tax_template
+			}
+		)
 
 		company_currency = _company_currency(self.company)
 
@@ -285,7 +332,7 @@ class FTAAuditFile(Document):
 						_clean(item.description or item.item_name or ""),
 						_money(net_aed),
 						_money(vat_aed),
-						tax_code_map.get(item.item_tax_template, "SR"),
+						_resolve_tax_code(item.item_tax_template, inv.posting_date, tax_code_bands),
 						fcy_code,
 						_money(net_fcy),
 						_money(vat_fcy),
@@ -351,11 +398,14 @@ class FTAAuditFile(Document):
 				"is_exempt",
 			],
 		)
-		tax_code_map = {
-			t: _resolve_tax_code(t)
-			for t in {item.item_tax_template for items in items_by_invoice.values() for item in items}
-			if t
-		}
+		tax_code_bands = _bulk_tax_code_bands(
+			{
+				item.item_tax_template
+				for items in items_by_invoice.values()
+				for item in items
+				if item.item_tax_template
+			}
+		)
 
 		company_currency = _company_currency(self.company)
 
@@ -379,7 +429,7 @@ class FTAAuditFile(Document):
 				elif item.is_exempt:
 					tax_code = "EX"
 				else:
-					tax_code = tax_code_map.get(item.item_tax_template, "SR")
+					tax_code = _resolve_tax_code(item.item_tax_template, inv.posting_date, tax_code_bands)
 
 				writer.writerow(
 					[
@@ -563,7 +613,14 @@ def _bulk_party_field(doctype, names, field):
 
 
 def _bulk_party_country(party_doctype, party_names):
-	"""Return ``{party_name: country}`` taken from each party's first address with a country."""
+	"""Return ``{party_name: country}`` for each party.
+
+	Picks deterministically when a party has multiple addresses: prefer the
+	one flagged ``is_primary_address``, then ``is_shipping_address``, then
+	the lowest address name. Without this ordering, MariaDB would return
+	rows in storage-engine order and the FAF would be non-reproducible
+	across runs.
+	"""
 	if not party_names:
 		return {}
 
@@ -579,6 +636,9 @@ def _bulk_party_country(party_doctype, party_names):
 		.where(addr.country.isnotnull())
 		.where(addr.country != "")
 		.select(dl.link_name, addr.country)
+		.orderby(addr.is_primary_address, order=frappe.qb.desc)
+		.orderby(addr.is_shipping_address, order=frappe.qb.desc)
+		.orderby(addr.name)
 		.run(as_dict=True)
 	)
 	out = {}
@@ -638,22 +698,51 @@ def _bulk_invoice_items(child_doctype, invoice_names, fields):
 _FTA_TAX_CODES = ("SR", "ZR", "EX", "RC", "IG", "OA", "IA")
 
 
-def _resolve_tax_code(item_tax_template):
+def _bulk_tax_code_bands(item_tax_templates):
+	"""Return ``{template: [(valid_from, tax_category), ...]}`` sorted desc by valid_from.
+
+	One ``Item Tax Template`` can have multiple ``Item Tax`` rows with
+	different ``valid_from`` dates (e.g. tax code changing on a regulator
+	cutover). Fetching them all up-front lets ``_resolve_tax_code`` pick
+	the row that was in force on each invoice's posting date without an
+	extra DB hit per line item.
+	"""
+	if not item_tax_templates:
+		return {}
+	rows = frappe.get_all(
+		"Item Tax",
+		filters={"item_tax_template": ["in", list(item_tax_templates)]},
+		fields=["item_tax_template", "tax_category", "valid_from"],
+		order_by="valid_from desc",
+	)
+	out = {}
+	for r in rows:
+		out.setdefault(r["item_tax_template"], []).append((r.get("valid_from"), r.get("tax_category")))
+	return out
+
+
+def _resolve_tax_code(item_tax_template, posting_date, bands_map):
 	"""Derive FTA tax code (SR/ZR/EX/RC/IG/OA/IA) from one Item Tax Template.
 
-	Uses the Item Tax row's ``tax_category`` if it matches an FTA code;
-	otherwise defaults to ``SR`` (Standard Rated). Setting ``tax_category``
-	on each Item Tax is the supported way to control this — there is no
-	heuristic fallback on the template name.
+	Picks the Item Tax row whose ``valid_from`` is the most recent value
+	that is still on or before ``posting_date``; rows with no
+	``valid_from`` are treated as always-valid and used only as a
+	fallback. Defaults to ``SR`` (Standard Rated) when nothing matches or
+	the chosen ``tax_category`` isn't one of the FTA codes.
 	"""
 	if not item_tax_template:
 		return "SR"
 
-	tax_category = frappe.db.get_value(
-		"Item Tax",
-		{"item_tax_template": item_tax_template},
-		"tax_category",
-	)
-	if tax_category and tax_category in _FTA_TAX_CODES:
-		return tax_category
+	bands = bands_map.get(item_tax_template) or []
+	posting = getdate(posting_date) if posting_date else None
+	fallback_category = None
+	for valid_from, tax_category in bands:
+		if valid_from is None:
+			fallback_category = fallback_category or tax_category
+			continue
+		if posting is None or getdate(valid_from) <= posting:
+			return tax_category if tax_category in _FTA_TAX_CODES else "SR"
+
+	if fallback_category and fallback_category in _FTA_TAX_CODES:
+		return fallback_category
 	return "SR"

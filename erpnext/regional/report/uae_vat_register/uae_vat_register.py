@@ -4,6 +4,7 @@
 
 import frappe
 from frappe import _
+from frappe.query_builder.functions import Coalesce, Sum
 
 
 def execute(filters=None):
@@ -88,129 +89,109 @@ def get_columns(filters):
 def get_data(filters):
 	doc_type = filters.get("doc_type") or "Sales Invoice"
 	if doc_type == "Sales Invoice":
-		return fetch_sales_rows(filters)
+		return _fetch_rows(filters, is_sales=True)
 	if doc_type == "Purchase Invoice":
-		return fetch_purchase_rows(filters)
+		return _fetch_rows(filters, is_sales=False)
 	return []
 
 
-def fetch_sales_rows(filters):
-	conditions, params = build_conditions(filters)
-	category_clause = sales_category_clause(filters.get("category"))
+def _fetch_rows(filters, is_sales):
+	"""Build the VAT register query for either Sales or Purchase Invoices.
 
-	emirate_clause = ""
-	if filters.get("vat"):
-		emirate_clause = "AND s.vat_emirate = %(vat)s"
-		params["vat"] = filters["vat"]
+	Item-wise mode returns one row per Sales/Purchase Invoice Item; the
+	default mode aggregates back to one row per invoice with summed qty,
+	net, VAT, and total. ``COALESCE(i.tax_amount, 0)`` is used everywhere
+	so a missing VAT amount surfaces as 0 instead of NULL — matching the
+	currency display and avoiding NULLs in client-side totals.
+	"""
+	parent_doctype = "Sales Invoice" if is_sales else "Purchase Invoice"
+	child_doctype = "Sales Invoice Item" if is_sales else "Purchase Invoice Item"
+	parent = frappe.qb.DocType(parent_doctype)
+	child = frappe.qb.DocType(child_doctype)
+	item_wise = bool(filters.get("item_wise"))
 
-	if filters.get("item_wise"):
-		return frappe.db.sql(
-			f"""
-			SELECT
-				s.name, s.posting_date, s.customer AS party,
-				COALESCE(i.cost_center, s.cost_center) AS cost_center,
-				s.vat_emirate AS emirate,
-				i.item_code, i.qty, i.rate,
-				i.base_net_amount AS net_amount,
-				i.tax_amount AS vat_amount,
-				(i.base_net_amount + COALESCE(i.tax_amount, 0)) AS total_amount
-			FROM `tabSales Invoice` s
-			INNER JOIN `tabSales Invoice Item` i ON i.parent = s.name
-			WHERE s.docstatus = 1 {conditions} {category_clause} {emirate_clause}
-			ORDER BY s.posting_date, s.name, i.idx
-			""",
-			params,
-			as_dict=True,
+	party_field = parent.customer if is_sales else parent.supplier
+	party_extra = parent.vat_emirate.as_("emirate") if is_sales else parent.reverse_charge
+
+	tax_amount = Coalesce(child.tax_amount, 0)
+	gross = child.base_net_amount + tax_amount
+
+	if item_wise:
+		query = (
+			frappe.qb.from_(parent)
+			.inner_join(child)
+			.on(child.parent == parent.name)
+			.where(parent.docstatus == 1)
+			.select(
+				parent.name,
+				parent.posting_date,
+				party_field.as_("party"),
+				Coalesce(child.cost_center, parent.cost_center).as_("cost_center"),
+				party_extra,
+				child.item_code,
+				child.qty,
+				child.rate,
+				child.base_net_amount.as_("net_amount"),
+				tax_amount.as_("vat_amount"),
+				gross.as_("total_amount"),
+			)
+			.orderby(parent.posting_date)
+			.orderby(parent.name)
+			.orderby(child.idx)
+		)
+	else:
+		cost_center = parent.cost_center
+		query = (
+			frappe.qb.from_(parent)
+			.inner_join(child)
+			.on(child.parent == parent.name)
+			.where(parent.docstatus == 1)
+			.select(
+				parent.name,
+				parent.posting_date,
+				party_field.as_("party"),
+				cost_center,
+				party_extra,
+				Sum(child.qty).as_("qty"),
+				Coalesce(Sum(child.base_net_amount), 0).as_("net_amount"),
+				Coalesce(Sum(tax_amount), 0).as_("vat_amount"),
+				Coalesce(Sum(gross), 0).as_("total_amount"),
+			)
+			.groupby(parent.name, parent.posting_date, party_field, cost_center, party_extra)
+			.orderby(parent.posting_date)
+			.orderby(parent.name)
 		)
 
-	return frappe.db.sql(
-		f"""
-		SELECT
-			s.name, s.posting_date, s.customer AS party, s.cost_center,
-			s.vat_emirate AS emirate,
-			SUM(i.qty) AS qty,
-			SUM(i.base_net_amount) AS net_amount,
-			SUM(i.tax_amount) AS vat_amount,
-			SUM(i.base_net_amount + COALESCE(i.tax_amount, 0)) AS total_amount
-		FROM `tabSales Invoice` s
-		INNER JOIN `tabSales Invoice Item` i ON i.parent = s.name
-		WHERE s.docstatus = 1 {conditions} {category_clause} {emirate_clause}
-		GROUP BY s.name, s.posting_date, s.customer, s.cost_center, s.vat_emirate
-		ORDER BY s.posting_date, s.name
-		""",
-		params,
-		as_dict=True,
-	)
+	query = _apply_period_filters(query, parent, filters)
+
+	if is_sales and filters.get("vat"):
+		query = query.where(parent.vat_emirate == filters["vat"])
+	if not is_sales and filters.get("reverse_charge") in ("Y", "N"):
+		query = query.where(parent.reverse_charge == filters["reverse_charge"])
+	if is_sales:
+		category_criterion = _sales_category_criterion(child, filters.get("category"))
+		if category_criterion is not None:
+			query = query.where(category_criterion)
+
+	return query.run(as_dict=True)
 
 
-def fetch_purchase_rows(filters):
-	conditions, params = build_conditions(filters)
-
-	rc_clause = ""
-	if filters.get("reverse_charge") in ("Y", "N"):
-		rc_clause = "AND s.reverse_charge = %(reverse_charge)s"
-		params["reverse_charge"] = filters["reverse_charge"]
-
-	if filters.get("item_wise"):
-		return frappe.db.sql(
-			f"""
-			SELECT
-				s.name, s.posting_date, s.supplier AS party,
-				COALESCE(i.cost_center, s.cost_center) AS cost_center,
-				s.reverse_charge,
-				i.item_code, i.qty, i.rate,
-				i.base_net_amount AS net_amount,
-				i.tax_amount AS vat_amount,
-				(i.base_net_amount + COALESCE(i.tax_amount, 0)) AS total_amount
-			FROM `tabPurchase Invoice` s
-			INNER JOIN `tabPurchase Invoice Item` i ON i.parent = s.name
-			WHERE s.docstatus = 1 {conditions} {rc_clause}
-			ORDER BY s.posting_date, s.name, i.idx
-			""",
-			params,
-			as_dict=True,
-		)
-
-	return frappe.db.sql(
-		f"""
-		SELECT
-			s.name, s.posting_date, s.supplier AS party, s.cost_center,
-			s.reverse_charge,
-			SUM(i.qty) AS qty,
-			SUM(i.base_net_amount) AS net_amount,
-			SUM(i.tax_amount) AS vat_amount,
-			SUM(i.base_net_amount + COALESCE(i.tax_amount, 0)) AS total_amount
-		FROM `tabPurchase Invoice` s
-		INNER JOIN `tabPurchase Invoice Item` i ON i.parent = s.name
-		WHERE s.docstatus = 1 {conditions} {rc_clause}
-		GROUP BY s.name, s.posting_date, s.supplier, s.cost_center, s.reverse_charge
-		ORDER BY s.posting_date, s.name
-		""",
-		params,
-		as_dict=True,
-	)
-
-
-def build_conditions(filters):
-	conditions = ""
-	params = {}
+def _apply_period_filters(query, parent, filters):
 	if filters.get("company"):
-		conditions += " AND s.company = %(company)s"
-		params["company"] = filters["company"]
+		query = query.where(parent.company == filters["company"])
 	if filters.get("from_date"):
-		conditions += " AND s.posting_date >= %(from_date)s"
-		params["from_date"] = filters["from_date"]
+		query = query.where(parent.posting_date >= filters["from_date"])
 	if filters.get("to_date"):
-		conditions += " AND s.posting_date <= %(to_date)s"
-		params["to_date"] = filters["to_date"]
-	return conditions, params
+		query = query.where(parent.posting_date <= filters["to_date"])
+	return query
 
 
-def sales_category_clause(category):
+def _sales_category_criterion(child, category):
+	"""Translate the ``category`` filter into a Sales Invoice Item criterion."""
 	if category == "Standard":
-		return "AND i.is_zero_rated != 1 AND i.is_exempt != 1"
+		return (child.is_zero_rated != 1) & (child.is_exempt != 1)
 	if category == "Zero Rated":
-		return "AND i.is_zero_rated = 1"
+		return child.is_zero_rated == 1
 	if category == "Exempt Rated":
-		return "AND i.is_exempt = 1"
-	return ""
+		return child.is_exempt == 1
+	return None
