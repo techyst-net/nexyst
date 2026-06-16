@@ -37,20 +37,20 @@ from erpnext.stock.get_item_details import (
 from erpnext.stock.stock_ledger import get_previous_sle, get_valuation_rate
 from erpnext.stock.utils import get_incoming_rate
 
-from .stock_entry_handler.disassemble import DisassembleStockEntry
-from .stock_entry_handler.manufacturing import (
+from .services.disassemble import DisassembleStockEntry
+from .services.manufacturing import (
 	ManufactureStockEntry,
 	MaterialConsumptionForManufactureStockEntry,
 	RepackStockEntry,
 )
-from .stock_entry_handler.material_receipt_issue import MaterialIssueStockEntry, MaterialReceiptStockEntry
-from .stock_entry_handler.material_transfer import (
+from .services.material_receipt_issue import MaterialIssueStockEntry, MaterialReceiptStockEntry
+from .services.material_transfer import (
 	MaterialRequestStockEntry,
 	MaterialTransferForManufactureStockEntry,
 	MaterialTransferStockEntry,
 )
-from .stock_entry_handler.serial_batch import StockEntrySABB
-from .stock_entry_handler.subcontracting import SendToSubcontractorStockEntry
+from .services.serial_batch import StockEntrySABB
+from .services.subcontracting import SendToSubcontractorStockEntry
 
 
 class FinishedGoodError(frappe.ValidationError):
