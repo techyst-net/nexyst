@@ -1601,6 +1601,10 @@ def make_opening_stock_entry(
 
 	if not item.is_stock_item:
 		frappe.throw(_("Opening Stock can only be set for stock items."))
+	if item.has_serial_no or item.has_batch_no:
+		frappe.throw(
+			_("Opening Stock for serialised or batch items must be set via the Stock Reconciliation form.")
+		)
 	if item.stock_ledger_created():
 		frappe.throw(
 			_("Opening Stock cannot be created as stock transactions already exist for item {0}.").format(
