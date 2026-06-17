@@ -9,8 +9,7 @@ import frappe
 from frappe import _, bold
 from frappe.model.document import Document
 from frappe.query_builder import Case
-from frappe.query_builder.custom import GROUP_CONCAT
-from frappe.query_builder.functions import Coalesce, Locate, Replace, Sum
+from frappe.query_builder.functions import Coalesce, GroupConcat, Locate, Max, Replace, Sum
 from frappe.utils import cint, floor, flt, get_link_to_form
 from frappe.utils.nestedset import get_descendants_of
 
@@ -906,15 +905,16 @@ def get_picked_items_qty(items, contains_packed_items=False) -> list[dict]:
 	query = (
 		frappe.qb.from_(pi_item)
 		.select(
-			pi_item.sales_order_item,
-			pi_item.product_bundle_item,
-			pi_item.item_code,
+			# only one of sales_order_item / product_bundle_item is grouped per branch below; Max()
+			# the rest so postgres accepts the query (each is constant within its group)
+			Max(pi_item.sales_order_item).as_("sales_order_item"),
+			Max(pi_item.product_bundle_item).as_("product_bundle_item"),
+			Max(pi_item.item_code).as_("item_code"),
 			pi_item.sales_order,
 			Sum(pi_item.stock_qty).as_("stock_qty"),
 			Sum(pi_item.picked_qty).as_("picked_qty"),
 		)
 		.where(pi_item.docstatus == 1)
-		.for_update()
 	)
 
 	if contains_packed_items:
@@ -927,6 +927,10 @@ def get_picked_items_qty(items, contains_packed_items=False) -> list[dict]:
 			pi_item.sales_order_item,
 			pi_item.sales_order,
 		).where(pi_item.sales_order_item.isin(items))
+
+	# FOR UPDATE is invalid with GROUP BY on postgres; lock scanned rows on MariaDB only
+	if frappe.db.db_type != "postgres":
+		query = query.for_update()
 
 	return query.run(as_dict=True)
 
@@ -1365,7 +1369,7 @@ def get_pick_list_query(doctype: Any, txt: str, searchfield: Any, start: int, pa
 		.select(
 			PICK_LIST.name,
 			SALES_ORDER.customer,
-			Replace(GROUP_CONCAT(PICK_LIST_ITEM.sales_order).distinct(), ",", "<br>").as_("sales_order"),
+			Replace(GroupConcat(PICK_LIST_ITEM.sales_order).distinct(), ",", "<br>").as_("sales_order"),
 		)
 		.where(PICK_LIST.docstatus == 1)
 		.where(PICK_LIST.status.isin(["Open", "Partly Delivered"]))
