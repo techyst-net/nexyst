@@ -11,7 +11,7 @@ import frappe.query_builder
 from frappe import _, _dict, bold
 from frappe.model.document import Document
 from frappe.model.naming import make_autoname
-from frappe.query_builder.functions import Concat_ws, Sum
+from frappe.query_builder.functions import Concat_ws, Max, Sum
 from frappe.utils import (
 	cint,
 	cstr,
@@ -3067,7 +3067,7 @@ def get_available_batches(kwargs):
 			batch_ledger.batch_no,
 			batch_ledger.warehouse,
 			Sum(batch_ledger.qty).as_("qty"),
-			batch_table.expiry_date,
+			Max(batch_table.expiry_date).as_("expiry_date"),
 		)
 		.where(batch_table.disabled == 0)
 		.where(stock_ledger_entry.is_cancelled == 0)
@@ -3107,12 +3107,13 @@ def get_available_batches(kwargs):
 		else:
 			query = query.where(batch_ledger.batch_no == kwargs.batch_no)
 
+	# order by aggregates (one row per batch_no+warehouse); raw columns aren't valid under GROUP BY on postgres
 	if kwargs.based_on == "LIFO":
-		query = query.orderby(batch_table.creation, order=frappe.qb.desc)
+		query = query.orderby(Max(batch_table.creation), order=frappe.qb.desc)
 	elif kwargs.based_on == "Expiry":
-		query = query.orderby(batch_table.expiry_date)
+		query = query.orderby(Max(batch_table.expiry_date))
 	else:
-		query = query.orderby(batch_table.creation)
+		query = query.orderby(Max(batch_table.creation))
 
 	if kwargs.get("ignore_voucher_nos"):
 		query = query.where(stock_ledger_entry.voucher_no.notin(kwargs.get("ignore_voucher_nos")))
@@ -3329,6 +3330,10 @@ def get_stock_ledgers_for_serial_nos(kwargs):
 			stock_ledger_entry.actual_qty,
 			stock_ledger_entry.serial_no,
 			stock_ledger_entry.serial_and_batch_bundle,
+			# creation is the ORDER BY tiebreaker; postgres requires ORDER BY columns to be in the
+			# select list when the query is DISTINCT (added below for serial-no filters). It is unique
+			# per SLE so it doesn't change the distinct row set (serial_and_batch_bundle already is).
+			stock_ledger_entry.creation,
 		)
 		.where(stock_ledger_entry.is_cancelled == 0)
 		.orderby(stock_ledger_entry.posting_datetime)
@@ -3395,10 +3400,10 @@ def get_stock_ledgers_batches(kwargs):
 		.on(stock_ledger_entry.batch_no == batch_table.name)
 		.select(
 			stock_ledger_entry.warehouse,
-			stock_ledger_entry.item_code,
+			Max(stock_ledger_entry.item_code).as_("item_code"),
 			Sum(stock_ledger_entry.actual_qty).as_("qty"),
 			stock_ledger_entry.batch_no,
-			batch_table.expiry_date,
+			Max(batch_table.expiry_date).as_("expiry_date"),
 		)
 		.where((stock_ledger_entry.is_cancelled == 0) & (stock_ledger_entry.batch_no.isnotnull()))
 		.groupby(stock_ledger_entry.batch_no, stock_ledger_entry.warehouse)
@@ -3434,12 +3439,13 @@ def get_stock_ledgers_batches(kwargs):
 	if kwargs.get("ignore_voucher_nos"):
 		query = query.where(stock_ledger_entry.voucher_no.notin(kwargs.get("ignore_voucher_nos")))
 
+	# order by aggregates (one row per batch_no+warehouse); raw columns aren't valid under GROUP BY on postgres
 	if kwargs.based_on == "LIFO":
-		query = query.orderby(batch_table.creation, order=frappe.qb.desc)
+		query = query.orderby(Max(batch_table.creation), order=frappe.qb.desc)
 	elif kwargs.based_on == "Expiry":
-		query = query.orderby(batch_table.expiry_date)
+		query = query.orderby(Max(batch_table.expiry_date))
 	else:
-		query = query.orderby(batch_table.creation)
+		query = query.orderby(Max(batch_table.creation))
 
 	data = query.run(as_dict=True)
 	batches = {}
