@@ -262,9 +262,10 @@ class TestRequestforQuotation(ERPNextTestSuite):
 		self.assertEqual(rfq.items[0].cost_center, "_Test Cost Center - _TC")
 
 	def test_cost_center_flows_from_rfq_to_supplier_quotation(self):
-		rfq = make_request_for_quotation()
+		rfq = make_request_for_quotation(do_not_submit=True)
 		rfq.items[0].cost_center = "_Test Cost Center - _TC"
 		rfq.save()
+		rfq.submit()
 
 		sq = make_supplier_quotation_from_rfq(rfq.name, for_supplier=rfq.get("suppliers")[0].supplier)
 
