@@ -446,50 +446,52 @@ def validate_expense_against_budget(params, expense_amount=0):
 			and (frappe.get_cached_value("Account", params.account, "root_type") == "Expense")
 		):
 			doctype = dimension.get("document_type")
-
-			if frappe.get_cached_value("DocType", doctype, "is_tree"):
-				lft, rgt = frappe.get_cached_value(doctype, params.get(budget_against), ["lft", "rgt"])
-				condition = f"""and exists(select name from `tab{doctype}`
-					where lft<={lft} and rgt>={rgt} and name=b.{budget_against})"""  # nosec
-				params.is_tree = True
-			else:
-				condition = f"and b.{budget_against}={frappe.db.escape(params.get(budget_against))}"
-				params.is_tree = False
-
+			params.is_tree = bool(frappe.get_cached_value("DocType", doctype, "is_tree"))
 			params.budget_against_field = budget_against
 			params.budget_against_doctype = doctype
 
-			budget_records = frappe.db.sql(
-				f"""
-				SELECT
+			b = frappe.qb.DocType("Budget")
+			query = (
+				frappe.qb.from_(b)
+				.select(
 					b.name,
-					b.{budget_against} AS budget_against,
+					getattr(b, budget_against).as_("budget_against"),
 					b.budget_amount,
 					b.from_fiscal_year,
 					b.to_fiscal_year,
 					b.budget_start_date,
 					b.budget_end_date,
-					COALESCE(b.applicable_on_material_request, 0) AS for_material_request,
-					COALESCE(b.applicable_on_purchase_order, 0) AS for_purchase_order,
-					COALESCE(b.applicable_on_booking_actual_expenses, 0) AS for_actual_expenses,
+					Coalesce(b.applicable_on_material_request, 0).as_("for_material_request"),
+					Coalesce(b.applicable_on_purchase_order, 0).as_("for_purchase_order"),
+					Coalesce(b.applicable_on_booking_actual_expenses, 0).as_("for_actual_expenses"),
 					b.action_if_annual_budget_exceeded,
 					b.action_if_accumulated_monthly_budget_exceeded,
 					b.action_if_annual_budget_exceeded_on_mr,
 					b.action_if_accumulated_monthly_budget_exceeded_on_mr,
 					b.action_if_annual_budget_exceeded_on_po,
-					b.action_if_accumulated_monthly_budget_exceeded_on_po
-				FROM
-					`tabBudget` b
-				WHERE
-					b.company = %s
-					AND b.docstatus = 1
-					AND %s BETWEEN b.budget_start_date AND b.budget_end_date
-					AND b.account = %s
-					{condition}
-				""",
-				(params.company, params.posting_date, params.account),
-				as_dict=True,
-			)  # nosec
+					b.action_if_accumulated_monthly_budget_exceeded_on_po,
+				)
+				.where(b.company == params.company)
+				.where(b.docstatus == 1)
+				.where(b.budget_start_date <= params.posting_date)
+				.where(b.budget_end_date >= params.posting_date)
+				.where(b.account == params.account)
+			)
+
+			if params.is_tree:
+				lft, rgt = frappe.get_cached_value(doctype, params.get(budget_against), ["lft", "rgt"])
+				dim = frappe.qb.DocType(doctype)
+				query = query.where(
+					ExistsCriterion(
+						frappe.qb.from_(dim)
+						.select(dim.name)
+						.where((dim.lft <= lft) & (dim.rgt >= rgt) & (dim.name == getattr(b, budget_against)))
+					)
+				)
+			else:
+				query = query.where(getattr(b, budget_against) == params.get(budget_against))
+
+			budget_records = query.run(as_dict=True)
 
 			if budget_records:
 				validate_budget_records(params, budget_records, expense_amount)
@@ -692,16 +694,14 @@ def get_requested_amount(params):
 
 	data = (
 		frappe.qb.from_(child)
-		.from_(parent)
+		.join(parent)
+		.on(parent.name == child.parent)
 		.select(
-			# rate must be inside the aggregate: Postgres rejects a bare column multiplied outside Sum(),
-			# and per-line (qty * rate) summed is the correct requested amount (the old
-			# Sum(qty) * <arbitrary rate> only matched when every line happened to share one rate).
+			# rate inside the aggregate: Sum(qty * rate) is the correct requested amount and is PG-valid
 			Coalesce(Sum((child.stock_qty - child.ordered_qty) * child.rate), 0).as_("amount")
 		)
 		.where(
-			(parent.name == child.parent)
-			& (child.item_code == item_code)
+			(child.item_code == item_code)
 			& (parent.docstatus == 1)
 			& (child.stock_qty > child.ordered_qty)
 			& Criterion.all(get_other_condition(params, child, parent, "Material Request"))
@@ -722,11 +722,11 @@ def get_ordered_amount(params):
 
 	data = (
 		frappe.qb.from_(child)
-		.from_(parent)
+		.join(parent)
+		.on(parent.name == child.parent)
 		.select(Coalesce(Sum(child.amount - child.billed_amt), 0).as_("amount"))
 		.where(
-			(parent.name == child.parent)
-			& (child.item_code == item_code)
+			(child.item_code == item_code)
 			& (parent.docstatus == 1)
 			& (child.amount > child.billed_amt)
 			& (parent.status != "Closed")
