@@ -1372,7 +1372,10 @@ def get_pick_list_query(doctype: Any, txt: str, searchfield: Any, start: int, pa
 		.where(PICK_LIST.status.isin(["Open", "Partly Delivered"]))
 		.where(PICK_LIST.company == filters.get("company"))
 		.where(SALES_ORDER.customer == filters.get("customer"))
-		.groupby(PICK_LIST.name)
+		# customer is from the joined Sales Order, not Pick List's PK, so Postgres rejects it as a bare
+		# select under GROUP BY pick_list.name; it is pinned to one value by the filter above, so adding
+		# it to the GROUP BY is valid on Postgres and identical on MariaDB.
+		.groupby(PICK_LIST.name, SALES_ORDER.customer)
 	)
 
 	if filters.get("sales_order"):
