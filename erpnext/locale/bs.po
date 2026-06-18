@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: frappe\n"
 "Report-Msgid-Bugs-To: hello@frappe.io\n"
 "POT-Creation-Date: 2026-06-14 10:35+0000\n"
-"PO-Revision-Date: 2026-06-17 17:52\n"
+"PO-Revision-Date: 2026-06-18 18:25\n"
 "Last-Translator: hello@frappe.io\n"
 "Language-Team: Bosnian\n"
 "MIME-Version: 1.0\n"
@@ -720,8 +720,8 @@ msgid "<h3>About Product Bundle</h3>\n\n"
 "<p>The package <b>Item</b> will have <code>Is Stock Item</code> as <b>No</b> and <code>Is Sales Item</code> as <b>Yes</b>.</p>\n"
 "<h4>Example:</h4>\n"
 "<p>If you are selling Laptops and Backpacks separately and have a special price if the customer buys both, then the Laptop + Backpack will be a new Product Bundle Item.</p>"
-msgstr "<h3>O Paketu Proizvoda</h3>\n\n"
-"<p>Spoji grupu <b>artikala</b> u drugi <b>artikal</b>. Ovo je korisno ako spajate određene <b>Artikle</b> u paket i održavate zalihe upakiranih <b>artikala</b>, a ne zbirn <b>artikal</b>.</p>\n"
+msgstr "<h3>O Paketu Artikala</h3>\n\n"
+"<p>Spoji grupu <b>artikala</b> u drugi <b>artikal</b>. Ovo je korisno ako spajate određene <b>Artikle</b> u paket i održavate zalihe upakiranih <b>artikala</b>, a ne zbirni <b>artikal</b>.</p>\n"
 "<p>Paketni <b>Artikal</b> će imati <code>artikle na zalihi</code> kao <b>Ne</b> i <code>Prodajni Artikal</code> kao <b>Da </b>.</p>\n"
 "<h4>Primjer:</h4>\n"
 "<p>Ako prodajete prijenosna računala i ruksake odvojeno i imate posebnu cijenu ako Klijent kupi oboje, tada će prijenosno računalo + ruksak biti novi artikal paketa proizvoda.</p>"
@@ -9278,7 +9278,7 @@ msgstr "Izračunaj procijenjeno vrijeme dolaska"
 #. Settings'
 #: erpnext/selling/doctype/selling_settings/selling_settings.json
 msgid "Calculate Product Bundle price based on child Item's rates"
-msgstr "Obračunaj Cijenu Paketa Proizvoda na osnovu cijena Podređenih Artikala"
+msgstr "Obračunaj Cijenu Paketa Artikala na osnovu cijena Podređenih Artikala"
 
 #. Description of the 'Hidden Line (Internal Use Only)' (Check) field in
 #. DocType 'Financial Report Row'
@@ -9556,7 +9556,7 @@ msgstr "Datum Otkazivanja"
 
 #: erpnext/manufacturing/doctype/job_card/job_card.py:1567
 msgid "Cancelled Job Card cannot be processed."
-msgstr "Otkazana kartica posla ne može se obraditi."
+msgstr "Otkazani Radni Nalog ne može se obraditi."
 
 #: erpnext/accounts/doctype/pos_opening_entry/pos_opening_entry.py:76
 msgid "Cannot Assign Cashier"
@@ -19151,9 +19151,9 @@ msgid "Enabling this will do the following:\n"
 msgstr "Omogućavanje ovoga će učiniti sljedeće:\n"
 "<ul style=\"padding-left:16px\">\n"
 "<li>Omogućiti uređivanje kolone cjene u svim tabelama Pakiranih/Paketnih artikala.</li>\n"
-"<li>Izračunati cijene svih <a href=\"/desk/product-bundle\" rel=\"noopener noreferrer\">paketa proizvoda</a> u tabeli artikala na osnovu cijena njihovih podređenih artikala navedenih u tabeli pakiranih/paketiranih artikala. </li>\n"
+"<li>Izračunati cijene svih <a href=\"/desk/product-bundle\" rel=\"noopener noreferrer\">paketa artikala</a> u tabeli artikala na osnovu cijena njihovih podređenih artikala navedenih u tabeli pakiranih/paketiranih artikala. </li>\n"
 "</ul>\n"
-"Napomena: Ako je ovo omogućeno, ažuriranje cjene proizvoda u paketu u tabeli artikala neće promijeniti njegovu cijenu. Cijena će se vratiti na cijenu zasnovanu na podređenim artiklima prilikom spremanja dokumenta."
+"Napomena: Ako je ovo omogućeno, ažuriranje cjene artikala u paketu u tabeli artikala neće promijeniti njegovu cijenu. Cijena će se vratiti na cijenu zasnovanu na podređenim artiklima prilikom spremanja dokumenta."
 
 #. Label of the encashment_date (Date) field in DocType 'Employee'
 #: erpnext/setup/doctype/employee/employee.json
@@ -20765,7 +20765,7 @@ msgstr "Gotov Proizvod {0} ne odgovara Radnom Nalogu {1}"
 
 #: erpnext/stock/doctype/stock_entry/stock_entry_handler/disassemble.py:71
 msgid "Finished good quantity being consumed ({0} in stock UOM) must equal the quantity to disassemble ({1}). Do not change the UOM, conversion factor or quantity of the finished good row."
-msgstr "Količina gotovog proizvoda koja se troši ({0} u jedinici zaliha) mora biti jednaka količini za rastavljanje ({1}). Ne mijenjaejedinicu, faktor konverzije ili količinu u redu gotovog proizvoda."
+msgstr "Količina gotovog proizvoda koja se troši ({0} u jedinici zaliha) mora biti jednaka količini za rastavljanje ({1}). Ne mijenjaj jedinicu, faktor konverzije ili količinu u redu gotovog proizvoda."
 
 #: erpnext/selling/doctype/sales_order/sales_order.js:615
 msgid "First Delivery Date"
@@ -33476,7 +33476,7 @@ msgstr "Samo jedna operacija može imati odabranu opciju 'Je li Gotov Proizvod' 
 #. Description of the 'Is Active' (Check) field in DocType 'Product Bundle'
 #: erpnext/selling/doctype/product_bundle/product_bundle.json
 msgid "Only one version of a Product Bundle can be active at a time for a given Parent Item. Activating a version deactivates the previously active one."
-msgstr "Samo jedna verzija Paketa Artikal može biti aktivna u datom trenutku za dati Nadređeni Artikal. Aktiviranje verzije deaktivira prethodno aktivnu verziju."
+msgstr "Samo jedna verzija Paketa Artikala može biti aktivna u datom trenutku za dati Nadređeni Artikal. Aktiviranje verzije deaktivira prethodno aktivnu verziju."
 
 #: erpnext/stock/doctype/stock_entry/stock_entry.py:719
 msgid "Only one {0} entry can be created against the Work Order {1}"
@@ -39083,7 +39083,7 @@ msgstr "Vremenska oznaka knjiženja mora biti nakon {0}"
 #. 'Subscription'
 #: erpnext/accounts/doctype/subscription/subscription.json
 msgid "Postpaid (bill at period end)"
-msgstr "Unaprijed Plaćeno (faktura na završetku perioda)"
+msgstr "Naknadno Plaćeno (faktura na završetku perioda)"
 
 #. Description of a DocType
 #: erpnext/crm/doctype/opportunity/opportunity.json
@@ -40195,7 +40195,7 @@ msgstr "Pomoć Paketa Proizvoda"
 #: erpnext/selling/doctype/product_bundle_item/product_bundle_item.json
 #: erpnext/stock/doctype/pick_list_item/pick_list_item.json
 msgid "Product Bundle Item"
-msgstr "Artikal Paketa Proizvoda"
+msgstr "Artikal Paketa Artikala"
 
 #: erpnext/stock/report/item_where_used/item_where_used.py:305
 msgid "Product Bundle Parent"
@@ -40213,7 +40213,7 @@ msgstr "Nadređeni Paket Artikala"
 #: erpnext/stock/doctype/packed_item/packed_item.json
 #: erpnext/stock/doctype/purchase_receipt_item/purchase_receipt_item.json
 msgid "Product Bundle version this row was packed from"
-msgstr "Verzija Paketa Artikal iz koje je ovaj red preuzet iz"
+msgstr "Verzija Paketa Artikala iz koje je ovaj red preuzet iz"
 
 #: erpnext/stock/doctype/packed_item/packed_item.py:453
 msgid "Product Bundle {0} is disabled and cannot be used in transactions."
@@ -46167,7 +46167,7 @@ msgstr "Red #{0}: Artikla {1} se ne slaže. Promjena koda artikla nije dozvoljen
 
 #: erpnext/stock/doctype/stock_entry/stock_entry_handler/disassemble.py:115
 msgid "Row #{0}: Item {1} quantity ({2} in stock UOM) does not match the quantity derived from the source ({3}). Do not change the UOM, conversion factor or quantity of disassembly rows."
-msgstr "Red #{0}: Količina artikla {1} ({2} u jedinici yaliha) ne odgovara količini izvedenoj iz izvora ({3}). Ne mijenja jedinicu, faktor konverzije ili količinu redova za rastavljanje."
+msgstr "Red #{0}: Količina artikla {1} ({2} u jedinici zaliha) ne odgovara količini izvedenoj iz izvora ({3}). Ne mijenjaj jedinicu, faktor konverzije ili količinu redova za rastavljanje."
 
 #: erpnext/accounts/doctype/payment_entry/payment_entry.py:780
 msgid "Row #{0}: Journal Entry {1} does not have account {2} or already matched against another voucher"
@@ -55486,7 +55486,7 @@ msgstr "Otpremljena datoteka nije u važećem MT940 formatu."
 
 #: erpnext/edi/doctype/code_list/code_list_import.py:40
 msgid "The uploaded file does not match the selected Code List."
-msgstr "Učitani fajl ne odgovara odabranoj Listi Kodova."
+msgstr "Učitana datoteka ne odgovara odabranoj Listi Kodova."
 
 #: erpnext/stock/doctype/serial_and_batch_bundle/serial_and_batch_bundle.js:10
 msgid "The user cannot submit the Serial and Batch Bundle manually"
@@ -62086,7 +62086,7 @@ msgstr "izvodi bilo koje dolje:"
 #. Item'
 #: erpnext/stock/doctype/pick_list_item/pick_list_item.json
 msgid "product bundle item row's name in sales order. Also indicates that picked item is to be used for a product bundle"
-msgstr "naziv reda artikla paketa proizvoda u prodajnom nalogu. Također označava da odabrani artikal treba koristiti za paket proizvoda"
+msgstr "naziv reda artikla paketa artikala u prodajnom nalogu. Također označava da odabrani artikal treba koristiti za paket artikala"
 
 #. Option for the 'Plaid Environment' (Select) field in DocType 'Plaid
 #. Settings'
