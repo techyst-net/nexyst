@@ -8,11 +8,8 @@ from frappe.model.document import Document
 from frappe.utils import flt
 
 from erpnext.controllers.item_variant import (
-<<<<<<< HEAD
-=======
 	InvalidItemAttributeValueError,
 	update_variant_attribute_values,
->>>>>>> 27d574dad5 (fix(stock): propagate renamed attribute values to variant items)
 	validate_is_incremental,
 	validate_item_attribute_value,
 )
