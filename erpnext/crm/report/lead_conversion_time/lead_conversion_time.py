@@ -132,6 +132,8 @@ def get_communication_details(filters):
 			(d.contact_email),
 		)
 		first_contact = first_contact[0][0] if first_contact else None
+		if not first_contact:
+			continue
 
 		duration = flt(date_diff(invoice[0][0], first_contact))
 
