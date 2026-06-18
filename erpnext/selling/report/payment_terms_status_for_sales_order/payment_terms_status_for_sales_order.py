@@ -251,22 +251,26 @@ def get_so_with_invoices(filters):
 
 
 def allocate_invoice_amount_across_orders(invoices):
-	"""Split each invoice's grand total across the Sales Orders it bills, in proportion to each order's
-	net line amount on that invoice. A single-order invoice keeps the full grand total (ratio 1), so the
-	common case is unchanged; the arithmetic is identical on MariaDB and Postgres."""
+	"""Split each invoice's grand total across the Sales Orders it bills, proportional to each order's net
+	line amount. A single-order invoice keeps the full grand total (ratio 1). The last order (sorted, so
+	both engines agree) absorbs the rounding residual, so the shares always sum back to the grand total."""
 	rows_by_invoice = {}
 	for row in invoices:
 		rows_by_invoice.setdefault(row.invoice, []).append(row)
 
 	for rows in rows_by_invoice.values():
+		rows.sort(key=lambda r: r.sales_order)
 		total_net = sum(flt(r.order_net_amount) for r in rows)
 		grand_total = flt(rows[0].invoice_grand_total)
-		for r in rows:
-			if total_net:
-				r.invoice_amount = grand_total * flt(r.order_net_amount) / total_net
-			else:
-				# degenerate all-zero-net invoice: split evenly so both engines still agree
+		if not total_net:
+			for r in rows:
 				r.invoice_amount = grand_total / len(rows)
+			continue
+		allocated = 0.0
+		for r in rows[:-1]:
+			r.invoice_amount = grand_total * flt(r.order_net_amount) / total_net
+			allocated += r.invoice_amount
+		rows[-1].invoice_amount = grand_total - allocated
 
 
 def set_payment_terms_statuses(sales_orders, invoices, filters):

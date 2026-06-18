@@ -430,26 +430,26 @@ class TestPaymentTermsStatusForSalesOrder(ERPNextTestSuite):
 			so.submit()
 			return so
 
-		# created in order so the OLD Max(sales_order) deterministically picks so_b and starves so_a
 		so_a = make_so()
 		so_b = make_so()
+		so_c = make_so()
 
-		# one invoice billing both orders, partially (so both stay in a billable status)
+		# one invoice billing all three orders, partially (so each stays in a billable status)
 		sinv = make_sales_invoice(so_a.name)
 		sinv.taxes_and_charges = ""
 		sinv.taxes = ""
-		sinv.items[0].qty = 6  # so_a: 6 * 100 = 600 net
-		so_b_item = so_b.items[0]
-		sinv.append(
-			"items",
-			{
-				"item_code": item.item_code,
-				"qty": 4,  # so_b: 4 * 100 = 400 net
-				"rate": 100,
-				"sales_order": so_b.name,
-				"so_detail": so_b_item.name,
-			},
-		)
+		sinv.items[0].qty = 6  # so_a: 600 net
+		for so, qty in ((so_b, 4), (so_c, 5)):  # so_b: 400, so_c: 500
+			sinv.append(
+				"items",
+				{
+					"item_code": item.item_code,
+					"qty": qty,
+					"rate": 100,
+					"sales_order": so.name,
+					"so_detail": so.items[0].name,
+				},
+			)
 		sinv.insert()
 		sinv.submit()
 
@@ -464,14 +464,13 @@ class TestPaymentTermsStatusForSalesOrder(ERPNextTestSuite):
 		sorders, invoices = get_so_with_invoices(filters)
 		rows = {r.sales_order: r for r in invoices if r.invoice == sinv.name}
 
-		# both orders are represented (the old Max(sales_order) collapsed the invoice onto one)
-		self.assertIn(so_a.name, rows)
-		self.assertIn(so_b.name, rows)
-		# grand total (1000, no tax) split 600 / 400 by net line amount, summing back to the grand total
+		# each order gets its share (old Max(sales_order) collapsed the invoice onto one), and the shares
+		# always sum back to the grand total (the last order absorbs any rounding residual)
 		self.assertAlmostEqual(rows[so_a.name].invoice_amount, 600.0, places=2)
 		self.assertAlmostEqual(rows[so_b.name].invoice_amount, 400.0, places=2)
+		self.assertAlmostEqual(rows[so_c.name].invoice_amount, 500.0, places=2)
 		self.assertAlmostEqual(
-			rows[so_a.name].invoice_amount + rows[so_b.name].invoice_amount,
+			sum(rows[so.name].invoice_amount for so in (so_a, so_b, so_c)),
 			flt(sinv.base_grand_total),
 			places=2,
 		)
