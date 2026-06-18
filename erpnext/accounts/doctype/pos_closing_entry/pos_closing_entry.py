@@ -295,7 +295,7 @@ def get_payments(invoices):
 		.groupby(SalesInvoicePayment.mode_of_payment)
 		.select(
 			SalesInvoicePayment.mode_of_payment,
-			SalesInvoicePayment.account.as_("account"),
+			fn.Max(SalesInvoicePayment.account).as_("account"),
 			fn.Sum(SalesInvoicePayment.amount).as_("amount"),
 		)
 	)
