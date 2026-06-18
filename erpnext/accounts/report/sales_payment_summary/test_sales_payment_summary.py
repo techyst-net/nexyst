@@ -125,6 +125,11 @@ class TestSalesPaymentSummary(ERPNextTestSuite):
 		self.assertTrue(data)
 		self.assertTrue(any(flt(row.get("paid_amount")) >= 10000 for row in data))
 
+		# customer filter must work: a.customer was not selected by the invoice subquery before the fix,
+		# so the filter errored on both engines. With the invoice's customer it still returns its payment.
+		filters["customer"] = si.customer
+		self.assertTrue(any(flt(row.get("paid_amount")) >= 10000 for row in get_pos_invoice_data(filters)))
+
 
 def get_filters():
 	return {"from_date": "1900-01-01", "to_date": today(), "company": "_Test Company"}
