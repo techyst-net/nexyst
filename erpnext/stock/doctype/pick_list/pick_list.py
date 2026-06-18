@@ -9,7 +9,7 @@ import frappe
 from frappe import _, bold
 from frappe.model.document import Document
 from frappe.query_builder import Case
-from frappe.query_builder.functions import Coalesce, GroupConcat, Locate, Max, Replace, Sum
+from frappe.query_builder.functions import Coalesce, GroupConcat, Locate, Lower, Max, Replace, Sum
 from frappe.utils import cint, floor, flt, get_link_to_form
 from frappe.utils.nestedset import get_descendants_of
 
@@ -1301,7 +1301,11 @@ def get_pending_work_orders(
 			& (wo.company == filters.get("company"))
 			& (wo.name.like(f"%{txt}%"))
 		)
-		.orderby(Case().when(Locate(txt, wo.name) > 0, Locate(txt, wo.name)).else_(99999))
+		.orderby(
+			Case()
+			.when(Locate(Lower(txt), Lower(wo.name)) > 0, Locate(Lower(txt), Lower(wo.name)))
+			.else_(99999)
+		)
 		.orderby(wo.name)
 		.limit(cint(page_length))
 		.offset(start)
