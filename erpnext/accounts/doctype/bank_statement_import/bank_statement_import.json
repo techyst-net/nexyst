@@ -221,7 +221,7 @@
    "default": "0",
    "fieldname": "import_mt940_fromat",
    "fieldtype": "Check",
-   "label": "Import MT940 Fromat"
+   "label": "Import MT940 Format"
   }
  ],
  "hide_toolbar": 1,
