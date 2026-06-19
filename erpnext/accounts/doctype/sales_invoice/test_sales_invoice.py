@@ -1476,6 +1476,75 @@ class TestSalesInvoice(ERPNextTestSuite):
 
 		frappe.db.set_single_value("POS Settings", "post_change_gl_entries", 1)
 
+	def test_stock_delivered_but_not_billed_gl_on_invoice(self):
+		company = "_Test Company with perpetual inventory"
+		from erpnext.stock.doctype.delivery_note.test_delivery_note import create_delivery_note
+
+		make_purchase_receipt(
+			company=company,
+			item_code="_Test FG Item",
+			warehouse="Stores - TCP1",
+			cost_center="Main - TCP1",
+			qty=5,
+			rate=100,
+		)
+
+		dn = create_delivery_note(
+			company=company,
+			item_code="_Test FG Item",
+			warehouse="Stores - TCP1",
+			cost_center="Main - TCP1",
+			qty=2,
+			rate=300,
+		)
+		# A perpetual-inventory Delivery Note books the cost to the SDBNB account
+		self.assertEqual(dn.items[0].expense_account, "Stock Delivered But Not Billed - TCP1")
+
+		si = make_sales_invoice(dn.name)
+		si.insert()
+		si.submit()
+
+		gl_entries = frappe.get_all(
+			"GL Entry",
+			filters={"voucher_no": si.name, "is_cancelled": 0},
+			fields=["account", "debit", "credit"],
+		)
+		sdbnb_credit = sum(
+			row.credit for row in gl_entries if row.account == "Stock Delivered But Not Billed - TCP1"
+		)
+		cogs_debit = sum(row.debit for row in gl_entries if row.account == "Cost of Goods Sold - TCP1")
+
+		# Billing reverses SDBNB and recognises the cost in COGS for an equal amount
+		self.assertTrue(sdbnb_credit > 0)
+		self.assertEqual(sdbnb_credit, cogs_debit)
+
+	def test_get_gle_for_change_amount(self):
+		from erpnext.accounts.doctype.sales_invoice.services.gl_composer import SalesInvoiceGLComposer
+
+		si = create_sales_invoice(do_not_save=True)
+		si.is_pos = 1
+		si.party_account_currency = "INR"
+
+		# no change amount -> no entries
+		si.change_amount = 0
+		self.assertEqual(SalesInvoiceGLComposer(si).get_gle_for_change_amount(), [])
+
+		# change amount without an account -> mandatory error
+		si.change_amount = 10
+		si.base_change_amount = 10
+		si.account_for_change_amount = None
+		self.assertRaises(frappe.ValidationError, SalesInvoiceGLComposer(si).get_gle_for_change_amount)
+
+		# change amount with an account -> debit-to debited, change account credited
+		si.account_for_change_amount = "Cash - _TC"
+		entries = SalesInvoiceGLComposer(si).get_gle_for_change_amount()
+		self.assertEqual(len(entries), 2)
+		debit_entry = next(entry for entry in entries if entry["account"] == si.debit_to)
+		credit_entry = next(entry for entry in entries if entry["account"] == "Cash - _TC")
+		self.assertEqual(debit_entry["party"], si.customer)
+		self.assertEqual(flt(debit_entry["debit"]), 10.0)
+		self.assertEqual(flt(credit_entry["credit"]), 10.0)
+
 	def validate_pos_gl_entry(self, si, pos, cash_amount, validate_without_change_gle=False):
 		if validate_without_change_gle:
 			cash_amount -= pos.change_amount
