@@ -252,17 +252,17 @@ class Project(Document):
 		if not self.sales_order:
 			return
 
-		sales_order = frappe.get_doc("Sales Order", self.sales_order)
-		if sales_order.project and sales_order.project != self.name:
+		existing_project = frappe.db.get_value("Sales Order", self.sales_order, "project")
+		if existing_project and existing_project != self.name:
 			frappe.msgprint(
 				_("Sales Order {0} is already linked to Project {1}, skipping the link.").format(
-					self.sales_order, sales_order.project
+					self.sales_order, existing_project
 				),
 				alert=True,
 			)
 			return
 
-		sales_order.db_set("project", self.name)
+		frappe.db.set_value("Sales Order", self.sales_order, "project", self.name)
 
 	def on_trash(self):
 		frappe.db.set_value("Sales Order", {"project": self.name}, "project", "")
