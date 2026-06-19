@@ -3667,6 +3667,49 @@ class TestSalesInvoice(ERPNextTestSuite):
 			self.assertEqual(expected_values[i][2], schedule.accumulated_depreciation_amount)
 			self.assertTrue(schedule.journal_entry)
 
+	def test_fixed_asset_sale_validations(self):
+		from erpnext.accounts.doctype.sales_invoice.services.fixed_assets import FixedAssetService
+
+		asset = create_asset(item_code="Macbook Pro", calculate_depreciation=0, submit=1)
+
+		def asset_invoice(asset_name, **kwargs):
+			si = create_sales_invoice(
+				item_code="Macbook Pro", asset=asset_name, qty=1, rate=90000, do_not_save=True, **kwargs
+			)
+			si.items[0].is_fixed_asset = 1
+			return si
+
+		with self.subTest("item without an asset is rejected"):
+			si = asset_invoice(None)
+			self.assertRaises(frappe.ValidationError, FixedAssetService(si).validate_fixed_asset)
+
+		with self.subTest("update stock on an asset sale is rejected"):
+			si = asset_invoice(asset.name, update_stock=1)
+			self.assertRaises(frappe.ValidationError, FixedAssetService(si).validate_fixed_asset)
+
+		with self.subTest("return without return-against is rejected"):
+			si = asset_invoice(asset.name, is_return=1)
+			self.assertRaises(frappe.ValidationError, FixedAssetService(si).validate_fixed_asset)
+
+		for bad_status in ("Sold", "Scrapped", "Cancelled", "Capitalized"):
+			with self.subTest(f"selling a {bad_status} asset is rejected"):
+				frappe.db.set_value("Asset", asset.name, "status", bad_status)
+				si = asset_invoice(asset.name)
+				self.assertRaises(frappe.ValidationError, FixedAssetService(si).validate_fixed_asset)
+				frappe.db.set_value("Asset", asset.name, "status", "Submitted")
+
+	def test_fixed_asset_restore_note_text(self):
+		from erpnext.accounts.doctype.sales_invoice.services.fixed_assets import FixedAssetService
+
+		asset = frappe._dict(doctype="Asset", name="_Test Asset For Note")
+		si = create_sales_invoice(do_not_save=True)
+
+		si.is_return = 1
+		self.assertIn("returned", FixedAssetService(si)._get_note_for_asset_return(asset))
+
+		si.is_return = 0
+		self.assertIn("restored", FixedAssetService(si)._get_note_for_asset_return(asset))
+
 	def test_sales_invoice_against_supplier(self):
 		from erpnext.accounts.doctype.opening_invoice_creation_tool.test_opening_invoice_creation_tool import (
 			make_customer,
