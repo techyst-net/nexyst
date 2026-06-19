@@ -61,37 +61,41 @@ def get_columns():
 def get_data(filters):
 	lead_details = []
 	lead_filters = get_lead_filters(filters)
+	leads = frappe.get_all("Lead", fields=["name", "lead_name", "company_name"], filters=lead_filters)
+	if not leads:
+		return lead_details
 
-	for lead in frappe.get_all("Lead", fields=["name", "lead_name", "company_name"], filters=lead_filters):
-		# Documents (and the lead itself) that communications may be referenced against
-		reference_names = set()
-		reference_names.update(
-			frappe.get_all(
-				"Opportunity",
-				filters={"opportunity_from": "Lead", "party_name": lead.name},
-				pluck="name",
-			)
-		)
-		reference_names.update(
-			frappe.get_all(
-				"Quotation",
-				filters={"quotation_to": "Lead", "party_name": lead.name},
-				pluck="name",
-			)
-		)
-		reference_names.update(
-			frappe.get_all(
-				"Issue",
-				filters={"lead": lead.name, "status": ["!=", "Closed"]},
-				pluck="name",
-			)
-		)
-		reference_names.add(lead.name)
+	lead_names = [lead.name for lead in leads]
 
+	# Collect the documents (and the lead itself) that communications may reference, for all leads in
+	# three bulk queries instead of three per lead.
+	reference_names = {name: {name} for name in lead_names}
+	for opp in frappe.get_all(
+		"Opportunity",
+		filters={"opportunity_from": "Lead", "party_name": ["in", lead_names]},
+		fields=["name", "party_name"],
+	):
+		reference_names[opp.party_name].add(opp.name)
+	for quotation in frappe.get_all(
+		"Quotation",
+		filters={"quotation_to": "Lead", "party_name": ["in", lead_names]},
+		fields=["name", "party_name"],
+	):
+		reference_names[quotation.party_name].add(quotation.name)
+	for issue in frappe.get_all(
+		"Issue",
+		filters={"lead": ["in", lead_names], "status": ["!=", "Closed"]},
+		fields=["name", "lead"],
+	):
+		reference_names[issue.lead].add(issue.name)
+
+	for lead in leads:
 		data = frappe.get_all(
 			"Communication",
 			filters={
-				"reference_name": ["in", list(reference_names)],
+				# constrain the doctype too: names are unique only within a doctype
+				"reference_doctype": ["in", ["Lead", "Opportunity", "Quotation", "Issue"]],
+				"reference_name": ["in", list(reference_names[lead.name])],
 				"sent_or_received": "Received",
 			},
 			fields=["reference_doctype", "reference_name", "content", "communication_date"],
