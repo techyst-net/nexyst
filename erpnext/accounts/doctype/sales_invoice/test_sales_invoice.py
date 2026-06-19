@@ -3880,6 +3880,27 @@ class TestSalesInvoice(ERPNextTestSuite):
 
 		party_link.delete()
 
+	def test_status_indicator(self):
+		from erpnext.accounts.doctype.sales_invoice.services.status import StatusService
+
+		si = create_sales_invoice(do_not_save=True)
+		cases = [
+			# outstanding, due_date, is_return -> indicator color, title
+			(-50, nowdate(), 0, "gray", "Credit Note Issued"),
+			(100, add_days(nowdate(), 5), 0, "orange", "Unpaid"),
+			(100, add_days(nowdate(), -5), 0, "red", "Overdue"),
+			(0, nowdate(), 1, "gray", "Return"),
+			(0, nowdate(), 0, "green", "Paid"),
+		]
+		for outstanding, due_date, is_return, color, title in cases:
+			with self.subTest(title=title):
+				si.outstanding_amount = outstanding
+				si.due_date = due_date
+				si.is_return = is_return
+				StatusService(si).set_indicator()
+				self.assertEqual(si.indicator_color, color)
+				self.assertEqual(si.indicator_title, title)
+
 	def test_payment_statuses(self):
 		from erpnext.accounts.doctype.payment_entry.test_payment_entry import get_payment_entry
 
