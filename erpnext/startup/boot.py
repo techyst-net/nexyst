@@ -54,6 +54,7 @@ def boot_session(bootinfo):
 				"country",
 				"exchange_gain_loss_account",
 			],
+			limit_page_length=0,  # intentionally unbounded: all companies are needed for boot
 		)
 		for company in companies:
 			company.doctype = ":Company"
