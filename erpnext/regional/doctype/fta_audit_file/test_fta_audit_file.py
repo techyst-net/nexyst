@@ -253,6 +253,3 @@ class TestFTAAuditFile(FrappeTestCase):
 		self.assertTrue(result["success"])
 		doc.reload()
 		self.assertEqual(doc.status, "Submitted")
-
-	def tearDown(self):
-		frappe.db.rollback()
