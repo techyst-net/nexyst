@@ -2986,7 +2986,7 @@ class TestSalesOrder(ERPNextTestSuite):
 			)
 			so.append(
 				"sales_team",
-				{"sales_person": "_Test Sales Person 2", "allocated_percentage": 40},
+				{"sales_person": "_Test Sales Person 2", "allocated_percentage": 40, "commission_rate": 0},
 			)
 			so.save()
 
