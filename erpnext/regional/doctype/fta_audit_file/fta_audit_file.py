@@ -37,6 +37,12 @@ DEFAULT_COUNTRY = "United Arab Emirates"
 DEFAULT_DATE = "31-12-9999"
 PRODUCT_VERSION = "ERPNext"
 
+# Number of GL Entry rows read into memory per batch when streaming the
+# General Ledger section. Large UAE companies routinely produce hundreds
+# of thousands of GL entries per year; reading them all into a single list
+# would push the background worker over its memory limit.
+GL_PAGE_SIZE = 5000
+
 # Inputs that define what the FAF file represents. Once the file has been
 # Generated or Submitted, changing any of these would silently desync the
 # attached CSV from the form, so we lock them.
@@ -105,6 +111,11 @@ class FTAAuditFile(Document):
 		Under ``frappe.flags.in_test`` the job runs synchronously so tests
 		can assert on the post-generation state without polling.
 		"""
+		# `@frappe.whitelist()` gates network access but not document write
+		# permission; without this explicit check, a user with read-only
+		# access could still trigger generation via REST.
+		self.check_permission("write")
+
 		# Re-read status from DB so two concurrent button clicks can't both
 		# enqueue a job — the second one sees Queued/Generating and bails.
 		current_status = frappe.db.get_value(self.doctype, self.name, "status", for_update=True)
@@ -138,6 +149,7 @@ class FTAAuditFile(Document):
 	@frappe.whitelist()
 	def mark_as_submitted(self):
 		"""Mark the FAF as submitted to the FTA portal (manual record)."""
+		self.check_permission("write")
 		if self.status != "Generated":
 			frappe.throw(_("Only Generated files can be marked as Submitted"))
 		self.status = "Submitted"
@@ -481,42 +493,34 @@ class FTAAuditFile(Document):
 		return line_count
 
 	def _write_gl_listing(self, writer):
-		"""Emit General Ledger per Appendix 5 with end-of-table totals row."""
+		"""Emit General Ledger per Appendix 5 with end-of-table totals row.
+
+		GL Entry rows are streamed in pages of ``GL_PAGE_SIZE`` to keep
+		memory bounded for multi-year exports on large companies; the
+		running-balance, account-name, and totals state survives across
+		pages so the output is identical to a single-fetch implementation.
+		"""
 		writer.writerow(["GLDataStart"])
 
 		company_currency = _company_currency(self.company)
+		base_filters = {
+			"company": self.company,
+			"posting_date": ["between", [self.from_date, self.to_date]],
+			"is_cancelled": 0,
+		}
 
-		entries = frappe.get_all(
-			"GL Entry",
-			filters={
-				"company": self.company,
-				"posting_date": ["between", [self.from_date, self.to_date]],
-				"is_cancelled": 0,
-			},
-			fields=[
-				"name",
-				"posting_date",
-				"account",
-				"remarks",
-				"against",
-				"voucher_no",
-				"voucher_type",
-				"debit",
-				"credit",
-			],
-			order_by="posting_date asc, creation asc",
-		)
-		if not entries:
-			writer.writerow(["GLDataEnd", _money(0), _money(0), 0, company_currency])
-			return 0
-
-		account_names = list({e.account for e in entries if e.account})
-		account_name_map = _bulk_party_field("Account", account_names, "account_name")
-
+		# Opening balances need every account that posts in the period up
+		# front; without that flag we cache account names lazily as we
+		# encounter them in each batch.
 		if self.include_opening_balance:
-			running_balance = _opening_balances_by_account(self.company, self.from_date, account_names)
+			accounts_in_period = frappe.get_all(
+				"GL Entry", filters=base_filters, pluck="account", distinct=True
+			)
+			running_balance = _opening_balances_by_account(self.company, self.from_date, accounts_in_period)
+			account_name_map = _bulk_party_field("Account", accounts_in_period, "account_name")
 		else:
 			running_balance = {}
+			account_name_map = {}
 
 		source_type_map = {
 			"Sales Invoice": "AR",
@@ -531,34 +535,66 @@ class FTAAuditFile(Document):
 		total_debit = 0.0
 		total_credit = 0.0
 		count = 0
+		start = 0
 
-		for entry in entries:
-			account_name = account_name_map.get(entry.account) or entry.account
-			source_type = source_type_map.get(entry.voucher_type, entry.voucher_type or "")
-			debit = flt(entry.debit, 2)
-			credit = flt(entry.credit, 2)
-
-			running_balance[entry.account] = running_balance.get(entry.account, 0.0) + debit - credit
-			balance = flt(running_balance[entry.account], 2)
-
-			writer.writerow(
-				[
-					_format_date(entry.posting_date),
-					entry.account,
-					_clean(account_name),
-					_clean(entry.remarks or ""),
-					_clean(entry.against or ""),
-					entry.voucher_no,
-					entry.voucher_no,
-					source_type,
-					_money(debit),
-					_money(credit),
-					_money(balance),
-				]
+		while True:
+			batch = frappe.get_all(
+				"GL Entry",
+				filters=base_filters,
+				fields=[
+					"name",
+					"posting_date",
+					"account",
+					"remarks",
+					"against",
+					"voucher_no",
+					"voucher_type",
+					"debit",
+					"credit",
+				],
+				order_by="posting_date asc, creation asc",
+				limit_start=start,
+				limit_page_length=GL_PAGE_SIZE,
 			)
-			total_debit += debit
-			total_credit += credit
-			count += 1
+			if not batch:
+				break
+
+			# Backfill the account-name cache for accounts new to this batch.
+			new_accounts = [e.account for e in batch if e.account and e.account not in account_name_map]
+			if new_accounts:
+				account_name_map.update(_bulk_party_field("Account", new_accounts, "account_name"))
+
+			for entry in batch:
+				account_name = account_name_map.get(entry.account) or entry.account
+				source_type = source_type_map.get(entry.voucher_type, entry.voucher_type or "")
+				debit = flt(entry.debit, 2)
+				credit = flt(entry.credit, 2)
+
+				running_balance[entry.account] = running_balance.get(entry.account, 0.0) + debit - credit
+				balance = flt(running_balance[entry.account], 2)
+
+				writer.writerow(
+					[
+						_format_date(entry.posting_date),
+						entry.account,
+						_clean(account_name),
+						_clean(entry.remarks or ""),
+						_clean(entry.against or ""),
+						entry.voucher_no,
+						entry.voucher_no,
+						source_type,
+						_money(debit),
+						_money(credit),
+						_money(balance),
+					]
+				)
+				total_debit += debit
+				total_credit += credit
+				count += 1
+
+			if len(batch) < GL_PAGE_SIZE:
+				break
+			start += GL_PAGE_SIZE
 
 		writer.writerow(
 			[

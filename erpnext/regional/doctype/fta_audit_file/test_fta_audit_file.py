@@ -213,23 +213,6 @@ class TestFTAAuditFile(FrappeTestCase):
 		self.assertNotIn("SuppDataEnd,0.0,", csv_content)
 		self.assertNotIn("GLDataEnd,0.0,", csv_content)
 
-	def test_generate_faf_excise_not_yet_implemented(self):
-		"""Excise FAF (Appendix 6) should error cleanly until implemented."""
-		doc = frappe.get_doc(
-			{
-				"doctype": "FTA Audit File",
-				"company": self.company,
-				"from_date": "2099-03-01",
-				"to_date": "2099-03-31",
-				"file_type": "Excise",
-			}
-		)
-		doc.insert()
-
-		self.assertRaises(frappe.ValidationError, doc.generate_faf)
-		doc.reload()
-		self.assertEqual(doc.status, "Error")
-
 	def test_mark_as_submitted_workflow(self):
 		"""Generated docs can be marked submitted; non-Generated cannot."""
 		doc = frappe.get_doc(

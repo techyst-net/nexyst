@@ -12,10 +12,19 @@ from frappe.utils import flt
 
 from erpnext import get_region
 
-# Per-execution memoization cache for the helper functions below.
-# Cleared at the start of every execute() call so each report run gets
-# fresh data; within a single run, repeated calls reuse the result.
-_cache = {}
+# Per-request memoization cache for the helper functions below. Stored on
+# ``frappe.local`` so concurrent requests under gevent/threaded workers
+# never share or race on this state; cleared at the start of every
+# ``execute()`` so each report run gets fresh data.
+_CACHE_ATTR = "_uae_vat_201_cache"
+
+
+def _get_cache():
+	cache = getattr(frappe.local, _CACHE_ATTR, None)
+	if cache is None:
+		cache = {}
+		setattr(frappe.local, _CACHE_ATTR, cache)
+	return cache
 
 
 def _drill_down_link(text, filters, **extra):
@@ -39,10 +48,11 @@ def _drill_down_link(text, filters, **extra):
 
 def _cached(fn):
 	def wrapper(filters, *args, **kwargs):
+		cache = _get_cache()
 		key = (fn.__name__, tuple(sorted((filters or {}).items())))
-		if key not in _cache:
-			_cache[key] = fn(filters, *args, **kwargs)
-		return _cache[key]
+		if key not in cache:
+			cache[key] = fn(filters, *args, **kwargs)
+		return cache[key]
 
 	return wrapper
 
@@ -50,7 +60,7 @@ def _cached(fn):
 def execute(filters=None):
 	filters = filters or {}
 	validate_company_region(filters)
-	_cache.clear()
+	_get_cache().clear()
 	columns = get_columns()
 	data = get_data(filters)
 	return columns, data
