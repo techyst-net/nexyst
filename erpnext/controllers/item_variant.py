@@ -169,13 +169,17 @@ def update_variant_attribute_values(item_attribute):
 	for old_value, new_value in value_map.items():
 		attribute_value_case = attribute_value_case.when(attribute_value == old_value, new_value)
 
-	(
-		frappe.qb.update(item_variant_table)
-		.join(item_table)
-		.on(item_table.name == item_variant_table.parent)
-		.set(attribute_value, attribute_value_case.else_(attribute_value))
+	# Postgres has no UPDATE ... JOIN; restrict to variant items via a subquery on the parent instead.
+	variant_items = (
+		frappe.qb.from_(item_table)
+		.select(item_table.name)
 		.where(item_table.variant_of.isnotnull())
 		.where(item_table.variant_of != "")
+	)
+	(
+		frappe.qb.update(item_variant_table)
+		.set(attribute_value, attribute_value_case.else_(attribute_value))
+		.where(item_variant_table.parent.isin(variant_items))
 		.where(item_variant_table.attribute == item_attribute.name)
 		.where(attribute_value.isin(list(value_map)))
 	).run()
