@@ -751,7 +751,9 @@ class TestItem(ERPNextTestSuite):
 		item_doc = frappe.get_doc("Item", item_code)
 		new_barcode = item_doc.append("barcodes")
 		new_barcode.update(barcode_properties_list[0])
+		frappe.db.savepoint("dup_barcode")
 		self.assertRaises(frappe.UniqueValidationError, item_doc.save)
+		frappe.db.rollback(save_point="dup_barcode")  # preserve transaction in postgres
 
 		# Add invalid barcode - should cause InvalidBarcode
 		item_doc = frappe.get_doc("Item", item_code)
