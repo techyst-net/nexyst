@@ -7,8 +7,9 @@ from erpnext.tests.utils import ERPNextTestSuite
 class TestSalesOrderTrends(ERPNextTestSuite):
 	def test_report_executes_with_group_by(self):
 		# trends.get_data builds per-period SUM(CASE ...) aggregates (converted from MySQL SUM(IF)),
-		# with a GROUP BY widened to every selected non-aggregated column and a based_on_key for the
-		# group-by detail subqueries. Setting group_by exercises that full path on both engines.
+		# groups by the based-on KEY only (non-key descriptive columns like item_name/territory are
+		# MAX()-aggregated so the report stays one row per key on both engines), and uses a based_on_key
+		# for the group-by detail subqueries. Setting group_by exercises that full path on both engines.
 		from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
 		from erpnext.selling.report.sales_order_trends.sales_order_trends import execute
 

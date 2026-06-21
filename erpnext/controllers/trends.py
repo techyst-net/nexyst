@@ -369,8 +369,11 @@ def based_wise_columns_query(based_on, trans):
 	# based_on_cols, based_on_select, based_on_group_by, addl_tables
 	if based_on == "Item":
 		based_on_details["based_on_cols"] = ["Item:Link/Item:120", "Item Name:Data:120"]
-		based_on_details["based_on_select"] = "t2.item_code, t2.item_name,"
-		based_on_details["based_on_group_by"] = "t2.item_code, t2.item_name"
+		# item_name is an editable per-line field, not functionally dependent on item_code, so it
+		# is aggregated (one row per item_code) rather than added to GROUP BY (which would split
+		# the row and change the MariaDB row count). See get_data's group-by query.
+		based_on_details["based_on_select"] = "t2.item_code, Max(t2.item_name) as item_name,"
+		based_on_details["based_on_group_by"] = "t2.item_code"
 		based_on_details["addl_tables"] = ""
 
 	elif based_on == "Item Group":
@@ -386,19 +389,21 @@ def based_wise_columns_query(based_on, trans):
 				"Party Name:Data:120",
 				"Territory:Link/Territory:120",
 			]
-			based_on_details["based_on_select"] = "t1.party_name, t1.customer_name, t1.territory,"
+			based_on_details[
+				"based_on_select"
+			] = "t1.party_name, Max(t1.customer_name) as customer_name, Max(t1.territory) as territory,"
 		else:
 			based_on_details["based_on_cols"] = [
 				"Customer:Link/Customer:120",
 				"Customer Name:Data:120",
 				"Territory:Link/Territory:120",
 			]
-			based_on_details["based_on_select"] = "t1.customer, t1.customer_name, t1.territory,"
-		based_on_details["based_on_group_by"] = (
-			"t1.party_name, t1.customer_name, t1.territory"
-			if trans == "Quotation"
-			else "t1.customer, t1.customer_name, t1.territory"
-		)
+			based_on_details[
+				"based_on_select"
+			] = "t1.customer, Max(t1.customer_name) as customer_name, Max(t1.territory) as territory,"
+		# territory (and customer_name) are not functionally dependent on the customer key, so they
+		# are aggregated rather than grouped — one row per customer, matching the prior MariaDB output.
+		based_on_details["based_on_group_by"] = "t1.party_name" if trans == "Quotation" else "t1.customer"
 		based_on_details["addl_tables"] = ""
 
 	elif based_on == "Customer Group":
