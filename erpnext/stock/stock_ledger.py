@@ -1473,7 +1473,8 @@ class update_entries_after:
 			for item in sr.items:
 				item.db_update()
 
-	def get_incoming_value_for_serial_nos(self, sle, serial_nos):
+	@staticmethod
+	def get_incoming_value_for_serial_nos(sle, serial_nos):
 		# get rate from serial nos within same company
 		all_serial_nos = frappe.get_all(
 			"Serial No", fields=["purchase_rate", "name", "company"], filters={"name": ("in", serial_nos)}
