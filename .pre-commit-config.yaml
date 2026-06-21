@@ -75,8 +75,8 @@ repos:
         language: script
         files: ^erpnext/.*\.py$
         # patches/ are historical, version-gated migrations (skipped on fresh Postgres installs);
-        # out of scope for the always-on gate. test_postgres_compat.py holds intentional bad-SQL fixtures.
-        exclude: ^erpnext/patches/|^erpnext/tests/test_postgres_compat\.py$
+        # out of scope for the always-on gate.
+        exclude: ^erpnext/patches/
 
 ci:
     autoupdate_schedule: weekly
