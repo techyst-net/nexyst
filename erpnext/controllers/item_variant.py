@@ -443,13 +443,21 @@ def make_variant_item_code(template_item_code, template_item_name, variant):
 
 	abbreviations = []
 	for attr in variant.attributes:
-		item_attribute = frappe.db.sql(
-			"""select i.numeric_values, v.abbr
-			from `tabItem Attribute` i left join `tabItem Attribute Value` v
-				on (i.name=v.parent)
-			where i.name=%(attribute)s and (v.attribute_value=%(attribute_value)s or i.numeric_values = 1)""",
-			{"attribute": attr.attribute, "attribute_value": attr.attribute_value},
-			as_dict=True,
+		ia = frappe.qb.DocType("Item Attribute")
+		iav = frappe.qb.DocType("Item Attribute Value")
+		item_attribute = (
+			frappe.qb.from_(ia)
+			.left_join(iav)
+			.on(ia.name == iav.parent)
+			.select(ia.numeric_values, iav.abbr)
+			.where(
+				(ia.name == attr.attribute)
+				# attribute_value is a varchar column; cast the param to str so postgres doesn't choke on
+				# `varchar = numeric` for numeric attributes (where this side is irrelevant anyway, since
+				# numeric_values == 1 already satisfies the OR). Non-numeric values are already strings.
+				& ((iav.attribute_value == cstr(attr.attribute_value)) | (ia.numeric_values == 1))
+			)
+			.run(as_dict=True)
 		)
 
 		if not item_attribute:
