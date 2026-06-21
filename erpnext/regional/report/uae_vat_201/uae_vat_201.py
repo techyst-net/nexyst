@@ -48,6 +48,14 @@ def _drill_down_link(text, filters, **extra):
 
 def _cached(fn):
 	def wrapper(filters, *args, **kwargs):
+		# ``frappe.local`` survives across unit-test methods (it is request
+		# scoped, not test scoped). Two tests that call the same helper with
+		# equivalent filter dicts would otherwise share a cached value from
+		# the first test's data set. Bypass the cache in tests so each
+		# call hits the DB; production callers (one execute() per HTTP
+		# request, cache cleared at its start) still see the optimisation.
+		if frappe.flags.in_test:
+			return fn(filters, *args, **kwargs)
 		cache = _get_cache()
 		key = (fn.__name__, tuple(sorted((filters or {}).items())))
 		if key not in cache:
