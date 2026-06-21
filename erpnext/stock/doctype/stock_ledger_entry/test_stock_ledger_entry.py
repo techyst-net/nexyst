@@ -77,7 +77,7 @@ class TestStockLedgerEntry(ERPNextTestSuite, StockTestMixin):
 		mk_sle("MAT-SLE-TIE-B", 200)  # later/larger name -> deterministic winner
 
 		value = update_entries_after.get_incoming_value_for_serial_nos(
-			None, frappe._dict(company=company_a), [serial]
+			frappe._dict(company=company_a), [serial]
 		)
 		# the latest (creation/name desc) same-date SLE wins -> 200 on both engines
 		self.assertEqual(value, 200.0)
