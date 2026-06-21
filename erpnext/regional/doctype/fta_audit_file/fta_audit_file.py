@@ -121,8 +121,11 @@ class FTAAuditFile(Document):
 		current_status = frappe.db.get_value(self.doctype, self.name, "status", for_update=True)
 		if current_status in IN_FLIGHT_STATUSES:
 			frappe.throw(_("FAF generation is already {0} for this document.").format(current_status))
-		if current_status == "Submitted":
-			frappe.throw(_("Cannot regenerate a Submitted FAF."))
+		if current_status in ("Generated", "Submitted"):
+			# UI hides the Generate/Retry button for Generated and Submitted;
+			# enforce the same lifecycle on the REST endpoint so a direct
+			# call cannot silently overwrite the attached CSV.
+			frappe.throw(_("FAF is already {0}; create a new document to regenerate.").format(current_status))
 
 		self.status = "Queued"
 		self.generation_log = ""
