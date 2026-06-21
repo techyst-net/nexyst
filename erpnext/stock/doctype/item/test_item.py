@@ -76,6 +76,18 @@ class TestItem(ERPNextTestSuite):
 		super().setUp()
 		frappe.flags.attribute_values = None
 
+	def test_merge_rename_runs_duplicate_stock_reco_check(self):
+		# after_rename(merge=True) calls validate_duplicate_item_in_stock_reconciliation, whose query
+		# uses HAVING Count(*) > 1. The raw version referenced the SELECT alias in HAVING, which
+		# Postgres rejects; this exercises the converted query on both engines.
+		make_item("_Test Item Merge Source", {"is_stock_item": 1, "is_purchase_item": 1})
+		make_item("_Test Item Merge Target", {"is_stock_item": 1, "is_purchase_item": 1})
+
+		frappe.rename_doc("Item", "_Test Item Merge Source", "_Test Item Merge Target", merge=True)
+
+		self.assertTrue(frappe.db.exists("Item", "_Test Item Merge Target"))
+		self.assertFalse(frappe.db.exists("Item", "_Test Item Merge Source"))
+
 	def get_item(self, idx):
 		item_code = self.globalTestRecords["Item"][idx].get("item_code")
 		if not frappe.db.exists("Item", item_code):
