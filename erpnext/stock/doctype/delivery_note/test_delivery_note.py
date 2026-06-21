@@ -924,12 +924,15 @@ class TestDeliveryNote(ERPNextTestSuite):
 		self.assertTrue(gl_entries)
 
 		stock_value_difference = abs(
-			frappe.db.sql(
-				"""select sum(stock_value_difference)
-			from `tabStock Ledger Entry` where voucher_type='Delivery Note' and voucher_no=%s
-			and warehouse='Stores - TCP1'""",
-				dn.name,
-			)[0][0]
+			frappe.get_all(
+				"Stock Ledger Entry",
+				filters={
+					"voucher_type": "Delivery Note",
+					"voucher_no": dn.name,
+					"warehouse": "Stores - TCP1",
+				},
+				fields=[{"SUM": "stock_value_difference", "as": "svd"}],
+			)[0].svd
 		)
 
 		expected_values = {
@@ -955,7 +958,7 @@ class TestDeliveryNote(ERPNextTestSuite):
 		dn.submit()
 
 		update_delivery_note_status(dn.name, "Closed")
-		self.assertEqual(frappe.db.get_value("Delivery Note", dn.name, "Status"), "Closed")
+		self.assertEqual(frappe.db.get_value("Delivery Note", dn.name, "status"), "Closed")
 
 		# Check cancelling closed delivery note
 		dn.load_from_db()
