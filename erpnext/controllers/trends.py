@@ -418,8 +418,14 @@ def based_wise_columns_query(based_on, trans):
 			"Supplier Name:Data:120",
 			"Supplier Group:Link/Supplier Group:140",
 		]
-		based_on_details["based_on_select"] = "t1.supplier, t1.supplier_name, t3.supplier_group,"
-		based_on_details["based_on_group_by"] = "t1.supplier, t1.supplier_name, t3.supplier_group"
+		# supplier_name is a stored per-transaction field (not functionally dependent on supplier), so
+		# it is aggregated to keep one row per supplier — matching the prior MariaDB output, which grouped
+		# by t1.supplier only. supplier_group comes from the joined master and is FD on supplier, so it
+		# stays in GROUP BY (postgres-valid, no row split).
+		based_on_details[
+			"based_on_select"
+		] = "t1.supplier, Max(t1.supplier_name) as supplier_name, t3.supplier_group,"
+		based_on_details["based_on_group_by"] = "t1.supplier, t3.supplier_group"
 		based_on_details["addl_tables"] = ",`tabSupplier` t3"
 		based_on_details["addl_tables_relational_cond"] = " and t1.supplier = t3.name"
 
