@@ -167,6 +167,106 @@ class TestItemAlternative(ERPNextTestSuite):
 		self.assertEqual(status, True)
 		ste1.submit()
 
+	def test_get_used_alternative_items_returns_substitution(self):
+		# get_used_alternative_items (raw SQL -> frappe.qb) returns the alternative items substituted
+		# into a work order's transfer entries, keyed by the original item. Exercises the converted
+		# query on both engines.
+		from erpnext.stock.doctype.stock_entry.stock_entry import get_used_alternative_items
+
+		create_stock_reconciliation(
+			item_code="Alternate Item For A RW 1", warehouse="_Test Warehouse - _TC", qty=5, rate=2000
+		)
+		create_stock_reconciliation(
+			item_code="Test FG A RW 2", warehouse="_Test Warehouse - _TC", qty=5, rate=2000
+		)
+		pro_order = make_wo_order_test_record(
+			production_item="Test Finished Goods - A",
+			qty=5,
+			source_warehouse="_Test Warehouse - _TC",
+			wip_warehouse="Test Supplier Warehouse - _TC",
+		)
+
+		ste = frappe.get_doc(make_stock_entry(pro_order.name, "Material Transfer for Manufacture", 5))
+		ste.insert()
+		for item in ste.items:
+			if item.item_code == "Test FG A RW 1":
+				item.item_code = "Alternate Item For A RW 1"
+				item.item_name = "Alternate Item For A RW 1"
+				item.description = "Alternate Item For A RW 1"
+				item.original_item = "Test FG A RW 1"
+		ste.submit()
+
+		used = get_used_alternative_items(work_order=pro_order.name)
+		self.assertIn("Test FG A RW 1", used)
+		self.assertEqual(used["Test FG A RW 1"].item_code, "Alternate Item For A RW 1")
+
+	def test_get_used_alternative_items_for_subcontract_order(self):
+		# Covers the subcontract_order branch of get_used_alternative_items (including the dynamic
+		# subcontract_order_field column) on both engines.
+		from erpnext.stock.doctype.stock_entry.stock_entry import get_used_alternative_items
+
+		set_backflush_based_on("BOM")
+		create_stock_reconciliation(
+			item_code="Alternate Item For A RW 1", warehouse="_Test Warehouse - _TC", qty=5, rate=2000
+		)
+		create_stock_reconciliation(
+			item_code="Test FG A RW 2", warehouse="_Test Warehouse - _TC", qty=5, rate=2000
+		)
+		supplier_warehouse = "Test Supplier Warehouse - _TC"
+		make_service_item("Subcontracted Service Item 1")
+		service_items = [
+			{
+				"warehouse": "_Test Warehouse - _TC",
+				"item_code": "Subcontracted Service Item 1",
+				"qty": 5,
+				"rate": 3000,
+				"fg_item": "Test Finished Goods - A",
+				"fg_item_qty": 5,
+			},
+		]
+		sco = get_subcontracting_order(service_items=service_items, supplier_warehouse=supplier_warehouse)
+		rm_items = [
+			{
+				"item_code": "Test Finished Goods - A",
+				"rm_item_code": "Test FG A RW 1",
+				"item_name": "Test FG A RW 1",
+				"qty": 5,
+				"warehouse": "_Test Warehouse - _TC",
+				"rate": 2000,
+				"amount": 10000,
+				"stock_uom": "Nos",
+			},
+			{
+				"item_code": "Test Finished Goods - A",
+				"rm_item_code": "Test FG A RW 2",
+				"item_name": "Test FG A RW 2",
+				"qty": 5,
+				"warehouse": "_Test Warehouse - _TC",
+				"rate": 2000,
+				"amount": 10000,
+				"stock_uom": "Nos",
+			},
+		]
+
+		se = frappe.get_doc(make_rm_stock_entry(sco.name, rm_items))
+		se.to_warehouse = supplier_warehouse
+		se.insert()
+		for item in se.items:
+			if item.item_code == "Test FG A RW 1":
+				item.item_code = "Alternate Item For A RW 1"
+				item.item_name = "Alternate Item For A RW 1"
+				item.description = "Alternate Item For A RW 1"
+				item.original_item = "Test FG A RW 1"
+		se.save()
+		se.submit()
+
+		used = get_used_alternative_items(
+			subcontract_order=sco.name, subcontract_order_field="subcontracting_order"
+		)
+		self.assertIn("Test FG A RW 1", used)
+		self.assertEqual(used["Test FG A RW 1"].item_code, "Alternate Item For A RW 1")
+		set_backflush_based_on("Material Transferred for Subcontract")
+
 	def test_get_alternative_items_both_directions_and_dedup(self):
 		"""get_alternative_items must return forward alternatives, reverse-only
 		two_way alternatives, exclude one-way reverse rows, and dedupe an item
