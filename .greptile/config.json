@@ -12,7 +12,10 @@
         "files": [
             {
                 "scope": [
-                    "**/*.py"
+                    "**/*.py",
+                    "**/*.js",
+                    "**/*.sql",
+                    "**/report/**/*.json"
                 ],
                 "path": ".github/POSTGRES_COMPATIBILITY.md",
                 "description": "MariaDB <-> PostgreSQL parity rules for ERPNext: query constructs that error on PostgreSQL or silently diverge across the two engines, the GROUP BY row-count trap, the false positives not to flag, and the rule that MariaDB output must not change. Apply to every changed database query in this PR."

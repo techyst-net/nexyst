@@ -39,8 +39,9 @@ Flag a changed query that uses any of these:
   `frappe.query_builder.functions` equivalents (`CombineDatetime`, `DateDiff`, `Case`,
   `GroupConcat`, …) or a precomputed column (e.g. `posting_datetime`).
 - **`UPDATE … JOIN`** — not valid on PostgreSQL. Rewrite as `UPDATE … WHERE name IN (subquery)`.
-- **`HAVING` referencing a `SELECT` alias** with no `GROUP BY` — move the predicate into `WHERE`
-  on the underlying expression.
+- **`HAVING` referencing a `SELECT` alias** — PostgreSQL rejects output-column aliases in
+  `HAVING` (regardless of whether the query has a `GROUP BY`; MariaDB allows them). Repeat the
+  underlying expression in `HAVING`, or move a non-aggregate predicate into `WHERE`.
 - **`SELECT DISTINCT … ORDER BY <expr not in the select list>`** — add the expr to the select.
 - **Single-quoted column alias** `AS 'x'` — PostgreSQL reads `'x'` as a string literal. Use an
   unquoted (or double-quoted) alias.
