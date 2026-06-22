@@ -2,11 +2,12 @@
 # See license.txt
 
 import frappe
-from frappe.utils import now_datetime, random_string, today
+from frappe.utils import add_days, now_datetime, random_string, today
 
 from erpnext.crm.doctype.lead.mapper import make_customer
 from erpnext.crm.doctype.lead.test_lead import make_lead
 from erpnext.crm.doctype.opportunity.mapper import make_quotation
+from erpnext.crm.doctype.opportunity.opportunity import auto_close_opportunity, get_item_details
 from erpnext.crm.utils import get_linked_communication_list
 from erpnext.tests.utils import ERPNextTestSuite
 
@@ -129,6 +130,59 @@ class TestOpportunity(ERPNextTestSuite):
 		opp.reload()
 		self.assertRaises(frappe.ValidationError, opp.declare_enquiry_lost, [], [], "x")
 		self.assertNotEqual(opp.status, "Lost")
+
+	def test_get_item_details(self):
+		details = get_item_details("_Test Item")
+		self.assertEqual(details["item_name"], frappe.db.get_value("Item", "_Test Item", "item_name"))
+		self.assertEqual(details["uom"], frappe.db.get_value("Item", "_Test Item", "stock_uom"))
+
+		# an unknown item returns blank fields rather than erroring
+		self.assertEqual(get_item_details("_Non Existent Item XYZ")["item_name"], "")
+
+	def test_auto_close_replied_opportunity(self):
+		days = frappe.db.get_single_value("CRM Settings", "close_opportunity_after_days") or 15
+
+		stale = make_opportunity(with_items=0)
+		fresh = make_opportunity(with_items=0)
+		for opp in (stale, fresh):
+			frappe.db.set_value("Opportunity", opp.name, "status", "Replied", update_modified=False)
+		# age only the stale opportunity past the threshold
+		frappe.db.set_value(
+			"Opportunity",
+			stale.name,
+			"modified",
+			add_days(now_datetime(), -(days + 1)),
+			update_modified=False,
+		)
+
+		auto_close_opportunity()
+
+		self.assertEqual(frappe.db.get_value("Opportunity", stale.name, "status"), "Closed")
+		self.assertEqual(frappe.db.get_value("Opportunity", fresh.name, "status"), "Replied")
+
+	def test_opportunity_synced_to_prospect(self):
+		prospect_name = "_Test Prospect For Opportunity"
+		if not frappe.db.exists("Prospect", prospect_name):
+			frappe.get_doc(
+				{"doctype": "Prospect", "company_name": prospect_name, "company": "_Test Company"}
+			).insert(ignore_permissions=True)
+
+		opp = frappe.get_doc(
+			{
+				"doctype": "Opportunity",
+				"company": "_Test Company",
+				"opportunity_from": "Prospect",
+				"party_name": prospect_name,
+				"opportunity_type": "Sales",
+				"sales_stage": "Prospecting",
+				"transaction_date": today(),
+			}
+		).insert(ignore_permissions=True)
+
+		prospect = frappe.get_doc("Prospect", prospect_name)
+		linked = {d.opportunity: d for d in prospect.opportunities}
+		self.assertIn(opp.name, linked)
+		self.assertEqual(linked[opp.name].stage, "Prospecting")
 
 
 def _ensure_master(doctype, fieldname, value):
