@@ -390,6 +390,52 @@ class TestProject(ERPNextTestSuite):
 		project, _ = self._project_with_tasks("Task Completion", 1)
 		self.assertRaises(frappe.ValidationError, set_project_status, project.name, "Open")
 
+	def test_costing_rollup_from_sales_documents(self):
+		from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
+		from erpnext.projects.doctype.project.project import update_costing_and_billing
+		from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
+
+		project = make_project({"project_name": f"_Test Costing Rollup {frappe.generate_hash(length=6)}"})
+
+		sales_order = make_sales_order(do_not_save=True)
+		sales_order.project = project.name
+		sales_order.insert()
+		sales_order.submit()
+
+		sales_invoice = create_sales_invoice(do_not_submit=True)
+		sales_invoice.project = project.name
+		sales_invoice.submit()
+
+		update_costing_and_billing(project.name)
+		project.reload()
+
+		self.assertEqual(project.total_sales_amount, sales_order.base_net_total)
+		self.assertEqual(project.total_billed_amount, sales_invoice.base_net_total)
+		# with no costing/purchase/material expense, gross margin is the billed amount in full
+		self.assertEqual(project.gross_margin, sales_invoice.base_net_total)
+		self.assertEqual(project.per_gross_margin, 100)
+
+	def test_consumed_material_cost_from_stock_entry(self):
+		from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
+
+		project = make_project({"project_name": f"_Test Consumed Cost {frappe.generate_hash(length=6)}"})
+
+		# receive stock, then issue it against the project so it counts as consumed
+		make_stock_entry(item_code="_Test Item", qty=10, to_warehouse="_Test Warehouse - _TC", rate=100)
+		issue = make_stock_entry(
+			item_code="_Test Item", qty=4, from_warehouse="_Test Warehouse - _TC", do_not_save=True
+		)
+		issue.project = project.name
+		for row in issue.items:
+			row.project = project.name
+		issue.insert()
+		issue.submit()
+		issue.reload()
+
+		project.set_consumed_material_cost()
+		self.assertEqual(project.total_consumed_material_cost, sum(row.amount for row in issue.items))
+		self.assertGreater(project.total_consumed_material_cost, 0)
+
 
 def get_project(name, template):
 	project = frappe.get_doc(
