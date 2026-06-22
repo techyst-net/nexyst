@@ -698,6 +698,13 @@ class SubcontractingInwardController:
 
 	def update_inward_order_received_items_for_raw_materials_receipt(self):
 		data = frappe._dict()
+		next_received_idx = (
+			frappe.db.count(
+				"Subcontracting Inward Order Received Item",
+				{"parent": self.subcontracting_inward_order},
+			)
+			+ 1
+		)
 		for item in self.items:
 			if item.scio_detail:
 				data[item.scio_detail] = frappe._dict(
@@ -709,11 +716,7 @@ class SubcontractingInwardController:
 					parent=self.subcontracting_inward_order,
 					parenttype="Subcontracting Inward Order",
 					parentfield="received_items",
-					idx=frappe.db.count(
-						"Subcontracting Inward Order Received Item",
-						{"parent": self.subcontracting_inward_order},
-					)
-					+ 1,
+					idx=next_received_idx,
 					rm_item_code=item.item_code,
 					stock_uom=item.stock_uom,
 					warehouse=item.t_warehouse,
@@ -732,6 +735,7 @@ class SubcontractingInwardController:
 				scio_rm.flags.skip_docstatus_validation = True
 				scio_rm.insert()
 				scio_rm.submit()
+				next_received_idx += 1
 				item.db_set("scio_detail", scio_rm.name)
 
 		if data:
@@ -863,6 +867,13 @@ class SubcontractingInwardController:
 				)
 
 			main_item_code = next(fg for fg in self.items if fg.is_finished_item).item_code
+			next_received_idx = (
+				frappe.db.count(
+					"Subcontracting Inward Order Received Item",
+					{"parent": self.subcontracting_inward_order},
+				)
+				+ 1
+			)
 			for extra_item in [
 				item
 				for item in items
@@ -875,11 +886,7 @@ class SubcontractingInwardController:
 					parent=self.subcontracting_inward_order,
 					parenttype="Subcontracting Inward Order",
 					parentfield="received_items",
-					idx=frappe.db.count(
-						"Subcontracting Inward Order Received Item",
-						{"parent": self.subcontracting_inward_order},
-					)
-					+ 1,
+					idx=next_received_idx,
 					main_item_code=main_item_code,
 					rm_item_code=extra_item.item_code,
 					stock_uom=extra_item.stock_uom,
@@ -894,6 +901,7 @@ class SubcontractingInwardController:
 				doc.flags.skip_docstatus_validation = True
 				doc.insert()
 				doc.submit()
+				next_received_idx += 1
 
 	def update_inward_order_secondary_items(self):
 		if (scio := self.subcontracting_inward_order) and self.purpose == "Manufacture":
@@ -956,6 +964,9 @@ class SubcontractingInwardController:
 						)
 
 				fg_item_code = next(fg for fg in self.items if fg.is_finished_item).item_code
+				next_secondary_idx = (
+					frappe.db.count("Subcontracting Inward Order Secondary Item", {"parent": scio}) + 1
+				)
 				for secondary_item in [
 					item
 					for item in secondary_items_list
@@ -966,8 +977,7 @@ class SubcontractingInwardController:
 						parent=scio,
 						parenttype="Subcontracting Inward Order",
 						parentfield="secondary_items",
-						idx=frappe.db.count("Subcontracting Inward Order Secondary Item", {"parent": scio})
-						+ 1,
+						idx=next_secondary_idx,
 						item_code=secondary_item.item_code,
 						fg_item_code=fg_item_code,
 						stock_uom=secondary_item.stock_uom,
@@ -982,6 +992,7 @@ class SubcontractingInwardController:
 					doc.flags.skip_docstatus_validation = True
 					doc.insert()
 					doc.submit()
+					next_secondary_idx += 1
 
 	def cancel_stock_reservation_entries_for_inward(self):
 		if self.purpose == "Receive from Customer":
