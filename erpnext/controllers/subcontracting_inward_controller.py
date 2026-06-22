@@ -247,10 +247,10 @@ class SubcontractingInwardController:
 			and frappe.get_cached_value("Item", item.item_code, "is_customer_provided_item")
 		]
 
-		customer_warehouse = frappe.get_cached_value(
-			"Subcontracting Inward Order", self.subcontracting_inward_order, "customer_warehouse"
-		)
 		if frappe.get_cached_value("Work Order", self.work_order, "skip_transfer"):
+			customer_warehouse = frappe.get_cached_value(
+				"Subcontracting Inward Order", self.subcontracting_inward_order, "customer_warehouse"
+			)
 			table = frappe.qb.DocType("Subcontracting Inward Order Received Item")
 			query = (
 				frappe.qb.from_(table)
