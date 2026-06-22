@@ -2,7 +2,7 @@
 # MIT License. See license.txt
 
 import frappe
-from frappe.utils import today
+from frappe.utils import add_days, today
 
 from erpnext.accounts.report.trial_balance.trial_balance import execute
 from erpnext.tests.utils import ERPNextTestSuite
@@ -66,3 +66,56 @@ class TestTrialBalance(ERPNextTestSuite):
 		)
 		total_row = execute(filters)[1][-1]
 		self.assertEqual(total_row["debit"], total_row["credit"])
+
+
+class TestTrialBalanceReport(ERPNextTestSuite):
+	"""Correctness tests using fresh accounts so the asserted rows are unpolluted."""
+
+	def make_accounts_and_entry(self, amount, posting_date):
+		from erpnext.accounts.doctype.account.test_account import create_account
+		from erpnext.accounts.doctype.journal_entry.test_journal_entry import make_journal_entry
+
+		debit_account = create_account(
+			account_name="_Test Trial Balance Debit",
+			company="_Test Company",
+			parent_account="Current Assets - _TC",
+		)
+		credit_account = create_account(
+			account_name="_Test Trial Balance Credit",
+			company="_Test Company",
+			parent_account="Current Assets - _TC",
+		)
+		make_journal_entry(debit_account, credit_account, amount, posting_date=posting_date, submit=True)
+		return debit_account, credit_account
+
+	def rows_by_account(self, **filters):
+		from erpnext.accounts.utils import get_fiscal_year
+
+		filters.setdefault("company", "_Test Company")
+		filters.setdefault("fiscal_year", get_fiscal_year(today(), company="_Test Company")[0])
+		data = execute(frappe._dict(filters))[1]
+		return {row["account"]: row for row in data if row.get("account")}, data[-1]
+
+	def test_posted_entry_lands_in_period_and_total_balances(self):
+		debit_account, credit_account = self.make_accounts_and_entry(500, today())
+
+		rows, total_row = self.rows_by_account()
+
+		self.assertEqual(rows[debit_account]["debit"], 500)
+		self.assertEqual(rows[credit_account]["credit"], 500)
+		self.assertEqual(total_row["debit"], total_row["credit"])
+
+	def test_entry_before_from_date_shows_as_opening_balance(self):
+		from erpnext.accounts.utils import get_fiscal_year
+
+		fiscal_year, year_start, year_end = get_fiscal_year(today(), company="_Test Company")
+		debit_account, credit_account = self.make_accounts_and_entry(500, year_start)
+
+		rows, _ = self.rows_by_account(
+			fiscal_year=fiscal_year, from_date=add_days(year_start, 5), to_date=year_end
+		)
+
+		# the entry predates the period, so it belongs in opening - not in the period columns
+		self.assertEqual(rows[debit_account]["opening_debit"], 500)
+		self.assertEqual(rows[debit_account]["debit"], 0)
+		self.assertEqual(rows[credit_account]["opening_credit"], 500)
