@@ -197,17 +197,17 @@ class Lead(SellingController, CRMNote):
 			lead_row.db_update()
 
 	def remove_link_from_prospect(self):
-		prospects = self.get_linked_prospects()
+		linked_prospects = self.get_linked_prospects()
 
-		for d in prospects:
-			prospect = frappe.get_doc("Prospect", d.parent)
+		for linked_prospect in linked_prospects:
+			prospect = frappe.get_doc("Prospect", linked_prospect.parent)
 			if len(prospect.get("leads")) == 1:
 				prospect.delete(ignore_permissions=True)
 			else:
 				to_remove = None
-				for d in prospect.get("leads"):
-					if d.lead == self.name:
-						to_remove = d
+				for lead in prospect.get("leads"):
+					if lead.lead == self.name:
+						to_remove = lead
 
 				if to_remove:
 					prospect.remove(to_remove)
