@@ -278,6 +278,76 @@ class TestProject(ERPNextTestSuite):
 		project.save()
 		self.assertEqual(project.status, "Completed")
 
+	def _project_with_tasks(self, method, count):
+		name = f"_Test PercentComplete {frappe.generate_hash(length=8)}"
+		project = frappe.get_doc(
+			{
+				"doctype": "Project",
+				"project_name": name,
+				"status": "Open",
+				"percent_complete_method": method,
+				"company": "_Test Company",
+				"expected_start_date": nowdate(),
+			}
+		).insert()
+		task_names = []
+		for i in range(count):
+			task = frappe.get_doc(
+				{
+					"doctype": "Task",
+					"subject": f"{name} Task {i}",
+					"project": project.name,
+					"status": "Open",
+					"exp_start_date": nowdate(),
+					"exp_end_date": nowdate(),
+				}
+			).insert()
+			task_names.append(task.name)
+		return project, task_names
+
+	def test_percent_complete_by_task_completion(self):
+		project, tasks = self._project_with_tasks("Task Completion", 4)
+
+		frappe.db.set_value("Task", tasks[0], "status", "Completed")
+		project.update_percent_complete()
+		self.assertEqual(project.percent_complete, 25)  # 1 of 4
+
+		for task in tasks:
+			frappe.db.set_value("Task", task, "status", "Completed")
+		project.update_percent_complete()
+		self.assertEqual(project.percent_complete, 100)
+		self.assertEqual(project.status, "Completed")  # 100% flips status to Completed
+
+		# reopening a task drops below 100% and flips status back to Open
+		frappe.db.set_value("Task", tasks[0], "status", "Open")
+		project.update_percent_complete()
+		self.assertEqual(project.percent_complete, 75)
+		self.assertEqual(project.status, "Open")
+
+		# a Cancelled project keeps its status regardless of completion
+		project.status = "Cancelled"
+		for task in tasks:
+			frappe.db.set_value("Task", task, "status", "Completed")
+		project.update_percent_complete()
+		self.assertEqual(project.percent_complete, 100)
+		self.assertEqual(project.status, "Cancelled")
+
+	def test_percent_complete_by_task_progress(self):
+		project, tasks = self._project_with_tasks("Task Progress", 2)
+
+		frappe.db.set_value("Task", tasks[0], "progress", 50)
+		frappe.db.set_value("Task", tasks[1], "progress", 100)
+		project.update_percent_complete()
+		self.assertEqual(project.percent_complete, 75)  # (50 + 100) / 2
+
+	def test_percent_complete_by_task_weight(self):
+		project, tasks = self._project_with_tasks("Task Weight", 2)
+
+		frappe.db.set_value("Task", tasks[0], {"progress": 100, "task_weight": 3})
+		frappe.db.set_value("Task", tasks[1], {"progress": 0, "task_weight": 1})
+		project.update_percent_complete()
+		self.assertEqual(project.percent_complete, 75)  # 100 * 3/4 + 0 * 1/4
+
 
 def get_project(name, template):
 	project = frappe.get_doc(
