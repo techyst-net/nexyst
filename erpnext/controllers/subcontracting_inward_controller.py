@@ -645,10 +645,9 @@ class SubcontractingInwardController:
 				"Work Order", self.work_order, "subcontracting_inward_order_item"
 			)
 		):
-			if scio_item_name:
-				frappe.get_doc(
-					"Subcontracting Inward Order Item", scio_item_name
-				).update_manufacturing_qty_fields()
+			frappe.get_doc(
+				"Subcontracting Inward Order Item", scio_item_name
+			).update_manufacturing_qty_fields()
 		elif self.purpose in ["Subcontracting Delivery", "Subcontracting Return"]:
 			fieldname = "delivered_qty" if self.purpose == "Subcontracting Delivery" else "returned_qty"
 			qty_map = defaultdict(lambda: defaultdict(float))
