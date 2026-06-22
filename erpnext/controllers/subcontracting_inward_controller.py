@@ -793,6 +793,9 @@ class SubcontractingInwardController:
 			for item in self.items
 			if not item.is_finished_item and not item.secondary_item_type and not item.is_legacy_scrap_item
 		]
+		if not items:
+			return
+
 		item_code_wh = frappe._dict(
 			{
 				(
