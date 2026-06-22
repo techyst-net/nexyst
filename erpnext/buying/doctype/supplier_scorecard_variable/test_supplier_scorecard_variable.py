@@ -35,11 +35,12 @@ class TestSupplierScorecardVariable(ERPNextTestSuite):
 
 	def test_total_cost_of_shipments_counts_only_in_period(self):
 		supplier = create_scorecard_supplier()
-		create_scorecard_po(supplier, nowdate(), qty=10, rate=100)  # in period -> 1000
+		in_period_po = create_scorecard_po(supplier, nowdate(), qty=10, rate=100)
 		create_scorecard_po(supplier, add_days(nowdate(), 60), qty=5, rate=100)  # outside period
 
 		scorecard = scorecard_for(supplier)
-		self.assertEqual(get_total_cost_of_shipments(scorecard), 1000)
+		# Compare against base_amount (not a hardcoded total) to stay correct if conversion_rate != 1
+		self.assertEqual(get_total_cost_of_shipments(scorecard), in_period_po.items[0].base_amount)
 
 	def test_on_time_and_delayed_shipments(self):
 		supplier = create_scorecard_supplier()

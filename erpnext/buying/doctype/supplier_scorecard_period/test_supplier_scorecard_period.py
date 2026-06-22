@@ -32,7 +32,8 @@ class TestSupplierScorecardPeriod(ERPNextTestSuite):
 				{"variable_label": "B", "param_name": "b", "path": "get_total_workdays", "value": 0},
 			]
 		)
-		# present value -> formatted; missing/zero value -> "0.0"
+		# get_eval_statement checks `if var.value:` (truthiness), so a falsy value -
+		# whether 0 or None - is substituted as "0.0", while a real value is formatted
 		self.assertEqual(period.get_eval_statement("{a} + {b}"), "5.00 + 0.0")
 
 	def test_period_score_is_weighted_sum_of_criteria(self):

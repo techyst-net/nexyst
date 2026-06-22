@@ -79,6 +79,7 @@ class TestSupplierScorecard(ERPNextTestSuite):
 		supplier = create_test_supplier("_Test Supplier SC Idempotent")
 		frappe.db.set_value("Supplier", supplier, "creation", add_days(nowdate(), -75))
 
+		frappe.delete_doc_if_exists("Supplier Scorecard", supplier)
 		doc = make_supplier_scorecard()
 		doc.supplier = supplier
 		doc.name = supplier
