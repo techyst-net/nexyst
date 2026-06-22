@@ -348,6 +348,48 @@ class TestProject(ERPNextTestSuite):
 		project.update_percent_complete()
 		self.assertEqual(project.percent_complete, 75)  # 100 * 3/4 + 0 * 1/4
 
+	def test_create_duplicate_project_copies_tasks(self):
+		from erpnext.projects.doctype.project.project import create_duplicate_project
+
+		source, tasks = self._project_with_tasks("Task Completion", 2)
+		new_name = f"{source.project_name} Copy"
+
+		create_duplicate_project(frappe.as_json(source.as_dict()), new_name)
+
+		# Project is named by series, so look the copy up by its project_name
+		new_project = frappe.db.get_value("Project", {"project_name": new_name})
+		self.assertTrue(new_project)
+		copied_tasks = frappe.get_all("Task", filters={"project": new_project})
+		self.assertEqual(len(copied_tasks), len(tasks))
+
+	def test_create_duplicate_project_rejects_same_name(self):
+		from erpnext.projects.doctype.project.project import create_duplicate_project
+
+		source, _ = self._project_with_tasks("Task Completion", 1)
+		self.assertRaises(
+			frappe.ValidationError,
+			create_duplicate_project,
+			frappe.as_json(source.as_dict()),
+			source.name,
+		)
+
+	def test_set_project_status_updates_project_and_tasks(self):
+		from erpnext.projects.doctype.project.project import set_project_status
+
+		project, tasks = self._project_with_tasks("Task Completion", 2)
+
+		set_project_status(project.name, "Cancelled")
+
+		self.assertEqual(frappe.db.get_value("Project", project.name, "status"), "Cancelled")
+		for task in tasks:
+			self.assertEqual(frappe.db.get_value("Task", task, "status"), "Cancelled")
+
+	def test_set_project_status_rejects_invalid_status(self):
+		from erpnext.projects.doctype.project.project import set_project_status
+
+		project, _ = self._project_with_tasks("Task Completion", 1)
+		self.assertRaises(frappe.ValidationError, set_project_status, project.name, "Open")
+
 
 def get_project(name, template):
 	project = frappe.get_doc(
