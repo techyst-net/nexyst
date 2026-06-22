@@ -287,7 +287,7 @@ class SubcontractingInwardController:
 						frappe.throw(
 							_(
 								"Row #{0}: Customer Provided Item {1} exceeds quantity available through Subcontracting Inward Order"
-							).format(item.idx, get_link_to_form("Item", item.item_code), item.transfer_qty)
+							).format(item.idx, get_link_to_form("Item", item.item_code))
 						)
 					elif item.s_warehouse != customer_warehouse:
 						frappe.throw(
