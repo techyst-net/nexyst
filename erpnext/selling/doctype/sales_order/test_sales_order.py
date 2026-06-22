@@ -3063,6 +3063,24 @@ class TestSalesOrder(ERPNextTestSuite):
 		finally:
 			frappe.db.set_value("Item", "_Test Item", "grant_commission", 0)
 
+	def test_commission_rate_carried_through_mapper(self):
+		"""commission_rate is no_copy, but Make Delivery Note / Sales Invoice still carries it."""
+		from erpnext.selling.doctype.sales_order.mapper import make_delivery_note, make_sales_invoice
+
+		original = frappe.db.get_value("Item", "_Test Item", "grant_commission")
+		frappe.db.set_value("Item", "_Test Item", "grant_commission", 1)
+		try:
+			so = make_sales_order(qty=10, rate=100, do_not_save=True)
+			so.sales_partner = "_Test Sales Partner India - 1"
+			so.commission_rate = 7
+			so.submit()
+
+			# carried to the mapped (unsaved) documents even though the field is no_copy
+			self.assertEqual(make_delivery_note(so.name).commission_rate, 7)
+			self.assertEqual(make_sales_invoice(so.name).commission_rate, 7)
+		finally:
+			frappe.db.set_value("Item", "_Test Item", "grant_commission", original)
+
 
 def compare_payment_schedules(doc, doc1, doc2):
 	for index, schedule in enumerate(doc1.get("payment_schedule")):
