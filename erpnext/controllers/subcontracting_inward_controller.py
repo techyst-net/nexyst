@@ -4,6 +4,7 @@ import frappe
 from frappe import _, bold
 from frappe.query_builder import Case
 from frappe.utils import flt, get_link_to_form
+from pypika.terms import ValueWrapper
 
 from erpnext.stock.serial_batch_bundle import get_serial_batch_list_from_item
 
@@ -499,8 +500,6 @@ class SubcontractingInwardController:
 						get_link_to_form("Subcontracting Inward Order", self.subcontracting_inward_order),
 					)
 				)
-
-			from pypika.terms import ValueWrapper
 
 			table = frappe.qb.DocType("Subcontracting Inward Order Item")
 			query = (
