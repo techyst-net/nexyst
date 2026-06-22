@@ -118,12 +118,12 @@ class TestSubcontractingOrder(ERPNextTestSuite):
 		self.assertRaises(frappe.ValidationError, sco.validate_purchase_order_for_subcontracting)
 
 	def test_service_item_must_be_non_stock(self):
-		sco = get_subcontracting_order()
+		sco = get_subcontracting_order(do_not_submit=1)
 		sco.service_items[0].item_code = "_Test Item"  # a stock item
 		self.assertRaises(frappe.ValidationError, sco.validate_service_items)
 
 	def test_reserve_warehouse_must_differ_from_supplier_warehouse(self):
-		sco = get_subcontracting_order()
+		sco = get_subcontracting_order(do_not_submit=1)
 		sco.supplied_items[0].reserve_warehouse = sco.supplier_warehouse
 		self.assertRaises(frappe.ValidationError, sco.validate_supplied_items)
 
