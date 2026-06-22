@@ -230,7 +230,7 @@ class SubcontractingInwardController:
 		):
 			frappe.throw(
 				_(
-					"Target Warehouse for Finished Good must be same as Finished Good Warehouse {1} in Work Order {2} linked to the Subcontracting Inward Order."
+					"Target Warehouse for Finished Good must be same as Finished Good Warehouse {0} in Work Order {1} linked to the Subcontracting Inward Order."
 				).format(
 					get_link_to_form("Warehouse", fg_warehouse),
 					get_link_to_form("Work Order", self.work_order),
