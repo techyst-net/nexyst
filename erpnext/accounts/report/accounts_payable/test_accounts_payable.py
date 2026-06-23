@@ -54,6 +54,47 @@ class TestAccountsPayable(ERPNextTestSuite, AccountsTestMixin):
 			pi = pi.submit()
 		return pi
 
+	def test_invoice_partially_paid_via_journal_entry(self):
+		pi = self.create_purchase_invoice()  # outstanding 300
+
+		je = frappe.new_doc("Journal Entry")
+		je.company = self.company
+		je.posting_date = today()
+		je.append(
+			"accounts",
+			{
+				"account": "Creditors - _TC",
+				"party_type": "Supplier",
+				"party": self.supplier,
+				"debit": 120,
+				"debit_in_account_currency": 120,
+				"reference_type": "Purchase Invoice",
+				"reference_name": pi.name,
+				"cost_center": "Main - _TC",
+			},
+		)
+		je.append(
+			"accounts",
+			{
+				"account": "Cash - _TC",
+				"credit": 120,
+				"credit_in_account_currency": 120,
+				"cost_center": "Main - _TC",
+			},
+		)
+		je.save().submit()
+
+		filters = {
+			"company": self.company,
+			"party_type": "Supplier",
+			"party": [self.supplier],
+			"report_date": today(),
+			"range": "30, 60, 90, 120",
+		}
+		row = next(row for row in execute(filters)[1] if row.voucher_no == pi.name)
+		self.assertEqual(row.paid, 120)
+		self.assertEqual(row.outstanding, 180)
+
 	def test_payment_terms_template_filters(self):
 		from erpnext.controllers.accounts_controller import get_payment_terms
 

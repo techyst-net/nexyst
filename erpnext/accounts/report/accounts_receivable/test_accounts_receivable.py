@@ -568,6 +568,83 @@ class TestAccountsReceivable(ERPNextTestSuite, AccountsTestMixin):
 		report = execute(filters)
 		self.assertEqual(report[1], [])
 
+	def pay_invoice_via_journal_entry(self, si, amount):
+		je = frappe.new_doc("Journal Entry")
+		je.company = self.company
+		je.posting_date = today()
+		je.append(
+			"accounts",
+			{
+				"account": self.cash,
+				"debit": amount,
+				"debit_in_account_currency": amount,
+				"cost_center": self.cost_center,
+			},
+		)
+		je.append(
+			"accounts",
+			{
+				"account": self.debit_to,
+				"party_type": "Customer",
+				"party": self.customer,
+				"credit": amount,
+				"credit_in_account_currency": amount,
+				"reference_type": "Sales Invoice",
+				"reference_name": si.name,
+				"cost_center": self.cost_center,
+			},
+		)
+		return je.save().submit()
+
+	def ar_rows(self):
+		filters = {"company": self.company, "report_date": today(), "range": "30, 60, 90, 120"}
+		return execute(filters)[1]
+
+	def test_invoice_partially_paid_via_journal_entry(self):
+		si = self.create_sales_invoice(no_payment_schedule=True)  # outstanding 100
+		self.pay_invoice_via_journal_entry(si, 40)
+
+		row = next(row for row in self.ar_rows() if row.voucher_no == si.name)
+		self.assertEqual(row.paid, 40)
+		self.assertEqual(row.outstanding, 60)
+
+	def test_invoice_fully_paid_via_journal_entry(self):
+		si = self.create_sales_invoice(no_payment_schedule=True)  # outstanding 100
+		self.pay_invoice_via_journal_entry(si, 100)
+
+		# a fully settled invoice drops out of the receivable report
+		self.assertEqual([row for row in self.ar_rows() if row.voucher_no == si.name], [])
+
+	def test_credit_note_via_journal_entry_shows_negative_outstanding(self):
+		je = frappe.new_doc("Journal Entry")
+		je.company = self.company
+		je.voucher_type = "Credit Note"
+		je.posting_date = today()
+		je.append(
+			"accounts",
+			{
+				"account": self.income_account,
+				"debit": 100,
+				"debit_in_account_currency": 100,
+				"cost_center": self.cost_center,
+			},
+		)
+		je.append(
+			"accounts",
+			{
+				"account": self.debit_to,
+				"party_type": "Customer",
+				"party": self.customer,
+				"credit": 100,
+				"credit_in_account_currency": 100,
+				"cost_center": self.cost_center,
+			},
+		)
+		je = je.save().submit()
+
+		row = next(row for row in self.ar_rows() if row.voucher_no == je.name)
+		self.assertEqual(row.outstanding, -100)
+
 	def test_group_by_party(self):
 		si1 = self.create_sales_invoice(do_not_submit=True)
 		si1.posting_date = add_days(today(), -1)
