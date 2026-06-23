@@ -16,6 +16,8 @@ class TestMasterProductionSchedule(ERPNextTestSuite):
 		manufacturing_time_in_mins is an Int column; integer/integer division truncates on
 		PostgreSQL (720/1440 -> 0) while MariaDB yields 0.5, changing the planned release date."""
 		item = make_item("_Test MPS Lead Time Item", {"is_stock_item": 1}).name
+		# idempotent across re-runs / a shared CI database
+		frappe.db.delete("Item Lead Time", {"item_code": item})
 		frappe.get_doc(
 			{
 				"doctype": "Item Lead Time",
