@@ -10,6 +10,7 @@ from frappe import qb, scrub
 from frappe.permissions import has_permission
 from frappe.query_builder import Case, Criterion, DocType
 from frappe.query_builder.functions import (
+	Cast_,
 	Concat,
 	IfNull,
 	Length,
@@ -1135,7 +1136,8 @@ def get_filtered_child_rows(
 	if txt:
 		txt += "%"
 		query = query.where(
-			((table.idx.like(txt.replace("#", ""))) | (table.item_code.like(txt))) | (table.name.like(txt))
+			((Cast_(table.idx, "varchar").like(txt.replace("#", ""))) | (table.item_code.like(txt)))
+			| (table.name.like(txt))
 		)
 
 	return query.run(as_dict=False)
