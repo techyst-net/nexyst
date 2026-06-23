@@ -103,6 +103,33 @@ class TestStockBalance(ERPNextTestSuite):
 		)
 		self.assertInvariants(rows)
 
+	def test_include_zero_stock_items(self):
+		"""Items whose balance nets to zero are hidden by default and shown only when the filter is on."""
+		self.generate_stock_ledger(
+			self.item.name,
+			[
+				_dict(qty=5, rate=10),
+				_dict(qty=5, from_warehouse="_Test Warehouse - _TC", to_warehouse=None),
+			],
+		)
+
+		self.assertEqual(stock_balance(self.filters), [])
+
+		rows = stock_balance(self.filters.update({"include_zero_stock_items": 1}))
+		self.assertEqual(rows[0].item_code, self.item.name)
+		self.assertEqual(rows[0].bal_qty, 0)
+		self.assertEqual(rows[0].bal_val, 0)
+
+	def test_show_stock_ageing_data_adds_ageing_columns(self):
+		"""The ageing columns appear only when 'show stock ageing data' is on."""
+		self.generate_stock_ledger(self.item.name, [_dict(qty=5, rate=10, posting_date="2021-01-01")])
+
+		self.assertNotIn("average_age", stock_balance(self.filters)[0])
+
+		rows = stock_balance(self.filters.update({"show_stock_ageing_data": 1}))
+		self.assertIn("average_age", rows[0])
+		self.assertGreater(rows[0].average_age, 0)  # stock has been held since 2021
+
 	@ERPNextTestSuite.change_settings("System Settings", {"float_precision": 3, "currency_precision": 3})
 	def test_opening_balance(self):
 		self.generate_stock_ledger(
