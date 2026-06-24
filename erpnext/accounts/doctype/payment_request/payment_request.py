@@ -740,7 +740,7 @@ def make_payment_request(**args):
 
 	# Schedule-based PRs are allowed only if no Payment Entry exists for this document.
 	# Any existing Payment Entry forces legacy (amount-based) flow.
-	selected_payment_schedules = json.loads(args.get("schedules")) if args.get("schedules") else []
+	selected_payment_schedules = frappe.parse_json(args.get("schedules")) if args.get("schedules") else []
 
 	# Backend guard:
 	# If any Payment Entry exists, schedule-based PRs are not allowed.
