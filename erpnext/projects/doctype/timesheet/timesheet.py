@@ -497,7 +497,7 @@ def get_activity_cost(
 
 
 @frappe.whitelist()
-def get_events(start: str, end: str, filters: str | dict | None = None):
+def get_events(start: str, end: str, filters: str | list | dict | None = None):
 	"""Returns events for Gantt / Calendar view rendering.
 	:param start: Start date-time.
 	:param end: End date-time.
