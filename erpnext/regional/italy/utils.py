@@ -104,7 +104,7 @@ def prepare_invoice(invoice, progressive_number):
 
 
 def get_conditions(filters):
-	filters = json.loads(filters)
+	filters = frappe.parse_json(filters)
 
 	conditions = {"docstatus": 1, "company_tax_id": ("!=", "")}
 
