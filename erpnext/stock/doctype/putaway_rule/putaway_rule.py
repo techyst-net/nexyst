@@ -111,8 +111,7 @@ def apply_putaway_rule(
 	purpose: Purpose of Stock Entry
 	sync (optional): Sync with client side only for client side calls
 	"""
-	if isinstance(items, str):
-		items = json.loads(items)
+	items = frappe.parse_json(items)
 
 	items_not_accomodated, updated_table = [], []
 	item_wise_rules = defaultdict(list)
@@ -198,7 +197,7 @@ def apply_putaway_rule(
 		frappe.msgprint(_("Applied putaway rules."), alert=True)
 		return updated_table
 
-	if sync and json.loads(sync):  # sync with client side
+	if sync and frappe.parse_json(sync):  # sync with client side
 		return items
 
 
