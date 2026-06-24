@@ -1036,8 +1036,7 @@ def make_sales_return(source_name: str, target_doc: Document | str | None = None
 def make_merge_log(invoices: str | list):
 	import json
 
-	if isinstance(invoices, str):
-		invoices = json.loads(invoices)
+	invoices = frappe.parse_json(invoices)
 
 	if len(invoices) == 0:
 		frappe.throw(_("At least one invoice has to be selected."))
