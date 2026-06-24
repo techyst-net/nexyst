@@ -80,11 +80,7 @@ def add_institution(token: str, response: str | dict):
 
 @frappe.whitelist()
 def add_bank_accounts(response: str | dict, bank: str | dict, company: str):
-	try:
-		response = frappe.parse_json(response)
-	except TypeError:
-		pass
-
+	response = frappe.parse_json(response)
 	bank = frappe.parse_json(bank)
 	result = []
 
