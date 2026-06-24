@@ -559,8 +559,7 @@ def check_credit_limit(customer, company, ignore_outstanding_sales_order=False, 
 def send_emails(
 	customer: str, customer_outstanding: float, credit_limit: float, credit_controller_users_list: str | list
 ):
-	if isinstance(credit_controller_users_list, str):
-		credit_controller_users_list = json.loads(credit_controller_users_list)
+	credit_controller_users_list = frappe.parse_json(credit_controller_users_list)
 	subject = _("Credit limit reached for customer {0}").format(customer)
 	message = _("Credit limit has been crossed for customer {0} ({1}/{2})").format(
 		customer, customer_outstanding, credit_limit
