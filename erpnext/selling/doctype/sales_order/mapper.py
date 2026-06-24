@@ -430,8 +430,7 @@ def make_sales_invoice(
 ):
 	if args is None:
 		args = {}
-	if isinstance(args, str):
-		args = json.loads(args)
+	args = frappe.parse_json(args)
 
 	# 0 qty is accepted, as the qty is uncertain for some items
 	has_unit_price_items = frappe.db.get_value("Sales Order", source_name, "has_unit_price_items")
@@ -675,8 +674,7 @@ def make_purchase_order(
 	if not selected_items:
 		return
 
-	if isinstance(selected_items, str):
-		selected_items = json.loads(selected_items)
+	selected_items = frappe.parse_json(selected_items)
 
 	def set_missing_values(source, target):
 		target.supplier = supplier
@@ -843,9 +841,9 @@ def set_delivery_date(items: list, sales_order: str) -> None:
 
 
 @frappe.whitelist()
-def make_work_orders(items: str, sales_order: str, company: str, project: str | None = None):
+def make_work_orders(items: str | dict, sales_order: str, company: str, project: str | None = None):
 	"""Make Work Orders against the given Sales Order for the given `items`"""
-	items = json.loads(items).get("items")
+	items = frappe.parse_json(items).get("items")
 	out = []
 
 	for i in items:
@@ -912,8 +910,7 @@ def make_raw_material_request(
 	if not frappe.has_permission("Sales Order", "write"):
 		frappe.throw(_("Not permitted"), frappe.PermissionError)
 
-	if isinstance(items, str):
-		items = frappe._dict(json.loads(items))
+	items = frappe._dict(frappe.parse_json(items))
 
 	for item in items.get("items"):
 		item["include_exploded_items"] = items.get("include_exploded_items")
@@ -1089,7 +1086,7 @@ def get_mapped_subcontracting_inward_order(
 		target_doc.populate_items_table()
 
 	if target_doc and isinstance(target_doc, str):
-		target_doc = json.loads(target_doc)
+		target_doc = frappe.parse_json(target_doc)
 		for key in ["service_items", "items", "received_items"]:
 			if key in target_doc:
 				del target_doc[key]
