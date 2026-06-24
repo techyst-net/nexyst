@@ -391,7 +391,7 @@ def get_item_details(item_code: str):
 
 @frappe.whitelist()
 def set_multiple_status(names: str | list[str], status: str):
-	names = json.loads(names)
+	names = frappe.parse_json(names)
 	for name in names:
 		opp = frappe.get_doc("Opportunity", name)
 		opp.status = status
