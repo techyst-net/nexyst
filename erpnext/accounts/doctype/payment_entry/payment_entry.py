@@ -1805,8 +1805,7 @@ class PaymentEntry(AccountsController):
 		if not self.references or not matched_payment_requests:
 			return
 
-		if isinstance(matched_payment_requests, str):
-			matched_payment_requests = json.loads(matched_payment_requests)
+		matched_payment_requests = frappe.parse_json(matched_payment_requests)
 
 		# modify matched_payment_requests
 		# like (reference_doctype, reference_name, allocated_amount): payment_request
@@ -2011,8 +2010,7 @@ def validate_inclusive_tax(tax, doc):
 
 @frappe.whitelist()
 def get_outstanding_reference_documents(args: str | dict, validate: bool = False):
-	if isinstance(args, str):
-		args = json.loads(args)
+	args = frappe.parse_json(args)
 
 	if args.get("party_type") == "Member":
 		return
