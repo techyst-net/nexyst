@@ -248,8 +248,7 @@ def get_dunning_letter_text(dunning_type: str, doc: str | dict, language: str | 
 	DOCTYPE = "Dunning Letter Text"
 	FIELDS = ["body_text", "closing_text", "language"]
 
-	if isinstance(doc, str):
-		doc = json.loads(doc)
+	doc = frappe.parse_json(doc)
 
 	if not language:
 		language = doc.get("language")
