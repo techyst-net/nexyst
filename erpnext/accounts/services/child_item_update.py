@@ -30,7 +30,7 @@ class ChildItemUpdater:
 		self._ordered_items: dict | None = None
 		self._purchased_items: dict | None = None
 
-	def update(self, trans_items: str) -> None:
+	def update(self, trans_items: str | list) -> None:
 		"""Process item additions, edits, and deletions from trans_items JSON."""
 		from erpnext.buying.doctype.supplier_quotation.supplier_quotation import get_purchased_items
 		from erpnext.selling.doctype.quotation.mapper import get_ordered_items

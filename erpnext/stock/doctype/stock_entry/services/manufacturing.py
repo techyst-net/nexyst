@@ -1040,8 +1040,7 @@ def ceil_qty_if_uom_has_whole_number(qty, stock_uom):
 
 @frappe.whitelist()
 def move_sample_to_retention_warehouse(company: str, items: str | list):
-	if isinstance(items, str):
-		items = json.loads(items)
+	items = frappe.parse_json(items)
 
 	retention_warehouse = frappe.get_single_value("Stock Settings", "sample_retention_warehouse")
 	stock_entry = frappe.new_doc("Stock Entry")

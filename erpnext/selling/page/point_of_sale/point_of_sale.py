@@ -347,8 +347,8 @@ def check_opening_entry(user: str):
 
 
 @frappe.whitelist()
-def create_opening_voucher(pos_profile: str, company: str, balance_details: str):
-	balance_details = json.loads(balance_details)
+def create_opening_voucher(pos_profile: str, company: str, balance_details: str | list):
+	balance_details = frappe.parse_json(balance_details)
 
 	new_pos_opening = frappe.get_doc(
 		{

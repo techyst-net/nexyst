@@ -542,8 +542,7 @@ def check_multi_currency(pr_doc):
 def is_any_doc_running(for_filter: str | dict | None = None) -> str | None:
 	running_doc = None
 	if for_filter:
-		if isinstance(for_filter, str):
-			for_filter = json.loads(for_filter)
+		for_filter = frappe.parse_json(for_filter)
 
 		running_doc = frappe.db.get_value(
 			"Process Payment Reconciliation",

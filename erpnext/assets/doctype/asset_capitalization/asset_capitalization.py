@@ -669,8 +669,7 @@ def get_service_item_details(ctx: ItemDetailsCtx) -> frappe._dict:
 
 @frappe.whitelist()
 def get_items_tagged_to_wip_composite_asset(params: dict | str):
-	if isinstance(params, str):
-		params = json.loads(params)
+	params = frappe.parse_json(params)
 
 	fields = [
 		"item_code",

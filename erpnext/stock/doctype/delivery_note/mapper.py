@@ -66,8 +66,7 @@ def make_sales_invoice(
 
 	if args is None:
 		args = {}
-	if isinstance(args, str):
-		args = json.loads(args)
+	args = frappe.parse_json(args)
 
 	doc = frappe.get_doc("Delivery Note", source_name)
 

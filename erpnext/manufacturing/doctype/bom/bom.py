@@ -585,7 +585,7 @@ class BOM(WebsiteGenerator):
 		if isinstance(kwargs, str):
 			import json
 
-			kwargs = json.loads(kwargs)
+			kwargs = frappe.parse_json(kwargs)
 
 		return kwargs
 
