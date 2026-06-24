@@ -1685,8 +1685,7 @@ class JobCard(Document):
 
 @frappe.whitelist()
 def make_time_log(kwargs: str | dict):
-	if isinstance(kwargs, str):
-		kwargs = json.loads(kwargs)
+	kwargs = frappe.parse_json(kwargs)
 
 	kwargs = frappe._dict(kwargs)
 	doc = frappe.get_doc("Job Card", kwargs.job_card_id)
@@ -1761,8 +1760,7 @@ def get_job_card_filter_conditions(jc, filters):
 	Replaces the previous raw SQL ``get_filters_cond`` based filtering so that all
 	user supplied values are passed as bound parameters via the query builder.
 	"""
-	if isinstance(filters, str):
-		filters = json.loads(filters)
+	filters = frappe.parse_json(filters)
 
 	if not filters:
 		return []
