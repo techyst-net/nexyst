@@ -931,7 +931,7 @@ def apply_payment_references(pr, payment_reference):
 
 
 def set_payment_references(payment_schedules):
-	payment_schedules = json.loads(payment_schedules) if payment_schedules else []
+	payment_schedules = frappe.parse_json(payment_schedules) if payment_schedules else []
 	payment_reference = []
 
 	for row in payment_schedules:
