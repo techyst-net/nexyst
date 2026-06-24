@@ -404,8 +404,7 @@ def make_batch(kwargs):
 def get_pos_reserved_batch_qty(filters: dict | str):
 	import json
 
-	if isinstance(filters, str):
-		filters = json.loads(filters)
+	filters = frappe.parse_json(filters)
 
 	p = frappe.qb.DocType("POS Invoice").as_("p")
 	item = frappe.qb.DocType("POS Invoice Item").as_("item")
