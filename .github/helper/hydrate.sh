@@ -16,7 +16,7 @@ db_host="${DB_HOST:-127.0.0.1}"
 # install.sh. The workflow untar'd as root with -p, so the files are already owned by ci.
 if [ "$(id -u)" = "0" ] && [ "${SKIP_SYSTEM_SETUP:-0}" = "1" ] && [ "$ci_user" != "root" ]; then
     exec su -m "$ci_user" -s /bin/bash -c \
-        "ERPNEXT_CI_USER='$ci_user' DB_HOST='$db_host' bash '$0'"
+        "ERPNEXT_CI_USER='$ci_user' DB_HOST='$db_host' DB='${DB:-}' bash '$0'"
 fi
 
 cd ~/frappe-bench

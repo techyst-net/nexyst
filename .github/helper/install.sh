@@ -74,8 +74,8 @@ run_ci_step() {
 
     echo "::group::${label}"
     date -u
-    timeout --foreground "${CI_INSTALL_STEP_TIMEOUT:-600}" "$@"
-    local exit_code=$?
+    local exit_code=0
+    timeout --foreground "${CI_INSTALL_STEP_TIMEOUT:-1800}" "$@" || exit_code=$?
     date -u
     echo "::endgroup::"
     return "$exit_code"

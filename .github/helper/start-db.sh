@@ -19,7 +19,7 @@ ci_user="${ERPNEXT_CI_USER:-frappe}"
 # refused anyway). Mirrors install.sh's user switch.
 if [ "$(id -u)" = "0" ] && [ "${SKIP_SYSTEM_SETUP:-0}" = "1" ] && [ "$ci_user" != "root" ]; then
     exec su -m "$ci_user" -s /bin/bash -c \
-        "ERPNEXT_CI_USER='$ci_user' CI_DB_DATADIR='${CI_DB_DATADIR:-}' bash '$0'"
+        "ERPNEXT_CI_USER='$ci_user' CI_DB_DATADIR='${CI_DB_DATADIR:-}' DB='${DB:-}' bash '$0'"
 fi
 
 # --- PostgreSQL (GitHub-hosted CI): run in-runner on a PGDATA so it bakes into the artifact,

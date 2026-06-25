@@ -106,6 +106,7 @@ jobs:
           WKHTMLTOX_DEB: /tmp/wkhtmltox.deb
           SKIP_SYSTEM_SETUP: "1"
           SKIP_WKHTMLTOX_SETUP: "1"
+          BENCH_CACHE_DIR: /opt/ci-bench-staging/base-cache
 
       # Clean shutdown (consistent InnoDB datadir), then stage it inside the bench for packaging.
       - name: Stop DB and stage datadir
@@ -201,7 +202,7 @@ jobs:
   coverage:
     name: Coverage Wrap Up
     needs: [test]
-    if: ${{ always() && github.event_name != 'pull_request' && !cancelled() && !failure() }}
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - name: Clone
