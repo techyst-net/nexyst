@@ -977,7 +977,7 @@ frappe.ui.form.on("Payment Entry", {
 			let to_field = fields[key][1];
 
 			if (filters[from_field] && !filters[to_field]) {
-				frappe.throw(__("Error: {0} is mandatory field", [to_field.replace(/_/g, " ")]));
+				frappe.throw(__("Error: {0} is a mandatory field", [to_field.replace(/_/g, " ")]));
 			} else if (filters[from_field] && filters[from_field] > filters[to_field]) {
 				frappe.throw(
 					__("{0}: {1} must be less than {2}", [
