@@ -74,8 +74,8 @@ run_ci_step() {
 
     echo "::group::${label}"
     date -u
-    timeout --foreground "${CI_INSTALL_STEP_TIMEOUT:-600}" "$@"
-    local exit_code=$?
+    local exit_code=0
+    timeout --foreground "${CI_INSTALL_STEP_TIMEOUT:-1800}" "$@" || exit_code=$?
     date -u
     echo "::endgroup::"
     return "$exit_code"
@@ -296,6 +296,15 @@ fi
 if [ "$DB" == "postgres" ];then
     echo "travis" | psql -h 127.0.0.1 -p 5432 -c "CREATE DATABASE test_frappe" -U postgres;
     echo "travis" | psql -h 127.0.0.1 -p 5432 -c "CREATE USER test_frappe WITH PASSWORD 'test_frappe'" -U postgres;
+
+    # Disposable CI DB: durability off for speed (postgres fsyncs every commit by default, which
+    # dominates a commit-heavy suite). All reloadable, no restart. The postgres workflow runs a
+    # service-container DB and never calls start-db.sh, so the flags must be applied here.
+    echo "travis" | psql -h 127.0.0.1 -p 5432 -U postgres \
+        -c "ALTER SYSTEM SET synchronous_commit = 'off'" \
+        -c "ALTER SYSTEM SET fsync = 'off'" \
+        -c "ALTER SYSTEM SET full_page_writes = 'off'" \
+        -c "SELECT pg_reload_conf()";
 fi
 
 cd ~/frappe-bench || exit
