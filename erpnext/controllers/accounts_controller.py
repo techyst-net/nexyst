@@ -274,7 +274,7 @@ class AccountsController(TransactionBase):
 			if invalid_advances := [x for x in self.advances if not x.reference_type or not x.reference_name]:
 				frappe.throw(
 					_(
-						"Rows: {0} in {1} section are Invalid. Reference Name should point to a valid Payment Entry or Journal Entry."
+						"Rows: {0} in {1} section are invalid. Reference Name should point to a valid Payment Entry or Journal Entry."
 					).format(
 						frappe.bold(comma_and([x.idx for x in invalid_advances])),
 						frappe.bold(_("Advance Payments")),
@@ -1233,7 +1233,7 @@ class AccountsController(TransactionBase):
 				{"sales_order": None, "sales_order_item": None},
 			)
 
-			frappe.msgprint(_("Purchase Orders {0} are un-linked").format("\n".join(linked_po)))
+			frappe.msgprint(_("Purchase Orders {0} are unlinked").format("\n".join(linked_po)))
 
 	def get_company_default(self, fieldname, ignore_validation=False):
 		from erpnext.accounts.utils import get_company_default
