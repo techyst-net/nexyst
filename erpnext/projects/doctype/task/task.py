@@ -363,8 +363,8 @@ def get_project(doctype: str, txt: str, searchfield: str, start: int, page_len: 
 
 
 @frappe.whitelist()
-def set_multiple_status(names: str, status: str):
-	names = json.loads(names)
+def set_multiple_status(names: str | list, status: str):
+	names = frappe.parse_json(names)
 	for name in names:
 		task = frappe.get_doc("Task", name)
 		task.status = status
@@ -459,8 +459,8 @@ def add_node():
 
 
 @frappe.whitelist()
-def add_multiple_tasks(data: str, parent: str):
-	data = json.loads(data)
+def add_multiple_tasks(data: str | list, parent: str):
+	data = frappe.parse_json(data)
 	new_doc = {"doctype": "Task", "parent_task": parent if parent != "All Tasks" else ""}
 	new_doc["project"] = frappe.db.get_value("Task", {"name": parent}, "project") or ""
 

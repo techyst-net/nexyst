@@ -169,7 +169,7 @@ class calculate_taxes_and_totals:
 			return
 
 		if not self.discount_amount_applied:
-			do_not_round_fields = ["valuation_rate", "incoming_rate"]
+			do_not_round_fields = ["valuation_rate", "incoming_rate", "sales_incoming_rate"]
 
 			for item in self.doc.items:
 				self.doc.round_floats_in(item, do_not_round_fields=do_not_round_fields)
@@ -342,7 +342,7 @@ class calculate_taxes_and_totals:
 				self._set_in_company_currency(item, ["net_rate", "net_amount"])
 
 	def _load_item_tax_rate(self, item_tax_rate):
-		return json.loads(item_tax_rate) if item_tax_rate else {}
+		return frappe.parse_json(item_tax_rate) if item_tax_rate else {}
 
 	def get_current_tax_fraction(self, tax, item_tax_map):
 		"""

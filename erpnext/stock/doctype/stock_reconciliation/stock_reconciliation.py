@@ -1239,8 +1239,7 @@ def get_stock_balance_for(
 
 	item_dict = frappe.get_cached_value("Item", item_code, ["has_serial_no", "has_batch_no"], as_dict=1)
 
-	if isinstance(row, str):
-		row = json.loads(row)
+	row = frappe.parse_json(row)
 
 	if isinstance(row, dict):
 		row = frappe._dict(row)

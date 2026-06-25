@@ -33,7 +33,7 @@ def create_prospect_against_crm_deal():
 		pass
 
 	if doc.contacts and len(doc.contacts):
-		create_contacts(json.loads(doc.contacts), prospect.company_name, "Prospect", prospect_name)
+		create_contacts(frappe.parse_json(doc.contacts), prospect.company_name, "Prospect", prospect_name)
 
 	create_address("Prospect", prospect_name, doc.address)
 	frappe.response["message"] = prospect_name
@@ -69,8 +69,7 @@ def create_contacts(contacts, organization=None, link_doctype=None, link_docname
 def create_address(doctype, docname, address):
 	if not address:
 		return
-	if isinstance(address, str):
-		address = json.loads(address)
+	address = frappe.parse_json(address)
 	try:
 		_address = frappe.db.exists("Address", address.get("name"))
 		if not _address:
@@ -153,7 +152,7 @@ def create_customer(customer_data: dict | None = None):
 			customer.insert(ignore_permissions=True)
 			customer_name = customer.name
 
-		contacts = json.loads(customer_data.get("contacts"))
+		contacts = frappe.parse_json(customer_data.get("contacts"))
 		create_contacts(contacts, customer_name, "Customer", customer_name)
 		create_address("Customer", customer_name, customer_data.get("address"))
 		return customer_name

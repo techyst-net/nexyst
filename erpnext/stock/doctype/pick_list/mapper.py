@@ -113,8 +113,7 @@ def create_dn_for_pick_lists(
 	"""Get Items from Multiple Pick Lists and create a Delivery Note for filtered customer"""
 	if kwargs is None:
 		kwargs = {}
-	if isinstance(kwargs, str):
-		kwargs = json.loads(kwargs)
+	kwargs = frappe.parse_json(kwargs)
 
 	pick_list = frappe.get_doc("Pick List", source_name)
 	validate_item_locations(pick_list)
@@ -282,8 +281,8 @@ def add_product_bundles_to_target(pick_list, target_doc, item_mapper, sales_orde
 
 
 @frappe.whitelist()
-def create_stock_entry(pick_list: str):
-	pick_list = frappe.get_doc(json.loads(pick_list))
+def create_stock_entry(pick_list: str | dict):
+	pick_list = frappe.get_doc(frappe.parse_json(pick_list))
 	validate_item_locations(pick_list)
 
 	if stock_entry_exists(pick_list.get("name")):
