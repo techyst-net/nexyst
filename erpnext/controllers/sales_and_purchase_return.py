@@ -77,7 +77,7 @@ def validate_return_against(doc):
 			# validate update stock
 			if doc.doctype == "Sales Invoice" and doc.update_stock and not ref_doc.update_stock:
 				frappe.throw(
-					_("'Update Stock' can not be checked because items are not delivered via {0}").format(
+					_("'Update Stock' cannot be checked because items are not delivered via {0}").format(
 						doc.return_against
 					)
 				)

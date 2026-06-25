@@ -131,9 +131,9 @@ class calculate_taxes_and_totals:
 					if item.item_tax_template not in taxes:
 						item.item_tax_template = taxes[0]
 						frappe.msgprint(
-							_("Row {0}: Item Tax template updated as per validity and rate applied").format(
-								item.idx, frappe.bold(item.item_code)
-							)
+							_(
+								"Row {0}: Item Tax template for {1} updated as per validity and rate applied"
+							).format(item.idx, frappe.bold(item.item_code))
 						)
 
 						# For correct tax_amount calculation re-computation is required
@@ -564,7 +564,7 @@ class calculate_taxes_and_totals:
 				+ "<br>".join(invalid_rows)
 			)
 
-			frappe.throw(_(message))
+			frappe.throw(message)
 
 	def get_tax_amount_if_for_valuation_or_deduction(self, tax_amount, tax):
 		# if just for valuation, do not add the tax amount in total
