@@ -171,7 +171,7 @@ def add_bank_accounts(response: str | dict, bank: str | dict, company: str):
 			except Exception:
 				frappe.log_error("Plaid Link Error")
 				frappe.throw(
-					_("There was an error updating Bank Account {} while linking with Plaid.").format(
+					_("There was an error updating Bank Account {0} while linking with Plaid.").format(
 						existing_bank_account
 					),
 					title=_("Plaid Link Failed"),
