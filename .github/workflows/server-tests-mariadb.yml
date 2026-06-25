@@ -135,8 +135,8 @@ jobs:
             --exclude='.git' --exclude='node_modules' frappe-bench
           ls -lh "/opt/ci-bench-staging/${GITHUB_RUN_ID}.tar.gz"
 
-  # Fan-out: each shard downloads the bench, untars it, restores the DB dump, and runs its
-  # slice of the suite. No clone, no build, no reinstall on the self-hosted boxes.
+  # Fan-out: each shard downloads the bench, untars it, starts MariaDB on the baked datadir, and
+  # runs its slice of the suite. No clone, no build, no reinstall, no DB dump restore on the shards.
   test:
     name: Python Unit Tests
     needs: setup
