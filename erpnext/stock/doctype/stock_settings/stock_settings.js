@@ -90,7 +90,7 @@ frappe.ui.form.on("Stock Settings", {
 		if (!frm.doc.disable_serial_no_and_batch_selector && frm.doc.use_serial_batch_fields) {
 			frm.set_value("disable_serial_no_and_batch_selector", 1);
 			frappe.msgprint(
-				__("Serial No and Batch Selector cannot be use when Use Serial / Batch Fields is enabled.")
+				__("Serial No and Batch Selector cannot be used when Use Serial / Batch Fields is enabled.")
 			);
 		}
 	},
