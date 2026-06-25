@@ -2432,6 +2432,8 @@ def get_serial_nos_based_on_filters(filters, fields, order_by, kwargs):
 	if kwargs.based_on == "LIFO":
 		query = query.orderby(order_by_column, order=frappe.query_builder.Order.desc)
 	else:
+		if order_by == "amc_expiry_date":
+			query = query.orderby(order_by_column.isnull(), order=frappe.query_builder.Order.desc)
 		query = query.orderby(order_by_column)
 
 	for key, value in filters.items():
