@@ -387,12 +387,29 @@ def item_query(doctype: Any, txt: str | None, searchfield: Any, start: int, page
 		]
 
 		if reference_doctype == "Stock Entry":
-			my_filters.extend(
-				[
-					"and",
-					["items.t_warehouse", "is", "not set"],
-				]
-			)
+			if filters.get("inspection_type") == "Incoming":
+				purpose = frappe.db.get_value("Stock Entry", filters.get("reference_name"), "purpose")
+				if purpose == "Manufacture":
+					my_filters.extend(
+						[
+							"and",
+							["items.is_finished_item", "=", 1],
+						]
+					)
+				else:
+					my_filters.extend(
+						[
+							"and",
+							["items.t_warehouse", "is", "set"],
+						]
+					)
+			elif filters.get("inspection_type") == "Outgoing":
+				my_filters.extend(
+					[
+						"and",
+						["items.s_warehouse", "is", "set"],
+					]
+				)
 		elif filters.get("inspection_type") != "In Process":
 			my_filters.extend(
 				[

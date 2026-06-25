@@ -199,6 +199,17 @@ frappe.ui.form.on("Stock Entry", {
 	},
 
 	setup_quality_inspection: function (frm) {
+		const incoming_purposes = ["Manufacture", "Material Receipt", "Repack"];
+
+		// Show the Quality Inspection field only on rows that require inspection.
+		frm.get_docfield("items", "quality_inspection").depends_on = (row) =>
+			frm.doc.inspection_required &&
+			(frm.doc.purpose === "Manufacture"
+				? row.is_finished_item
+				: incoming_purposes.includes(frm.doc.purpose)
+				? row.t_warehouse
+				: row.s_warehouse && row.s_warehouse !== row.t_warehouse);
+
 		if (!frm.doc.inspection_required) {
 			return;
 		}
@@ -216,7 +227,6 @@ frappe.ui.form.on("Stock Entry", {
 		}
 
 		let quality_inspection_field = frm.get_docfield("items", "quality_inspection");
-		const incoming_purposes = ["Manufacture", "Material Receipt"];
 		quality_inspection_field.get_route_options_for_new_doc = function (row) {
 			if (frm.is_new()) return {};
 			return {

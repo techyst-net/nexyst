@@ -49,8 +49,16 @@ class QualityInspectionService:
 				"Item", row.item_code, inspection_required_fieldname
 			):
 				qi_required = True
-			elif self.doc.doctype == "Stock Entry" and row.t_warehouse:
-				qi_required = True  # inward stock needs inspection
+			elif self.doc.doctype == "Stock Entry":
+				if self.doc.purpose == "Manufacture":
+					# only the finished good needs inspection
+					if row.is_finished_item:
+						qi_required = True
+				elif self.doc.purpose in ["Material Receipt", "Repack"]:
+					if row.t_warehouse:
+						qi_required = True
+				elif row.s_warehouse and row.s_warehouse != row.t_warehouse:
+					qi_required = True
 
 			if row.get("secondary_item_type") or row.get("is_legacy_scrap_item"):
 				continue

@@ -405,7 +405,7 @@ erpnext.TransactionController = class TransactionController extends erpnext.taxe
 		}
 
 		const incoming_doctypes = ["Purchase Receipt", "Purchase Invoice", "Subcontracting Receipt"];
-		const incoming_purposes = ["Manufacture", "Material Receipt"];
+		const incoming_purposes = ["Manufacture", "Material Receipt", "Repack"];
 		const inspection_type =
 			incoming_doctypes.includes(this.frm.doc.doctype) ||
 			(this.frm.doc.doctype === "Stock Entry" && incoming_purposes.includes(this.frm.doc.purpose))
@@ -2967,7 +2967,7 @@ erpnext.TransactionController = class TransactionController extends erpnext.taxe
 
 		const me = this;
 		const incoming_doctypes = ["Purchase Receipt", "Purchase Invoice", "Subcontracting Receipt"];
-		const incoming_purposes = ["Manufacture", "Material Receipt"];
+		const incoming_purposes = ["Manufacture", "Material Receipt", "Repack"];
 		const inspection_type =
 			incoming_doctypes.includes(this.frm.doc.doctype) ||
 			(this.frm.doc.doctype === "Stock Entry" && incoming_purposes.includes(this.frm.doc.purpose))
@@ -3065,13 +3065,20 @@ erpnext.TransactionController = class TransactionController extends erpnext.taxe
 	}
 
 	has_inspection_required(item) {
-		if (this.frm.doc.doctype === "Stock Entry" && this.frm.doc.purpose == "Manufacture") {
-			if (item.is_finished_item && !item.quality_inspection) {
-				return true;
-			}
-		} else if (!item.quality_inspection) {
+		if (item.quality_inspection) {
+			return false;
+		}
+		if (this.frm.doc.doctype !== "Stock Entry") {
 			return true;
 		}
+		const purpose = this.frm.doc.purpose;
+		if (purpose === "Manufacture") {
+			return !!item.is_finished_item;
+		}
+		if (["Material Receipt", "Repack"].includes(purpose)) {
+			return !!item.t_warehouse;
+		}
+		return !!item.s_warehouse && item.s_warehouse !== item.t_warehouse;
 	}
 
 	get_method_for_payment() {
