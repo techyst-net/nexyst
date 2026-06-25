@@ -40,24 +40,15 @@ class TestStockBalance(ERPNextTestSuite):
 			make_stock_entry(item_code=item_code, **movement)
 
 	def assertInvariants(self, rows):
-		last_balance = frappe.db.sql(
-			"""
-			WITH last_balances AS (
-				SELECT item_code, warehouse,
-					stock_value, qty_after_transaction,
-					ROW_NUMBER() OVER (PARTITION BY item_code, warehouse
-						ORDER BY timestamp(posting_date, posting_time) desc, creation desc)
-						AS rn
-					FROM `tabStock Ledger Entry`
-					where is_cancelled=0
-				)
-				SELECT * FROM last_balances WHERE rn = 1""",
-			as_dict=True,
-		)
-
 		item_wh_stock = _dict()
 
-		for line in last_balance:
+		# Latest balance per (item_code, warehouse): first row wins because of the desc ordering.
+		for line in frappe.get_all(
+			"Stock Ledger Entry",
+			filters={"is_cancelled": 0},
+			fields=["item_code", "warehouse", "stock_value", "qty_after_transaction"],
+			order_by="posting_datetime desc, creation desc",
+		):
 			item_wh_stock.setdefault((line.item_code, line.warehouse), line)
 
 		for row in rows:
@@ -102,6 +93,33 @@ class TestStockBalance(ERPNextTestSuite):
 			rows[0],
 		)
 		self.assertInvariants(rows)
+
+	def test_include_zero_stock_items(self):
+		"""Items whose balance nets to zero are hidden by default and shown only when the filter is on."""
+		self.generate_stock_ledger(
+			self.item.name,
+			[
+				_dict(qty=5, rate=10),
+				_dict(qty=5, from_warehouse="_Test Warehouse - _TC", to_warehouse=None),
+			],
+		)
+
+		self.assertEqual(stock_balance(self.filters), [])
+
+		rows = stock_balance(self.filters.update({"include_zero_stock_items": 1}))
+		self.assertEqual(rows[0].item_code, self.item.name)
+		self.assertEqual(rows[0].bal_qty, 0)
+		self.assertEqual(rows[0].bal_val, 0)
+
+	def test_show_stock_ageing_data_adds_ageing_columns(self):
+		"""The ageing columns appear only when 'show stock ageing data' is on."""
+		self.generate_stock_ledger(self.item.name, [_dict(qty=5, rate=10, posting_date="2021-01-01")])
+
+		self.assertNotIn("average_age", stock_balance(self.filters)[0])
+
+		rows = stock_balance(self.filters.update({"show_stock_ageing_data": 1}))
+		self.assertIn("average_age", rows[0])
+		self.assertGreater(rows[0].average_age, 0)  # stock has been held since 2021
 
 	@ERPNextTestSuite.change_settings("System Settings", {"float_precision": 3, "currency_precision": 3})
 	def test_opening_balance(self):

@@ -350,12 +350,14 @@ class ExchangeRateRevaluation(Document):
 		zero_balance_jv = self.make_jv_for_zero_balance()
 		if zero_balance_jv:
 			frappe.msgprint(
-				f"Zero Balance Journal: {get_link_to_form('Journal Entry', zero_balance_jv.name)}"
+				_("Zero Balance Journal: {0}").format(get_link_to_form("Journal Entry", zero_balance_jv.name))
 			)
 
 		revaluation_jv = self.make_jv_for_revaluation()
 		if revaluation_jv:
-			frappe.msgprint(f"Revaluation Journal: {get_link_to_form('Journal Entry', revaluation_jv.name)}")
+			frappe.msgprint(
+				_("Revaluation Journal: {0}").format(get_link_to_form("Journal Entry", revaluation_jv.name))
+			)
 
 		return {
 			"revaluation_jv": revaluation_jv.name if revaluation_jv else None,
@@ -605,7 +607,10 @@ def calculate_exchange_rate_using_last_gle(company, account, party_type, party):
 
 		last_exchange_rate = (
 			qb.from_(gl)
-			.select((gl.debit - gl.credit) / (gl.debit_in_account_currency - gl.credit_in_account_currency))
+			.select(
+				(gl.debit - gl.credit)
+				/ NullIf(gl.debit_in_account_currency - gl.credit_in_account_currency, 0)
+			)
 			.where(
 				(gl.voucher_type == voucher_type) & (gl.voucher_no == voucher_no) & (gl.account == account)
 			)
@@ -626,6 +631,8 @@ def get_account_details(
 	party: str | None = None,
 	rounding_loss_allowance: float = 0.0,
 ):
+	frappe.has_permission("Account", doc=account, throw=True)
+
 	if not (company and posting_date):
 		frappe.throw(_("Company and Posting Date is mandatory"))
 

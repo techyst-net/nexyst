@@ -389,7 +389,7 @@ frappe.ui.form.on("Work Order", {
 			function () {
 				const selected_rows = dialog.fields_dict["operations"].grid.get_selected_children();
 				if (selected_rows.length == 0) {
-					frappe.msgprint(__("Please select atleast one operation to create Job Card"));
+					frappe.msgprint(__("Please select at least one operation to create Job Card"));
 					return;
 				}
 				frappe.call({
@@ -760,7 +760,7 @@ erpnext.work_order = {
 			frm.add_custom_button(
 				__("Close"),
 				function () {
-					frappe.confirm(__("Once the Work Order is Closed. It can't be resumed."), () => {
+					frappe.confirm(__("Once the Work Order is Closed, it cannot be resumed."), () => {
 						erpnext.work_order.change_work_order_status(frm, "Closed");
 					});
 				},

@@ -1058,9 +1058,9 @@ def get_auto_reconcile_message(partially_reconciled, reconciled):
 
 
 @frappe.whitelist()
-def reconcile_vouchers(bank_transaction_name: str | int, vouchers: str, is_new_voucher: bool = False):
+def reconcile_vouchers(bank_transaction_name: str | int, vouchers: str | list, is_new_voucher: bool = False):
 	# updated clear date of all the vouchers based on the bank transaction
-	vouchers = json.loads(vouchers)
+	vouchers = frappe.parse_json(vouchers)
 	transaction = frappe.get_doc("Bank Transaction", bank_transaction_name)
 	transaction.add_payment_entries(vouchers, is_new_voucher)
 	transaction.validate_duplicate_references()

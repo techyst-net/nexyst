@@ -11,7 +11,7 @@ from frappe.model import child_table_fields, default_fields
 from frappe.model.document import Document
 from frappe.model.meta import get_field_precision
 from frappe.model.utils import get_fetch_values
-from frappe.query_builder.functions import IfNull, Sum
+from frappe.query_builder.functions import IfNull, NullIf, Sum
 from frappe.utils import add_days, add_months, cint, cstr, flt, get_link_to_form, getdate, parse_json
 
 import erpnext
@@ -90,8 +90,7 @@ def get_item_details(
 	item = frappe.get_cached_doc("Item", ctx.item_code)
 	validate_item_details(ctx, item)
 
-	if isinstance(doc, str):
-		doc = json.loads(doc)
+	doc = frappe.parse_json(doc)
 
 	if doc:
 		ctx.transaction_date = doc.get("transaction_date") or doc.get("posting_date")
@@ -1122,17 +1121,20 @@ def insert_item_price(ctx: ItemDetailsCtx):
 		or getdate()
 	)
 
-	item_prices = frappe.get_all(
-		"Item Price",
-		filters={
-			"item_code": ctx.item_code,
-			"price_list": ctx.price_list,
-			"currency": ctx.currency,
-			"uom": ctx.stock_uom,
-		},
-		fields=["name", "price_list_rate", "valid_from", "valid_upto"],
-		order_by="valid_from desc, creation desc",
-	)
+	ip = frappe.qb.DocType("Item Price")
+	item_prices = (
+		frappe.qb.from_(ip)
+		.select(ip.name, ip.price_list_rate, ip.valid_from, ip.valid_upto)
+		.where(
+			(ip.item_code == ctx.item_code)
+			& (ip.price_list == ctx.price_list)
+			& (ip.currency == ctx.currency)
+			& (ip.uom == ctx.stock_uom)
+		)
+		.orderby(ip.valid_from.isnull(), order=frappe.qb.asc)
+		.orderby(ip.valid_from, order=frappe.qb.desc)
+		.orderby(ip.creation, order=frappe.qb.desc)
+	).run(as_dict=True)
 	item_price = next(
 		(
 			row
@@ -1234,6 +1236,7 @@ def get_item_price(
 			& (ip.price_list == pctx.price_list)
 			& (IfNull(ip.uom, "").isin(["", pctx.uom]))
 		)
+		.orderby(ip.valid_from.isnull(), order=frappe.qb.asc)
 		.orderby(ip.valid_from, order=frappe.qb.desc)
 		.orderby(IfNull(ip.batch_no, ""), order=frappe.qb.desc)
 		.orderby(ip.uom, order=frappe.qb.desc)
@@ -1734,7 +1737,7 @@ def get_valuation_rate(item_code: str, company: str, warehouse: str | None = Non
 		pi_item = frappe.qb.DocType("Purchase Invoice Item")
 		valuation_rate = (
 			frappe.qb.from_(pi_item)
-			.select(Sum(pi_item.base_net_amount) / Sum(pi_item.qty * pi_item.conversion_factor))
+			.select(Sum(pi_item.base_net_amount) / NullIf(Sum(pi_item.qty * pi_item.conversion_factor), 0))
 			.where((pi_item.docstatus == 1) & (pi_item.item_code == item_code))
 		).run()
 

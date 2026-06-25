@@ -253,8 +253,7 @@ def get_supplied_items(
 def get_items_from_subcontract_order(source_name: str, target_doc: str | Document | None = None):
 	from erpnext.controllers.subcontracting_controller import make_rm_stock_entry
 
-	if isinstance(target_doc, str):
-		target_doc = frappe.get_doc(json.loads(target_doc))
+	target_doc = frappe.get_doc(frappe.parse_json(target_doc))
 
 	order_doctype = "Purchase Order" if target_doc.purchase_order else "Subcontracting Order"
 	target_doc = make_rm_stock_entry(

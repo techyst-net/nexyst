@@ -900,16 +900,13 @@ def get_dashboard_info(party_type, party, loyalty_program=None):
 			d.company, {"grand_total": d.grand_total, "base_grand_total": d.base_grand_total}
 		)
 
+	gle = frappe.qb.DocType("GL Entry")
 	company_wise_total_unpaid = frappe._dict(
-		frappe.db.sql(
-			"""
-		select company, sum(debit_in_account_currency) - sum(credit_in_account_currency)
-		from `tabGL Entry`
-		where party_type = %s and party=%s
-		and is_cancelled = 0
-		group by company""",
-			(party_type, party),
-		)
+		frappe.qb.from_(gle)
+		.select(gle.company, Sum(gle.debit_in_account_currency) - Sum(gle.credit_in_account_currency))
+		.where((gle.party_type == party_type) & (gle.party == party) & (gle.is_cancelled == 0))
+		.groupby(gle.company)
+		.run()
 	)
 
 	for d in companies:
@@ -937,6 +934,15 @@ def get_dashboard_info(party_type, party, loyalty_program=None):
 
 		if party_type == "Supplier":
 			info["total_unpaid"] = -1 * info["total_unpaid"]
+
+		if info["total_unpaid"] < 0:
+			info["balance_label"] = (
+				"Total Advance Paid" if party_type == "Supplier" else "Total Advance Received"
+			)
+			info["balance_amount"] = abs(info["total_unpaid"])
+		else:
+			info["balance_label"] = "Total Unpaid"
+			info["balance_amount"] = info["total_unpaid"]
 
 		company_wise_info.append(info)
 

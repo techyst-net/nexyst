@@ -596,6 +596,7 @@ accounting_dimension_doctypes = [
 	"Account Closing Balance",
 	"Supplier Quotation",
 	"Supplier Quotation Item",
+	"Request for Quotation Item",
 	"Payment Reconciliation",
 	"Payment Reconciliation Allocation",
 	"Payment Request",
@@ -710,6 +711,10 @@ default_log_clearing_doctypes = {
 }
 
 export_python_type_annotations = True
+
+# Send non-GET requests for ERPNext's endpoints as native `application/json`
+# bodies instead of form-encoded, per-key JSON-stringified values.
+use_json_request_body = True
 
 fields_for_group_similar_items = ["qty", "amount"]
 
