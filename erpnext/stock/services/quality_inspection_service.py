@@ -26,6 +26,24 @@ INSPECTION_FIELDNAME_MAP = {
 	"Delivery Note": "inspection_required_before_delivery",
 }
 
+QI_INCOMING_PURPOSES = (
+	"Material Receipt",
+	"Repack",
+	"Receive from Customer",
+	"Subcontracting Return",
+)
+
+
+def stock_entry_row_requires_inspection(purpose, row):
+	"""Check if this Stock Entry row need a Quality Inspection."""
+	if row.get("secondary_item_type") or row.get("is_legacy_scrap_item"):
+		return False
+	if purpose == "Manufacture":
+		return bool(row.is_finished_item)
+	if purpose in QI_INCOMING_PURPOSES:
+		return bool(row.t_warehouse)
+	return bool(row.s_warehouse and row.s_warehouse != row.t_warehouse)
+
 
 class QualityInspectionService:
 	def __init__(self, doc) -> None:
@@ -50,15 +68,7 @@ class QualityInspectionService:
 			):
 				qi_required = True
 			elif self.doc.doctype == "Stock Entry":
-				if self.doc.purpose == "Manufacture":
-					# only the finished good needs inspection
-					if row.is_finished_item:
-						qi_required = True
-				elif self.doc.purpose in ["Material Receipt", "Repack"]:
-					if row.t_warehouse:
-						qi_required = True
-				elif row.s_warehouse and row.s_warehouse != row.t_warehouse:
-					qi_required = True
+				qi_required = stock_entry_row_requires_inspection(self.doc.purpose, row)
 
 			if row.get("secondary_item_type") or row.get("is_legacy_scrap_item"):
 				continue

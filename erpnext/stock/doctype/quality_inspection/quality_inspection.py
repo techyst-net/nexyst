@@ -13,6 +13,7 @@ from frappe.utils import cint, flt, get_link_to_form, get_number_format_info
 from erpnext.stock.doctype.quality_inspection_template.quality_inspection_template import (
 	get_template_details,
 )
+from erpnext.stock.services.quality_inspection_service import QI_INCOMING_PURPOSES
 
 
 class QualityInspection(Document):
@@ -387,23 +388,22 @@ def item_query(doctype: Any, txt: str | None, searchfield: Any, start: int, page
 		]
 
 		if reference_doctype == "Stock Entry":
-			if filters.get("inspection_type") == "Incoming":
-				purpose = frappe.db.get_value("Stock Entry", filters.get("reference_name"), "purpose")
-				if purpose == "Manufacture":
-					my_filters.extend(
-						[
-							"and",
-							["items.is_finished_item", "=", 1],
-						]
-					)
-				else:
-					my_filters.extend(
-						[
-							"and",
-							["items.t_warehouse", "is", "set"],
-						]
-					)
-			elif filters.get("inspection_type") == "Outgoing":
+			purpose = frappe.get_cached_value("Stock Entry", filters.get("reference_name"), "purpose")
+			if purpose == "Manufacture":
+				my_filters.extend(
+					[
+						"and",
+						["items.is_finished_item", "=", 1],
+					]
+				)
+			elif purpose in QI_INCOMING_PURPOSES:
+				my_filters.extend(
+					[
+						"and",
+						["items.t_warehouse", "is", "set"],
+					]
+				)
+			else:
 				my_filters.extend(
 					[
 						"and",

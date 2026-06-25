@@ -199,16 +199,9 @@ frappe.ui.form.on("Stock Entry", {
 	},
 
 	setup_quality_inspection: function (frm) {
-		const incoming_purposes = ["Manufacture", "Material Receipt", "Repack"];
-
-		// Show the Quality Inspection field only on rows that require inspection.
 		frm.get_docfield("items", "quality_inspection").depends_on = (row) =>
 			frm.doc.inspection_required &&
-			(frm.doc.purpose === "Manufacture"
-				? row.is_finished_item
-				: incoming_purposes.includes(frm.doc.purpose)
-				? row.t_warehouse
-				: row.s_warehouse && row.s_warehouse !== row.t_warehouse);
+			erpnext.stock.row_requires_quality_inspection(frm.doc.purpose, row);
 
 		if (!frm.doc.inspection_required) {
 			return;
@@ -230,7 +223,9 @@ frappe.ui.form.on("Stock Entry", {
 		quality_inspection_field.get_route_options_for_new_doc = function (row) {
 			if (frm.is_new()) return {};
 			return {
-				inspection_type: incoming_purposes.includes(frm.doc.purpose) ? "Incoming" : "Outgoing",
+				inspection_type: erpnext.stock.is_incoming_qi_purpose(frm.doc.purpose)
+					? "Incoming"
+					: "Outgoing",
 				reference_type: frm.doc.doctype,
 				reference_name: frm.doc.name,
 				child_row_reference: row.doc.name,
