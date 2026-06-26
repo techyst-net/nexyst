@@ -3,7 +3,6 @@
 
 import frappe
 
-from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.report.item_where_used.item_where_used import execute
 from erpnext.tests.utils import ERPNextTestSuite
 
@@ -16,8 +15,8 @@ class TestItemWhereUsed(ERPNextTestSuite):
 		return execute(filters)[1]
 
 	def test_item_used_in_bom_listed(self):
-		raw_material = make_item(properties={"is_stock_item": 1}).name
-		finished_good = make_item(properties={"is_stock_item": 1}).name
+		raw_material = "_Test Item"
+		finished_good = "_Test FG Item"
 
 		bom = frappe.get_doc(
 			{
