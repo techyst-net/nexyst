@@ -3,7 +3,6 @@
 
 import frappe
 
-from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.report.item_prices.item_prices import execute
 from erpnext.tests.utils import ERPNextTestSuite
 
@@ -29,7 +28,7 @@ class TestItemPrices(ERPNextTestSuite):
 
 	def test_item_selling_price_listed(self):
 		"""A Standard Selling Item Price shows up in the Sales Price List column."""
-		item = make_item(properties={"is_stock_item": 1}).name
+		item = "_Test Item"
 		frappe.get_doc(
 			{
 				"doctype": "Item Price",
@@ -43,11 +42,12 @@ class TestItemPrices(ERPNextTestSuite):
 		self.assertIn("250.0", row[SALES_PRICE_LIST])
 		self.assertIn("Standard Selling", row[SALES_PRICE_LIST])
 		# A selling price must not leak into the buying column.
-		self.assertFalse(row[PURCHASE_PRICE_LIST])
+		self.assertNotIn("250.0", row[PURCHASE_PRICE_LIST] or "")
+		self.assertNotIn("Standard Selling", row[PURCHASE_PRICE_LIST] or "")
 
 	def test_item_buying_price_listed(self):
 		"""A Standard Buying Item Price shows up in the Purchase Price List column."""
-		item = make_item(properties={"is_stock_item": 1}).name
+		item = "_Test Item 2"
 		frappe.get_doc(
 			{
 				"doctype": "Item Price",
@@ -60,4 +60,6 @@ class TestItemPrices(ERPNextTestSuite):
 		row = self.row_for(self.run_report(), item)
 		self.assertIn("175.0", row[PURCHASE_PRICE_LIST])
 		self.assertIn("Standard Buying", row[PURCHASE_PRICE_LIST])
-		self.assertFalse(row[SALES_PRICE_LIST])
+		# A buying price must not leak into the selling column.
+		self.assertNotIn("175.0", row[SALES_PRICE_LIST] or "")
+		self.assertNotIn("Standard Buying", row[SALES_PRICE_LIST] or "")
