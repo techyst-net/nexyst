@@ -3,7 +3,6 @@
 
 import frappe
 
-from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 from erpnext.stock.report.incorrect_stock_value_report.incorrect_stock_value_report import execute
@@ -33,7 +32,7 @@ class TestIncorrectStockValueReport(ERPNextTestSuite):
 	def test_balanced_account_has_no_discrepancy(self):
 		warehouse = create_warehouse("_Test ISV WH", company=COMPANY)
 		account = frappe.get_value("Warehouse", warehouse, "account")
-		item = make_item(properties={"is_stock_item": 1}).name
+		item = "_Test Item"
 
 		make_stock_entry(
 			item_code=item,
