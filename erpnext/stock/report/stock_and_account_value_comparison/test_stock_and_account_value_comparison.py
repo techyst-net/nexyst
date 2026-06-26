@@ -3,7 +3,6 @@
 
 import frappe
 
-from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 from erpnext.stock.report.stock_and_account_value_comparison.stock_and_account_value_comparison import (
@@ -18,7 +17,7 @@ class TestStockAndAccountValueComparison(ERPNextTestSuite):
 	def test_balanced_warehouse_not_flagged(self):
 		warehouse = create_warehouse("_Test SAVC WH", company=COMPANY)
 		account = frappe.get_value("Warehouse", warehouse, "account")
-		item = make_item(properties={"is_stock_item": 1}).name
+		item = "_Test Item"
 
 		make_stock_entry(
 			item_code=item,
