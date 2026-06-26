@@ -14,7 +14,7 @@ class TestNegativeBatchReport(ERPNextTestSuite):
 			frappe._dict(
 				{
 					"company": "_Test Company",
-					"warehouse": "_Test Warehouse - _TC",
+					"warehouse": "Stores - _TC",
 					"item_code": item_code,
 				}
 			)
@@ -35,14 +35,14 @@ class TestNegativeBatchReport(ERPNextTestSuite):
 
 		make_stock_entry(
 			item_code=item,
-			to_warehouse="_Test Warehouse - _TC",
+			to_warehouse="Stores - _TC",
 			qty=10,
 			rate=100,
 			posting_date="2026-06-01",
 		)
 		make_stock_entry(
 			item_code=item,
-			from_warehouse="_Test Warehouse - _TC",
+			from_warehouse="Stores - _TC",
 			qty=4,
 			posting_date="2026-06-02",
 		)
