@@ -3,13 +3,13 @@
 
 import frappe
 
-from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.stock.report.stock_ledger_invariant_check.stock_ledger_invariant_check import execute
 from erpnext.tests.utils import ERPNextTestSuite
 
-WAREHOUSE = "_Test Warehouse - _TC"
+WAREHOUSE = "Stores - _TC"
 COMPANY = "_Test Company"
+ITEM = "_Test Item"
 
 
 class TestStockLedgerInvariantCheck(ERPNextTestSuite):
@@ -19,11 +19,11 @@ class TestStockLedgerInvariantCheck(ERPNextTestSuite):
 		return execute(filters)[1]
 
 	def make_movements(self) -> str:
-		item = make_item(properties={"is_stock_item": 1, "valuation_method": "FIFO"}).name
-		make_stock_entry(item_code=item, to_warehouse=WAREHOUSE, qty=10, rate=100, posting_date="2026-06-01")
-		make_stock_entry(item_code=item, to_warehouse=WAREHOUSE, qty=5, rate=120, posting_date="2026-06-02")
-		make_stock_entry(item_code=item, from_warehouse=WAREHOUSE, qty=4, rate=0, posting_date="2026-06-03")
-		return item
+		frappe.db.set_value("Item", ITEM, "valuation_method", "FIFO")
+		make_stock_entry(item_code=ITEM, to_warehouse=WAREHOUSE, qty=10, rate=100, posting_date="2026-06-01")
+		make_stock_entry(item_code=ITEM, to_warehouse=WAREHOUSE, qty=5, rate=120, posting_date="2026-06-02")
+		make_stock_entry(item_code=ITEM, from_warehouse=WAREHOUSE, qty=4, rate=0, posting_date="2026-06-03")
+		return ITEM
 
 	def test_diagnostic_rows_have_no_discrepancy(self):
 		item = self.make_movements()
