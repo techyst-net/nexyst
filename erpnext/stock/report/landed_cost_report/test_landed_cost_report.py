@@ -4,7 +4,6 @@
 import frappe
 from frappe.utils import add_days, today
 
-from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.doctype.landed_cost_voucher.test_landed_cost_voucher import (
 	create_landed_cost_voucher,
 )
@@ -26,12 +25,11 @@ class TestLandedCostReport(ERPNextTestSuite):
 		return execute(filters)[1]
 
 	def test_landed_cost_applied_to_receipt(self):
-		item = make_item("_Test Landed Cost Report Item", {"is_stock_item": 1}).name
-
 		pr = make_purchase_receipt(
-			item_code=item,
+			item_code="_Test Item",
+			supplier="_Test Supplier",
 			company="_Test Company",
-			warehouse="_Test Warehouse - _TC",
+			warehouse="Stores - _TC",
 			qty=10,
 			rate=100,
 		)
