@@ -3,9 +3,7 @@
 
 import frappe
 
-from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
-from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 from erpnext.stock.report.total_stock_summary.total_stock_summary import execute
 from erpnext.tests.utils import ERPNextTestSuite
 
@@ -16,8 +14,8 @@ class TestTotalStockSummary(ERPNextTestSuite):
 		return execute(filters)[1]
 
 	def test_warehouse_wise_quantity(self):
-		item = make_item().name
-		warehouse = create_warehouse("_Test TSS Warehouse")
+		item = "_Test Item"
+		warehouse = "Stores - _TC"  # clean zero baseline for _Test Item
 		make_stock_entry(item_code=item, to_warehouse=warehouse, qty=10, rate=100)
 
 		# rows are (warehouse, item_code, description, actual_qty)
@@ -25,8 +23,8 @@ class TestTotalStockSummary(ERPNextTestSuite):
 		self.assertEqual(row[3], 10)
 
 	def test_only_non_zero_bins_are_listed(self):
-		item = make_item().name
-		warehouse = create_warehouse("_Test TSS Empty Warehouse")
+		item = "_Test Item 2"
+		warehouse = "Stores - _TC"  # clean zero baseline for _Test Item 2
 		# receive then issue everything -> bin actual_qty back to zero
 		make_stock_entry(item_code=item, to_warehouse=warehouse, qty=5, rate=100)
 		make_stock_entry(item_code=item, from_warehouse=warehouse, qty=5)
