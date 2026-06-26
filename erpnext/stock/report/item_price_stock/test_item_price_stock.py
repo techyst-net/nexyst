@@ -3,7 +3,6 @@
 
 import frappe
 
-from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.stock.report.item_price_stock.item_price_stock import execute
 from erpnext.tests.utils import ERPNextTestSuite
@@ -14,7 +13,7 @@ class TestItemPriceStock(ERPNextTestSuite):
 		return execute(frappe._dict(extra))[1]
 
 	def test_price_and_stock_shown(self):
-		item = make_item(properties={"is_stock_item": 1}).name
+		item = "_Test Item"
 
 		frappe.get_doc(
 			{
@@ -27,14 +26,18 @@ class TestItemPriceStock(ERPNextTestSuite):
 
 		make_stock_entry(
 			item_code=item,
-			to_warehouse="_Test Warehouse - _TC",
+			to_warehouse="Stores - _TC",
 			qty=7,
 			rate=100,
 			posting_date="2026-06-01",
 		)
 
 		rows = self.run_report(item_code=item)
-		warehouse_rows = [row for row in rows if row["warehouse"] == "_Test Warehouse - _TC"]
+		warehouse_rows = [
+			row
+			for row in rows
+			if row["warehouse"] == "Stores - _TC" and row["selling_price_list"] == "Standard Selling"
+		]
 
 		self.assertEqual(len(warehouse_rows), 1)
 		row = warehouse_rows[0]
