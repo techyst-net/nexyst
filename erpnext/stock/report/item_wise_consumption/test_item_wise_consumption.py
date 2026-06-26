@@ -4,13 +4,12 @@
 import frappe
 
 from erpnext.stock.doctype.delivery_note.test_delivery_note import create_delivery_note
-from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.doctype.purchase_receipt.test_purchase_receipt import make_purchase_receipt
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.stock.report.item_wise_consumption.item_wise_consumption import execute
 from erpnext.tests.utils import ERPNextTestSuite
 
-WH = "_Test Warehouse - _TC"
+WH = "Stores - _TC"
 # row: 0 item, 1 name, 2 desc, 3 uom, 4 consumed_qty, 5 consumed_amt, 6 delivered_qty,
 #      7 delivered_amt, 8 total_qty, 9 total_amt, 10 suppliers
 
@@ -23,7 +22,7 @@ class TestItemWiseConsumption(ERPNextTestSuite):
 		return execute(filters)[1]
 
 	def test_consumed_vs_delivered_split(self):
-		item = make_item(properties={"is_stock_item": 1, "is_purchase_item": 1, "is_sales_item": 1}).name
+		item = "_Test Item"
 		# purchase receipt gives the supplier mapping and stocks the item
 		make_purchase_receipt(
 			item_code=item,
