@@ -27,27 +27,8 @@ class TestTrialBalanceForParty(ERPNextTestSuite):
 	def party_row(self, party, **extra):
 		return next(row for row in self.run_report(party=party, **extra) if row.get("party") == party)
 
-	def make_customer(self, name="_Test TB Customer"):
-		if not frappe.db.exists("Customer", name):
-			frappe.get_doc(
-				{
-					"doctype": "Customer",
-					"customer_name": name,
-					"customer_group": "_Test Customer Group",
-					"territory": "_Test Territory",
-				}
-			).insert()
-		return name
-
-	def make_supplier(self, name="_Test TB Supplier"):
-		if not frappe.db.exists("Supplier", name):
-			frappe.get_doc(
-				{"doctype": "Supplier", "supplier_name": name, "supplier_group": "_Test Supplier Group"}
-			).insert()
-		return name
-
 	def test_sales_invoice_shown_as_period_debit(self):
-		customer = self.make_customer()
+		customer = "_Test Customer"
 		create_sales_invoice(customer=customer, qty=1, rate=10000, posting_date="2026-06-01")
 
 		row = self.party_row(customer)
@@ -58,7 +39,7 @@ class TestTrialBalanceForParty(ERPNextTestSuite):
 		self.assertEqual(row["closing_credit"], 0)
 
 	def test_receipt_nets_invoice_in_closing(self):
-		customer = self.make_customer()
+		customer = "_Test Customer"
 		create_sales_invoice(customer=customer, qty=1, rate=10000, posting_date="2026-06-01")
 		create_payment_entry(
 			payment_type="Receive",
@@ -79,7 +60,7 @@ class TestTrialBalanceForParty(ERPNextTestSuite):
 		self.assertEqual(row["closing_credit"], 0)
 
 	def test_prior_period_invoice_shown_as_opening(self):
-		customer = self.make_customer()
+		customer = "_Test Customer"
 		# invoice dated before from_date should land in the opening balance, not within-period
 		create_sales_invoice(customer=customer, qty=1, rate=10000, posting_date="2025-12-01")
 
@@ -89,7 +70,7 @@ class TestTrialBalanceForParty(ERPNextTestSuite):
 		self.assertEqual(row["closing_debit"], 10000)
 
 	def test_exclude_zero_balance_parties(self):
-		customer = self.make_customer()
+		customer = "_Test Customer"
 		create_sales_invoice(customer=customer, qty=1, rate=10000, posting_date="2026-06-01")
 		create_payment_entry(
 			payment_type="Receive",
@@ -109,7 +90,7 @@ class TestTrialBalanceForParty(ERPNextTestSuite):
 		self.assertNotIn(customer, parties)
 
 	def test_purchase_invoice_shown_as_supplier_credit(self):
-		supplier = self.make_supplier()
+		supplier = "_Test Supplier"
 		make_purchase_invoice(supplier=supplier, qty=1, rate=8000, posting_date="2026-06-01")
 
 		row = self.party_row(supplier, party_type="Supplier")
@@ -119,15 +100,18 @@ class TestTrialBalanceForParty(ERPNextTestSuite):
 		self.assertEqual(row["closing_debit"], 0)
 
 	def test_totals_row_sums_party_rows(self):
-		create_sales_invoice(
-			customer=self.make_customer("_Test TB Customer A"), qty=1, rate=10000, posting_date="2026-06-01"
-		)
-		create_sales_invoice(
-			customer=self.make_customer("_Test TB Customer B"), qty=1, rate=6000, posting_date="2026-06-01"
-		)
+		create_sales_invoice(customer="_Test Customer 1", qty=1, rate=10000, posting_date="2026-06-01")
+		create_sales_invoice(customer="_Test Customer 2", qty=1, rate=6000, posting_date="2026-06-01")
 
 		data = self.run_report()
 		totals = data[-1]  # totals row is appended last
 		party_rows = data[:-1]
-		for column in ("opening_debit", "opening_credit", "debit", "credit", "closing_debit", "closing_credit"):
+		for column in (
+			"opening_debit",
+			"opening_credit",
+			"debit",
+			"credit",
+			"closing_debit",
+			"closing_credit",
+		):
 			self.assertEqual(totals[column], sum(row[column] for row in party_rows))
