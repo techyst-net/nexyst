@@ -55,25 +55,7 @@ frappe.ui.form.on("Item", {
 	},
 
 	allow_negative_stock(frm) {
-		if (!frm.doc.allow_negative_stock) {
-			return;
-		}
-
-		let msg = __(
-			"Using negative stock disables FIFO/Moving average valuation when inventory is negative."
-		);
-		msg += " ";
-		msg += __("This is considered dangerous from accounting point of view.");
-		msg += "<br>";
-		msg += __("Do you still want to enable negative inventory?");
-
-		frappe.confirm(
-			msg,
-			() => {},
-			() => {
-				frm.set_value("allow_negative_stock", 0);
-			}
-		);
+		erpnext.utils.confirm_negative_stock(frm);
 	},
 
 	setup: function (frm) {
