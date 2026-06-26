@@ -3,7 +3,6 @@
 
 import frappe
 
-from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 from erpnext.stock.report.warehouse_wise_stock_balance.warehouse_wise_stock_balance import execute
@@ -22,7 +21,7 @@ class TestWarehouseWiseStockBalance(ERPNextTestSuite):
 		parent = create_warehouse("_Test WWSB Parent", properties={"is_group": 1})
 		child = create_warehouse("_Test WWSB Child", properties={"parent_warehouse": parent})
 
-		make_stock_entry(item_code=make_item().name, to_warehouse=child, qty=10, rate=100)
+		make_stock_entry(item_code="_Test Item", to_warehouse=child, qty=10, rate=100)
 
 		data = self.run_report()
 		# stock balance = sum of stock value difference (10 * 100)
