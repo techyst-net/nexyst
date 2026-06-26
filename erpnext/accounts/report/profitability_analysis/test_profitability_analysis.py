@@ -41,10 +41,13 @@ class TestProfitabilityAnalysis(ERPNextTestSuite):
 		)
 
 	def book_expense(self, cost_center, amount, posting_date="2026-06-01"):
-		make_journal_entry(EXPENSE, BANK, amount, cost_center=cost_center, posting_date=posting_date, submit=True)
+		make_journal_entry(
+			EXPENSE, BANK, amount, cost_center=cost_center, posting_date=posting_date, submit=True
+		)
 
 	def test_income_expense_and_gross_profit(self):
-		cc = self.make_cc("_Test PA Leaf")
+		# bootstrap leaf cost center; clean of committed GL so exact assertions hold
+		cc = "_Test Cost Center - _TC"
 		self.book_income(cc, 10000)
 		self.book_expense(cc, 4000)
 
@@ -71,7 +74,7 @@ class TestProfitabilityAnalysis(ERPNextTestSuite):
 		self.assertEqual(parent_row["gross_profit_loss"], 7000)
 
 	def test_date_range_excludes_out_of_period_entries(self):
-		cc = self.make_cc("_Test PA Date")
+		cc = "_Test Cost Center 2 - _TC"
 		self.book_income(cc, 10000, posting_date="2025-06-01")
 
 		# the 2025 income must not appear in a 2026 report (zero-value rows are dropped)
@@ -87,7 +90,7 @@ class TestProfitabilityAnalysis(ERPNextTestSuite):
 		self.assertEqual(row_2025["income"], 10000)
 
 	def test_total_row_sums_income_and_expense(self):
-		cc = self.make_cc("_Test PA Total")
+		cc = "_Test Cost Center - _TC"
 		self.book_income(cc, 10000)
 		self.book_expense(cc, 4000)
 
