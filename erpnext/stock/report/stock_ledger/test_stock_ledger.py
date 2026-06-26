@@ -8,21 +8,14 @@ from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.stock.report.stock_ledger.stock_ledger import execute
 from erpnext.tests.utils import ERPNextTestSuite
 
-WH = "_Test Warehouse - _TC"
-WH2 = "Stores - _TC"
+WH = "Stores - _TC"
+WH2 = "Finished Goods - _TC"
+ITEM = "_Test Item"
+ITEM2 = "_Test Item 2"
+SERIAL_ITEM = "_Test Serialized Item With Series"
 
 
 class TestStockLedgerReport(ERPNextTestSuite):
-	def make_item(self, valuation_method="Moving Average"):
-		return make_item(
-			properties={"is_stock_item": 1, "valuation_method": valuation_method}
-		).name
-
-	def make_serial_item(self):
-		return make_item(
-			properties={"is_stock_item": 1, "has_serial_no": 1, "serial_no_series": "SL-SN-.#####"}
-		).name
-
 	def make_batch_item(self):
 		return make_item(
 			properties={
@@ -48,12 +41,15 @@ class TestStockLedgerReport(ERPNextTestSuite):
 			filters["warehouse"] = [warehouse] if isinstance(warehouse, str) else warehouse
 		return execute(filters)[1]
 
-	def sle_rows(self, item_code, **extra):
-		# drop the synthetic "'Opening'" row, keep only this item's ledger lines
-		return [row for row in self.run_report(item_code, **extra) if row.get("item_code") == item_code]
+	def sle_rows(self, item_code, warehouse=WH, **extra):
+		# scope to the clean warehouse so the committed baseline stock of reused master
+		# items (in `_Test Warehouse - _TC`) does not leak in; drop the synthetic
+		# "'Opening'" row and keep only this item's ledger lines
+		rows = self.run_report(item_code, warehouse=warehouse, **extra)
+		return [row for row in rows if row.get("item_code") == item_code]
 
 	def test_receipt_shows_in_qty_and_balance(self):
-		item = self.make_item()
+		item = ITEM
 		make_stock_entry(item_code=item, to_warehouse=WH, qty=10, rate=100, posting_date="2026-06-01")
 
 		(row,) = self.sle_rows(item)
@@ -66,7 +62,7 @@ class TestStockLedgerReport(ERPNextTestSuite):
 		self.assertEqual(row["stock_value_difference"], 1000)
 
 	def test_issue_shows_out_qty_and_outgoing_rate(self):
-		item = self.make_item()
+		item = ITEM
 		make_stock_entry(item_code=item, to_warehouse=WH, qty=10, rate=100, posting_date="2026-06-01")
 		make_stock_entry(item_code=item, from_warehouse=WH, qty=4, posting_date="2026-06-02")
 
@@ -78,7 +74,7 @@ class TestStockLedgerReport(ERPNextTestSuite):
 		self.assertEqual(issue["stock_value"], 600)
 
 	def test_running_balance_across_transactions(self):
-		item = self.make_item()
+		item = ITEM
 		make_stock_entry(item_code=item, to_warehouse=WH, qty=10, rate=100, posting_date="2026-06-01")
 		make_stock_entry(item_code=item, to_warehouse=WH, qty=5, rate=100, posting_date="2026-06-02")
 		make_stock_entry(item_code=item, from_warehouse=WH, qty=3, posting_date="2026-06-03")
@@ -87,7 +83,8 @@ class TestStockLedgerReport(ERPNextTestSuite):
 		self.assertEqual(balances, [10, 15, 12])
 
 	def test_moving_average_valuation(self):
-		item = self.make_item(valuation_method="Moving Average")
+		item = ITEM
+		frappe.db.set_value("Item", item, "valuation_method", "Moving Average")
 		make_stock_entry(item_code=item, to_warehouse=WH, qty=10, rate=100, posting_date="2026-06-01")
 		make_stock_entry(item_code=item, to_warehouse=WH, qty=10, rate=200, posting_date="2026-06-02")
 
@@ -97,8 +94,8 @@ class TestStockLedgerReport(ERPNextTestSuite):
 		self.assertEqual(latest["stock_value"], 3000)
 
 	def test_item_code_filter_excludes_other_items(self):
-		item_a = self.make_item()
-		item_b = self.make_item()
+		item_a = ITEM
+		item_b = ITEM2
 		make_stock_entry(item_code=item_a, to_warehouse=WH, qty=10, rate=100, posting_date="2026-06-01")
 		make_stock_entry(item_code=item_b, to_warehouse=WH, qty=7, rate=100, posting_date="2026-06-01")
 
@@ -106,7 +103,7 @@ class TestStockLedgerReport(ERPNextTestSuite):
 		self.assertEqual(item_codes, {item_a})
 
 	def test_warehouse_filter(self):
-		item = self.make_item()
+		item = ITEM
 		make_stock_entry(item_code=item, to_warehouse=WH, qty=10, rate=100, posting_date="2026-06-01")
 		make_stock_entry(item_code=item, to_warehouse=WH2, qty=5, rate=100, posting_date="2026-06-01")
 
@@ -114,7 +111,7 @@ class TestStockLedgerReport(ERPNextTestSuite):
 		self.assertEqual(warehouses, {WH2})
 
 	def test_voucher_no_filter(self):
-		item = self.make_item()
+		item = ITEM
 		se = make_stock_entry(item_code=item, to_warehouse=WH, qty=10, rate=100, posting_date="2026-06-01")
 		make_stock_entry(item_code=item, to_warehouse=WH, qty=5, rate=100, posting_date="2026-06-02")
 
@@ -123,7 +120,7 @@ class TestStockLedgerReport(ERPNextTestSuite):
 		self.assertEqual(rows[0]["voucher_no"], se.name)
 
 	def test_date_range_excludes_out_of_range_entries(self):
-		item = self.make_item()
+		item = ITEM
 		se = make_stock_entry(item_code=item, to_warehouse=WH, qty=10, rate=100, posting_date="2025-12-01")
 
 		# 2026 window must not include the 2025 entry
@@ -133,7 +130,7 @@ class TestStockLedgerReport(ERPNextTestSuite):
 		self.assertIn(se.name, {row.get("voucher_no") for row in in_window})
 
 	def test_opening_balance_row(self):
-		item = self.make_item()
+		item = ITEM
 		# stock received before the reporting window should surface as the opening balance
 		make_stock_entry(item_code=item, to_warehouse=WH, qty=10, rate=100, posting_date="2025-12-01")
 
@@ -144,7 +141,7 @@ class TestStockLedgerReport(ERPNextTestSuite):
 		self.assertEqual(opening["stock_value"], 1000)
 
 	def test_bundle_not_segregated_by_default(self):
-		item = self.make_serial_item()
+		item = SERIAL_ITEM
 		# a single receipt of 3 serials is one ledger line when the filter is off
 		make_stock_entry(item_code=item, to_warehouse=WH, qty=3, rate=100, posting_date="2026-06-01")
 
@@ -153,7 +150,7 @@ class TestStockLedgerReport(ERPNextTestSuite):
 		self.assertEqual(row["qty_after_transaction"], 3)
 
 	def test_serial_bundle_segregated_into_per_serial_rows(self):
-		item = self.make_serial_item()
+		item = SERIAL_ITEM
 		make_stock_entry(item_code=item, to_warehouse=WH, qty=3, rate=100, posting_date="2026-06-01")
 
 		rows = self.sle_rows(item, segregate_serial_batch_bundle=1)
@@ -165,7 +162,7 @@ class TestStockLedgerReport(ERPNextTestSuite):
 		self.assertEqual([row["qty_after_transaction"] for row in rows], [1, 2, 3])
 
 	def test_segregated_issue_rows_show_out_qty_per_serial(self):
-		item = self.make_serial_item()
+		item = SERIAL_ITEM
 		make_stock_entry(item_code=item, to_warehouse=WH, qty=3, rate=100, posting_date="2026-06-01")
 		make_stock_entry(item_code=item, from_warehouse=WH, qty=2, posting_date="2026-06-02")
 
