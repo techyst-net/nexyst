@@ -3,7 +3,6 @@
 
 import frappe
 
-from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.stock.report.warehouse_wise_item_balance_age_and_value.warehouse_wise_item_balance_age_and_value import (
 	execute,
@@ -18,15 +17,15 @@ class TestWarehouseWiseItemBalanceAgeAndValue(ERPNextTestSuite):
 				"company": "_Test Company",
 				"from_date": "2026-01-01",
 				"to_date": "2026-12-31",
-				"warehouse": "_Test Warehouse - _TC",
+				"warehouse": "Stores - _TC",
 			}
 		)
 		filters.update(extra)
 		return execute(filters)[1]
 
 	def test_balance_qty_and_value(self):
-		item_code = make_item(properties={"is_stock_item": 1}).name
-		warehouse = "_Test Warehouse - _TC"
+		item_code = "_Test Item"
+		warehouse = "Stores - _TC"
 
 		make_stock_entry(
 			item_code=item_code,
