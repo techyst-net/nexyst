@@ -6,6 +6,8 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.model.mapper import get_mapped_doc
 
+from erpnext.setup.utils import get_exchange_rate
+
 
 @frappe.whitelist()
 def make_quotation(source_name: str, target_doc: str | Document | None = None):
@@ -32,6 +34,11 @@ def make_quotation(source_name: str, target_doc: str | Document | None = None):
 		target_doc.selling_price_list = price_list
 	if currency:
 		target_doc.currency = currency
+		company_currency = frappe.get_cached_value("Company", target_doc.company, "default_currency")
+		if target_doc.company and target_doc.currency != company_currency:
+			target_doc.conversion_rate = get_exchange_rate(
+				target_doc.currency, company_currency, target_doc.transaction_date, "for_selling"
+			)
 
 	return target_doc
 
