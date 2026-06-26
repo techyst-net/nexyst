@@ -597,11 +597,21 @@ def execute_synced_report(filters):
 
 def get_data_duckdb(filters, conn):
 	# accounts and all metadata via frappe.db — only GL Entry comes from DuckDB
-	accounts = frappe.db.sql(
-		"""select name, account_number, parent_account, account_name, root_type, report_type, is_group, lft, rgt
-		from `tabAccount` where company=%s order by lft""",
-		filters.company,
-		as_dict=True,
+	accounts = frappe.get_all(
+		"Account",
+		filters={"company": filters.company},
+		fields=[
+			"name",
+			"account_number",
+			"parent_account",
+			"account_name",
+			"root_type",
+			"report_type",
+			"is_group",
+			"lft",
+			"rgt",
+		],
+		order_by="lft",
 	)
 	if not accounts:
 		return None
