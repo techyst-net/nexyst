@@ -4,7 +4,6 @@
 import frappe
 
 from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
-from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.stock.report.cogs_by_item_group.cogs_by_item_group import execute
 from erpnext.tests.utils import ERPNextTestSuite
@@ -21,18 +20,9 @@ class TestCogsByItemGroup(ERPNextTestSuite):
 		return execute(filters)[1]
 
 	def test_cogs_for_item_group(self):
-		frappe.get_doc(
-			{
-				"doctype": "Item Group",
-				"item_group_name": "_Test COGS Group",
-				"parent_item_group": "All Item Groups",
-				"is_group": 0,
-			}
-		).insert(ignore_if_duplicate=True)
-
-		item = make_item(
-			properties={"is_stock_item": 1, "is_sales_item": 1, "item_group": "_Test COGS Group"}
-		).name
+		# Reuse the bootstrap item `_Test Item` (item group `_Test Item Group`).
+		# It has zero stock in `Stores - TCP1`, so this receipt starts from a clean balance.
+		item = "_Test Item"
 
 		make_stock_entry(
 			item_code=item,
@@ -61,7 +51,7 @@ class TestCogsByItemGroup(ERPNextTestSuite):
 		)
 
 		data = self.run_report()
-		rows = [row for row in data if "_Test COGS Group" in row.get("item_group")]
-		self.assertTrue(rows, "No row found for _Test COGS Group")
+		rows = [row for row in data if "_Test Item Group" in row.get("item_group")]
+		self.assertTrue(rows, "No row found for _Test Item Group")
 		# 4 units delivered at 100 valuation rate -> 400 COGS.
 		self.assertEqual(rows[0].get("cogs_debit"), 400)
