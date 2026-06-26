@@ -18,6 +18,21 @@ class TestStockLedgerReport(ERPNextTestSuite):
 			properties={"is_stock_item": 1, "valuation_method": valuation_method}
 		).name
 
+	def make_serial_item(self):
+		return make_item(
+			properties={"is_stock_item": 1, "has_serial_no": 1, "serial_no_series": "SL-SN-.#####"}
+		).name
+
+	def make_batch_item(self):
+		return make_item(
+			properties={
+				"is_stock_item": 1,
+				"has_batch_no": 1,
+				"create_new_batch": 1,
+				"batch_number_series": "SL-BCH-.#####",
+			}
+		).name
+
 	def run_report(self, item_code, warehouse=None, **extra):
 		filters = frappe._dict(
 			{
@@ -127,3 +142,44 @@ class TestStockLedgerReport(ERPNextTestSuite):
 		self.assertEqual(opening["item_code"], "'Opening'")
 		self.assertEqual(opening["qty_after_transaction"], 10)
 		self.assertEqual(opening["stock_value"], 1000)
+
+	def test_bundle_not_segregated_by_default(self):
+		item = self.make_serial_item()
+		# a single receipt of 3 serials is one ledger line when the filter is off
+		make_stock_entry(item_code=item, to_warehouse=WH, qty=3, rate=100, posting_date="2026-06-01")
+
+		(row,) = self.sle_rows(item)
+		self.assertEqual(row["in_qty"], 3)
+		self.assertEqual(row["qty_after_transaction"], 3)
+
+	def test_serial_bundle_segregated_into_per_serial_rows(self):
+		item = self.make_serial_item()
+		make_stock_entry(item_code=item, to_warehouse=WH, qty=3, rate=100, posting_date="2026-06-01")
+
+		rows = self.sle_rows(item, segregate_serial_batch_bundle=1)
+		# the one receipt is split into one row per serial number
+		self.assertEqual(len(rows), 3)
+		self.assertTrue(all(row["in_qty"] == 1 for row in rows))
+		self.assertEqual(len({row["serial_no"] for row in rows}), 3)
+		# running balance accumulates across the segregated rows
+		self.assertEqual([row["qty_after_transaction"] for row in rows], [1, 2, 3])
+
+	def test_segregated_issue_rows_show_out_qty_per_serial(self):
+		item = self.make_serial_item()
+		make_stock_entry(item_code=item, to_warehouse=WH, qty=3, rate=100, posting_date="2026-06-01")
+		make_stock_entry(item_code=item, from_warehouse=WH, qty=2, posting_date="2026-06-02")
+
+		rows = self.sle_rows(item, segregate_serial_batch_bundle=1)
+		issue_rows = [row for row in rows if row["out_qty"]]
+		self.assertEqual(len(issue_rows), 2)
+		self.assertTrue(all(row["out_qty"] == -1 for row in issue_rows))
+		self.assertTrue(all(row["in_out_rate"] == 100 for row in issue_rows))
+
+	def test_batch_bundle_segregated_shows_batch_no(self):
+		item = self.make_batch_item()
+		make_stock_entry(item_code=item, to_warehouse=WH, qty=10, rate=100, posting_date="2026-06-01")
+
+		(row,) = self.sle_rows(item, segregate_serial_batch_bundle=1)
+		self.assertTrue(row["batch_no"])
+		self.assertEqual(row["in_qty"], 10)
+		self.assertEqual(row["qty_after_transaction"], 10)
