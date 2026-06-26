@@ -79,7 +79,6 @@ class TestPOSProfile(ERPNextTestSuite):
 def get_customers_list(pos_profile=None):
 	if pos_profile is None:
 		pos_profile = {}
-	cond = "1=1"
 	customer_groups = []
 	if pos_profile.get("customer_groups"):
 		# Get customers based on the customer groups defined in the POS profile
@@ -87,14 +86,16 @@ def get_customers_list(pos_profile=None):
 			customer_groups.extend(
 				[d.get("name") for d in get_child_nodes("Customer Group", d.get("customer_group"))]
 			)
-		cond = "customer_group in ({})".format(", ".join(["%s"] * len(customer_groups)))
+
+	filters = {"disabled": 0}
+	if customer_groups:
+		filters["customer_group"] = ["in", customer_groups]
 
 	return (
-		frappe.db.sql(
-			f""" select name, customer_name, customer_group, territory from tabCustomer where disabled = 0
-		and {cond}""",
-			tuple(customer_groups),
-			as_dict=1,
+		frappe.get_all(
+			"Customer",
+			filters=filters,
+			fields=["name", "customer_name", "customer_group", "territory"],
 		)
 		or {}
 	)

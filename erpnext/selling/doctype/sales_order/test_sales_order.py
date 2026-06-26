@@ -7,6 +7,7 @@ from unittest.mock import patch
 import frappe
 import frappe.permissions
 from frappe.core.doctype.user_permission.test_user_permission import create_user
+from frappe.query_builder.functions import Sum
 from frappe.tests import change_settings
 from frappe.utils import add_days, flt, getdate, nowdate, today
 
@@ -907,10 +908,12 @@ class TestSalesOrder(ERPNextTestSuite):
 			item_doc.save()
 		else:
 			# update valid from
-			frappe.db.sql(
-				"""UPDATE `tabItem Tax` set valid_from = CURRENT_DATE
-				where parent = %(item)s and item_tax_template = %(tax)s""",
-				{"item": item, "tax": tax_template},
+			frappe.db.set_value(
+				"Item Tax",
+				{"parent": item, "item_tax_template": tax_template},
+				"valid_from",
+				today(),
+				update_modified=False,
 			)
 
 		so = make_sales_order(item_code=item, qty=1, do_not_save=1)
@@ -960,10 +963,12 @@ class TestSalesOrder(ERPNextTestSuite):
 		self.assertEqual(so.taxes[1].total, 480)
 
 		# teardown
-		frappe.db.sql(
-			"""UPDATE `tabItem Tax` set valid_from = NULL
-			where parent = %(item)s and item_tax_template = %(tax)s""",
-			{"item": item, "tax": tax_template},
+		frappe.db.set_value(
+			"Item Tax",
+			{"parent": item, "item_tax_template": tax_template},
+			"valid_from",
+			None,
+			update_modified=False,
 		)
 		so.cancel()
 		so.delete()
@@ -1559,10 +1564,12 @@ class TestSalesOrder(ERPNextTestSuite):
 
 		# Check if Work Orders were raised
 		for item in so_item_name:
-			wo_qty = frappe.db.sql(
-				"select sum(qty) from `tabWork Order` where sales_order=%s and sales_order_item=%s",
-				(so.name, item),
-			)
+			wo = frappe.qb.DocType("Work Order")
+			wo_qty = (
+				frappe.qb.from_(wo)
+				.select(Sum(wo.qty))
+				.where((wo.sales_order == so.name) & (wo.sales_order_item == item))
+			).run()
 			self.assertEqual(wo_qty[0][0], so_item_name.get(item))
 
 	def test_advance_payment_entry_unlink_against_sales_order(self):
