@@ -269,20 +269,10 @@ class TestStockEntry(ERPNextTestSuite):
 		mr.cancel()
 
 		self.assertTrue(
-			frappe.db.sql(
-				"""select * from `tabStock Ledger Entry`
-			where voucher_type='Stock Entry' and voucher_no=%s""",
-				mr.name,
-			)
+			frappe.db.exists("Stock Ledger Entry", {"voucher_type": "Stock Entry", "voucher_no": mr.name})
 		)
 
-		self.assertTrue(
-			frappe.db.sql(
-				"""select * from `tabGL Entry`
-			where voucher_type='Stock Entry' and voucher_no=%s""",
-				mr.name,
-			)
-		)
+		self.assertTrue(frappe.db.exists("GL Entry", {"voucher_type": "Stock Entry", "voucher_no": mr.name}))
 
 	def test_material_issue_gl_entry(self):
 		company = frappe.db.get_value("Warehouse", "Stores - TCP1", "company")
@@ -361,12 +351,7 @@ class TestStockEntry(ERPNextTestSuite):
 		if source_warehouse_account == target_warehouse_account:
 			# no gl entry as both source and target warehouse has linked to same account.
 			self.assertFalse(
-				frappe.db.sql(
-					"""select * from `tabGL Entry`
-				where voucher_type='Stock Entry' and voucher_no=%s""",
-					mtn.name,
-					as_dict=1,
-				)
+				frappe.db.exists("GL Entry", {"voucher_type": "Stock Entry", "voucher_no": mtn.name})
 			)
 
 		else:
@@ -460,14 +445,9 @@ class TestStockEntry(ERPNextTestSuite):
 			],
 		)
 
-		gl_entries = frappe.db.sql(
-			"""select account, debit, credit
-			from `tabGL Entry` where voucher_type='Stock Entry' and voucher_no=%s
-			order by account desc""",
-			repack.name,
-			as_dict=1,
+		self.assertFalse(
+			frappe.db.exists("GL Entry", {"voucher_type": "Stock Entry", "voucher_no": repack.name})
 		)
-		self.assertFalse(gl_entries)
 
 	def test_repack_with_additional_costs(self):
 		company = frappe.db.get_value("Warehouse", "Stores - TCP1", "company")

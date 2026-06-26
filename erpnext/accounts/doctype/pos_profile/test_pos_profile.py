@@ -25,15 +25,11 @@ class TestPOSProfile(ERPNextTestSuite):
 			items = get_items_list(doc, doc.company)
 			customers = get_customers_list(doc)
 
-			products_count = frappe.db.sql(
-				""" select count(name) from tabItem where item_group = '_Test Item Group'""", as_list=1
-			)
-			customers_count = frappe.db.sql(
-				""" select count(name) from tabCustomer where customer_group = '_Test Customer Group'"""
-			)
+			products_count = frappe.db.count("Item", {"item_group": "_Test Item Group"})
+			customers_count = frappe.db.count("Customer", {"customer_group": "_Test Customer Group"})
 
-			self.assertEqual(len(items), products_count[0][0])
-			self.assertEqual(len(customers), customers_count[0][0])
+			self.assertEqual(len(items), products_count)
+			self.assertEqual(len(customers), customers_count)
 
 	def test_disabled_pos_profile_creation(self):
 		make_pos_profile(name="_Test POS Profile 001", disabled=1)
@@ -135,8 +131,8 @@ def get_items_list(pos_profile, company):
 
 
 def make_pos_profile(**args):
-	frappe.db.sql("delete from `tabPOS Payment Method`")
-	frappe.db.sql("delete from `tabPOS Profile`")
+	frappe.db.delete("POS Payment Method")
+	frappe.db.delete("POS Profile")
 
 	args = frappe._dict(args)
 
