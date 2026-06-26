@@ -9,7 +9,6 @@ from erpnext.buying.doctype.purchase_order.test_purchase_order import (
 	create_purchase_order,
 )
 from erpnext.buying.report.item_wise_purchase_history.item_wise_purchase_history import execute
-from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.tests.utils import ERPNextTestSuite
 
 
@@ -48,7 +47,9 @@ class TestItemWisePurchaseHistory(ERPNextTestSuite):
 	def test_date_range_filters_on_transaction_date(self):
 		po = create_purchase_order(transaction_date="2026-06-01")
 
-		in_range = {row["purchase_order"] for row in self.run_report(from_date="2026-05-01", to_date="2026-07-01")[1]}
+		in_range = {
+			row["purchase_order"] for row in self.run_report(from_date="2026-05-01", to_date="2026-07-01")[1]
+		}
 		self.assertIn(po.name, in_range)
 
 		out_of_range = {
@@ -71,13 +72,13 @@ class TestItemWisePurchaseHistory(ERPNextTestSuite):
 		self.assertTrue(all(row["purchase_order"] == po.name for row in rows))
 
 	def test_item_group_filter(self):
-		other_item = make_item("_Test IWPH Products Item", {"item_group": "Products"}).name
+		# _Test Item is in _Test Item Group; _Test FG Item is in _Test Item Group Desktops
 		po_test_group = create_purchase_order(item_code="_Test Item", transaction_date="2026-06-01")
-		po_products = create_purchase_order(item_code=other_item, transaction_date="2026-06-01")
+		po_other_group = create_purchase_order(item_code="_Test FG Item", transaction_date="2026-06-01")
 
 		names = {row["purchase_order"] for row in self.run_report(item_group="_Test Item Group")[1]}
 		self.assertIn(po_test_group.name, names)
-		self.assertNotIn(po_products.name, names)
+		self.assertNotIn(po_other_group.name, names)
 
 	def test_supplier_filter(self):
 		po = create_purchase_order(supplier="_Test Supplier", transaction_date="2026-06-01")
