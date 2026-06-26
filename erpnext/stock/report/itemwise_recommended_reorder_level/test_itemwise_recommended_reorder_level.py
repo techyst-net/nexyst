@@ -4,14 +4,13 @@
 import frappe
 from frappe.utils import flt
 
-from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.stock.report.itemwise_recommended_reorder_level.itemwise_recommended_reorder_level import (
 	execute,
 )
 from erpnext.tests.utils import ERPNextTestSuite
 
-WAREHOUSE = "_Test Warehouse - _TC"
+WAREHOUSE = "Stores - _TC"
 
 
 class TestItemwiseRecommendedReorderLevel(ERPNextTestSuite):
@@ -27,7 +26,8 @@ class TestItemwiseRecommendedReorderLevel(ERPNextTestSuite):
 		return None
 
 	def test_consumption_drives_recommendation(self):
-		item = make_item(properties={"is_stock_item": 1, "lead_time_days": 3, "safety_stock": 5}).name
+		item = "_Test Item"
+		frappe.db.set_value("Item", item, {"lead_time_days": 3, "safety_stock": 5})
 
 		# Receive stock, then issue a known total across dates inside the report window.
 		make_stock_entry(item_code=item, to_warehouse=WAREHOUSE, qty=100, rate=10, posting_date="2026-06-01")
@@ -55,7 +55,8 @@ class TestItemwiseRecommendedReorderLevel(ERPNextTestSuite):
 		self.assertEqual(flt(row[11]), expected_reorder)  # reorder level
 
 	def test_no_consumption_yields_zero_outgoing(self):
-		item = make_item(properties={"is_stock_item": 1, "lead_time_days": 3, "safety_stock": 5}).name
+		item = "_Test Item 2"
+		frappe.db.set_value("Item", item, {"lead_time_days": 3, "safety_stock": 5})
 		make_stock_entry(item_code=item, to_warehouse=WAREHOUSE, qty=100, rate=10, posting_date="2026-06-01")
 
 		row = self.find_row(self.run_report(), item)
