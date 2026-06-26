@@ -8,7 +8,7 @@ from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.stock.report.batch_wise_balance_history.batch_wise_balance_history import execute
 from erpnext.tests.utils import ERPNextTestSuite
 
-WH = "_Test Warehouse - _TC"
+WH = "Stores - _TC"
 # row indexes: 0 item, 1 name, 2 desc, 3 wh, 4 batch, 5 opening, 6 in, 7 out, 8 bal, 9 rate, 10 value, 11 uom
 
 
