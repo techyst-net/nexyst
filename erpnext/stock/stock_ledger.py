@@ -17,6 +17,7 @@ from frappe.utils import (
 	format_date,
 	get_datetime,
 	get_link_to_form,
+	getdate,
 	now,
 	nowdate,
 	nowtime,
@@ -53,6 +54,52 @@ class SerialNoExistsInFutureTransaction(frappe.ValidationError):
 	pass
 
 
+def validate_standard_cost_posting_date(sl_entries):
+	"""R2: a Standard Cost item's stock transaction cannot be dated before the latest Item
+	Standard Cost effective date. A backdated entry would slip in behind the standard-rate
+	revaluation, making its on-hand snapshot stale and forcing a repost — which Standard Cost
+	deliberately avoids. Enforced here so every stock voucher is covered uniformly."""
+	from erpnext.stock.utils import get_valuation_method
+
+	checked = {}
+	for sle in sl_entries:
+		item_code = sle.get("item_code")
+		company = sle.get("company")
+		posting_date = sle.get("posting_date")
+		if not item_code or not company or not posting_date:
+			continue
+
+		key = (item_code, company)
+		if key not in checked:
+			latest_isc = None
+			if get_valuation_method(item_code, company) == "Standard Cost":
+				latest_isc = frappe.db.get_value(
+					"Item Standard Cost",
+					{"item_code": item_code, "company": company, "docstatus": 1},
+					["name", "effective_date"],
+					order_by="effective_date desc",
+					as_dict=True,
+				)
+			checked[key] = latest_isc
+
+		latest_isc = checked[key]
+		if latest_isc and getdate(posting_date) < getdate(latest_isc.effective_date):
+			effective_date = frappe.bold(frappe.format(latest_isc.effective_date, "Date"))
+			frappe.throw(
+				_(
+					"Cannot post Standard Cost item {0} on {1}: it is before {2}, the effective date of its latest Standard Valuation Rate {3}."
+				).format(
+					get_link_to_form("Item", item_code),
+					frappe.bold(frappe.format(posting_date, "Date")),
+					effective_date,
+					get_link_to_form("Item Standard Cost", latest_isc.name),
+				)
+				+ "<br><br>"
+				+ _("Post this entry on or after {0}.").format(effective_date),
+				title=_("Backdated Entry Not Allowed"),
+			)
+
+
 def make_sl_entries(sl_entries, allow_negative_stock=False, via_landed_cost_voucher=False):
 	"""Create SL entries from SL entry dicts
 
@@ -71,6 +118,8 @@ def make_sl_entries(sl_entries, allow_negative_stock=False, via_landed_cost_vouc
 		if cancelled:
 			validate_cancellation(sl_entries)
 			set_as_cancel(sl_entries[0].get("voucher_type"), sl_entries[0].get("voucher_no"))
+		else:
+			validate_standard_cost_posting_date(sl_entries)
 
 		args = get_args_for_future_sle(sl_entries[0])
 		future_sle_exists(args, sl_entries)
@@ -843,6 +892,29 @@ class update_entries_after:
 				indicator="blue",
 			)
 
+	def process_standard_cost(self, sle):
+		from erpnext.stock.doctype.item_standard_cost.item_standard_cost import get_item_standard_rate
+
+		rate = get_item_standard_rate(sle.item_code, self.company, sle.posting_date)
+		if rate is None:
+			frappe.throw(
+				_(
+					"No Standard Valuation Rate found for Item {0} in Company {1} as on {2}. Please create an Item Standard Cost record."
+				).format(bold(sle.item_code), bold(self.company), bold(sle.posting_date))
+			)
+
+		if sle.voucher_type == "Stock Reconciliation" and sle.get("qty_after_transaction") is not None:
+			self.wh_data.qty_after_transaction = flt(sle.qty_after_transaction)
+		else:
+			self.wh_data.qty_after_transaction += flt(sle.actual_qty)
+
+		self.wh_data.valuation_rate = rate
+		self.wh_data.stock_value = flt(self.wh_data.qty_after_transaction) * flt(rate)
+		self.wh_data.stock_queue = [[self.wh_data.qty_after_transaction, rate]]
+
+		if flt(sle.actual_qty) > 0:
+			sle.incoming_rate = rate
+
 	def process_sle(self, sle):
 		# previous sle data for this warehouse
 		key = (sle.item_code, sle.warehouse)
@@ -897,7 +969,11 @@ class update_entries_after:
 				if sle.get(dimension.get("fieldname")):
 					has_dimensions = True
 
-		if sle.serial_and_batch_bundle:
+		if self.valuation_method == "Standard Cost":
+			# Inventory is always carried at the standard rate effective on the posting date;
+			# FIFO/Moving Average/serial-batch valuation is bypassed entirely.
+			self.process_standard_cost(sle)
+		elif sle.serial_and_batch_bundle:
 			self.calculate_valuation_for_serial_batch_bundle(sle)
 		elif sle.serial_no and not self.args.get("sle_id"):
 			# Only run in reposting
@@ -2065,21 +2141,50 @@ def update_qty_in_future_sle(args, allow_negative_stock=False):
 		detail = next_stock_reco_detail[0]
 		datetime_limit_condition = get_datetime_limit_condition(detail)
 
-	frappe.db.sql(  # nosemgrep
-		f"""
-		update `tabStock Ledger Entry`
-		set qty_after_transaction = qty_after_transaction + {qty_shift}
-		where
-			item_code = %(item_code)s
-			and warehouse = %(warehouse)s
-			and is_cancelled = 0
-			and (
-				posting_datetime > %(posting_datetime)s
-			)
-			{datetime_limit_condition}
-		""",
-		args,
-	)
+	if get_valuation_method(args.get("item_code"), args.get("company")) == "Standard Cost":
+		# Standard Cost inventory is always carried at the standard rate, so a backdated entry only
+		# shifts future balances — no full repost is needed. Update qty and value in place:
+		# stock_value = qty_after_transaction * standard rate, which is constant across this range
+		# (a rate change posts a reconciliation that bounds it). stock_value_difference is unchanged
+		# because every future balance shifts by the same amount.
+		from erpnext.stock.doctype.item_standard_cost.item_standard_cost import get_item_standard_rate
+
+		standard_rate = flt(
+			get_item_standard_rate(args.get("item_code"), args.get("company"), args.get("posting_date"))
+		)
+
+		frappe.db.sql(  # nosemgrep
+			f"""
+			update `tabStock Ledger Entry`
+			set stock_value = (qty_after_transaction + {qty_shift}) * {standard_rate},
+				qty_after_transaction = qty_after_transaction + {qty_shift}
+			where
+				item_code = %(item_code)s
+				and warehouse = %(warehouse)s
+				and is_cancelled = 0
+				and (
+					posting_datetime > %(posting_datetime)s
+				)
+				{datetime_limit_condition}
+			""",
+			args,
+		)
+	else:
+		frappe.db.sql(  # nosemgrep
+			f"""
+			update `tabStock Ledger Entry`
+			set qty_after_transaction = qty_after_transaction + {qty_shift}
+			where
+				item_code = %(item_code)s
+				and warehouse = %(warehouse)s
+				and is_cancelled = 0
+				and (
+					posting_datetime > %(posting_datetime)s
+				)
+				{datetime_limit_condition}
+			""",
+			args,
+		)
 
 	validate_negative_qty_in_future_sle(args, allow_negative_stock)
 
