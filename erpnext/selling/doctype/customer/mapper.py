@@ -39,6 +39,7 @@ def make_quotation(source_name: str, target_doc: str | Document | None = None):
 			target_doc.conversion_rate = get_exchange_rate(
 				target_doc.currency, company_currency, target_doc.transaction_date, "for_selling"
 			)
+			target_doc.run_method("calculate_taxes_and_totals")
 
 	return target_doc
 
