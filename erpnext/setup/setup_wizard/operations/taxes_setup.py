@@ -127,6 +127,7 @@ def update_regional_tax_settings(country, company):
 			pass
 		except Exception:
 			# Log error and ignore if failed to setup regional tax settings
+			frappe.db.rollback()
 			frappe.log_error("Unable to setup regional tax settings")
 
 
