@@ -779,6 +779,7 @@ def make_reposting_for_accounting_ledgers(transactions, company, repost_doc):
 		if reposting_map.get((voucher_type, voucher_no)):
 			continue
 
+		frappe.db.savepoint("repost_accounting_ledger")
 		try:
 			new_repost_doc = frappe.new_doc("Repost Item Valuation")
 			new_repost_doc.company = company
@@ -789,7 +790,7 @@ def make_reposting_for_accounting_ledgers(transactions, company, repost_doc):
 			new_repost_doc.flags.ignore_permissions = True
 			new_repost_doc.submit()
 		except Exception:
-			pass
+			frappe.db.rollback(save_point="repost_accounting_ledger")
 
 
 def get_existing_reposting_only_gl_entries(reposting_reference):
