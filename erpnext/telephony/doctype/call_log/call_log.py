@@ -196,6 +196,7 @@ def link_existing_conversations(doc, state):
 				if not frappe.in_test:
 					frappe.db.commit()
 	except Exception:
+		frappe.db.rollback()
 		frappe.log_error(title=_("Error during caller information update"))
 
 
