@@ -47,6 +47,7 @@ def create_bank_entries(columns: str, data: str | list, bank_account: str):
 		for key, value in header_map.items():
 			fields.update({key: d[int(value) - 1]})
 
+		frappe.db.savepoint("bank_entry")
 		try:
 			bank_transaction = frappe.get_doc({"doctype": "Bank Transaction"})
 			bank_transaction.update(fields)
@@ -56,6 +57,7 @@ def create_bank_entries(columns: str, data: str | list, bank_account: str):
 			bank_transaction.submit()
 			success += 1
 		except Exception:
+			frappe.db.rollback(save_point="bank_entry")
 			bank_transaction.log_error("Bank entry creation failed")
 			errors += 1
 
