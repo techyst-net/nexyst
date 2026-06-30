@@ -1,4 +1,75 @@
 {
+ "allowed_users": [
+  {
+   "user": "Administrator"
+  },
+  {
+   "user": "Guest"
+  },
+  {
+   "user": "accounts@test.com"
+  },
+  {
+   "user": "ankush@erpnext.com"
+  },
+  {
+   "user": "faris@erpnext.com"
+  },
+  {
+   "user": "mention_test_user@example.com"
+  },
+  {
+   "user": "project@frappe.io"
+  },
+  {
+   "user": "rushabh@erpnext.com"
+  },
+  {
+   "user": "saqib@erpnext.com"
+  },
+  {
+   "user": "soham@frappe.io"
+  },
+  {
+   "user": "sohamengineer123@gmail.com"
+  },
+  {
+   "user": "sohamkulkarns9@gmail.com"
+  },
+  {
+   "user": "sydel@frappe.io"
+  },
+  {
+   "user": "test'5@example.com"
+  },
+  {
+   "user": "test1@example.com"
+  },
+  {
+   "user": "test2@example.com"
+  },
+  {
+   "user": "test3@example.com"
+  },
+  {
+   "user": "test4@example.com"
+  },
+  {
+   "user": "test@example.com"
+  },
+  {
+   "user": "test@portal.com"
+  },
+  {
+   "user": "testpassword@example.com"
+  },
+  {
+   "user": "testperm@example.com"
+  },
+  {
+   "user": "web@web.com"
+  }
+ ],
  "app": "erpnext",
  "charts": [],
  "content": "[]",
@@ -15,7 +86,7 @@
  "label": "Organization",
  "link_type": "DocType",
  "links": [],
- "modified": "2026-06-11 11:51:21.800588",
+ "modified": "2026-06-16 00:45:57.595188",
  "modified_by": "Administrator",
  "module": "Setup",
  "module_onboarding": "Organization Onboarding",
@@ -31,6 +102,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 1,
    "icon": "organization",
    "indent": 0,
    "keep_closed": 0,
@@ -44,6 +116,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "book-text",
    "indent": 0,
    "keep_closed": 0,
@@ -57,6 +130,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "file-user",
    "indent": 0,
    "keep_closed": 0,
@@ -70,6 +144,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "book-user",
    "indent": 0,
    "keep_closed": 0,
@@ -83,6 +158,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "users",
    "indent": 0,
    "keep_closed": 0,
@@ -96,6 +172,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "user-round-check",
    "indent": 0,
    "keep_closed": 0,
@@ -109,6 +186,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "mail",
    "indent": 0,
    "keep_closed": 0,
