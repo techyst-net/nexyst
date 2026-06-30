@@ -71,6 +71,7 @@ def create_address(doctype, docname, address):
 	if not address:
 		return
 	address = frappe.parse_json(address)
+	frappe.db.savepoint("crm_create_address")
 	try:
 		_address = frappe.db.exists("Address", address.get("name"))
 		if not _address:
@@ -98,7 +99,7 @@ def create_address(doctype, docname, address):
 			address.save(ignore_permissions=True)
 			return address.name
 	except Exception:
-		frappe.db.rollback()
+		frappe.db.rollback(save_point="crm_create_address")
 		frappe.log_error(frappe.get_traceback(), f"Error while creating address for {docname}")
 
 
