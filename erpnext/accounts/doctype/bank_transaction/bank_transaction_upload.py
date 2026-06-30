@@ -58,7 +58,7 @@ def create_bank_entries(columns: str, data: str | list, bank_account: str):
 			success += 1
 		except Exception:
 			frappe.db.rollback(save_point="bank_entry")
-			bank_transaction.log_error("Bank entry creation failed")
+			frappe.log_error(title="Bank entry creation failed")
 			errors += 1
 
 	return {"success": success, "errors": errors}
