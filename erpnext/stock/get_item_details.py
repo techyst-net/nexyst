@@ -1220,8 +1220,6 @@ def get_item_price(pctx: frappe._dict, item_code, ignore_party=False, force_batc
 	        optional fields transaction_date, customer, supplier
 	:param item_code: str, Item Doctype field item_code
 	"""
-	pctx: frappe._dict = frappe._dict(pctx)
-
 	ip = frappe.qb.DocType("Item Price")
 	query = (
 		frappe.qb.from_(ip)
