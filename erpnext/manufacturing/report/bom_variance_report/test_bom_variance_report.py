@@ -19,17 +19,9 @@ class TestBOMVarianceReport(ERPNextTestSuite):
 		)
 		self.raw_materials = self.get_bom_raw_materials()
 
-		self.overproduction_percentage = frappe.db.get_single_value(
-			"Manufacturing Settings", "overproduction_percentage_for_work_order"
-		)
+		# allow over-production so a Work Order can produce more than planned; ERPNextTestSuite
+		# rolls this back at tearDown, so no manual restore is needed
 		frappe.db.set_single_value("Manufacturing Settings", "overproduction_percentage_for_work_order", 100)
-
-	def tearDown(self):
-		frappe.db.set_single_value(
-			"Manufacturing Settings",
-			"overproduction_percentage_for_work_order",
-			self.overproduction_percentage,
-		)
 
 	def get_bom_raw_materials(self):
 		return {
