@@ -102,6 +102,8 @@ class TestConsolidatedFinancialStatement(ERPNextTestSuite):
 		self.assertEqual(flt(sales_row.get(CHILD_COMPANY)), amount)
 		# parent column picks up the child value when accumulated
 		self.assertEqual(flt(sales_row.get(PARENT_COMPANY)), amount)
+		# the total must equal the consolidated (group) value, not the sum of parent + child columns
+		self.assertEqual(flt(sales_row.get("total")), amount)
 
 	def test_balance_sheet_executes_and_returns_rows(self):
 		# posting income leaves a balancing entry in the child's Cash (Asset) account
