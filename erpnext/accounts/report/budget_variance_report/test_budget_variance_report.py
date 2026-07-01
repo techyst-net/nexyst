@@ -33,9 +33,7 @@ class TestBudgetVarianceReport(ERPNextTestSuite):
 		return execute(filters)[1]
 
 	def report_row(self, data, dimension, account=ACCOUNT):
-		return next(
-			row for row in data if row["budget_against"] == dimension and row["account"] == account
-		)
+		return next(row for row in data if row["budget_against"] == dimension and row["account"] == account)
 
 	def field(self, label):
 		return frappe.scrub(f"{label} {self.fy}")
@@ -57,7 +55,9 @@ class TestBudgetVarianceReport(ERPNextTestSuite):
 		self.assertTrue(columns)
 
 	def test_budget_amount_shown_with_zero_actual(self):
-		make_budget(budget_against="Cost Center", cost_center=COST_CENTER, budget_amount=120000, submit_budget=1)
+		make_budget(
+			budget_against="Cost Center", cost_center=COST_CENTER, budget_amount=120000, submit_budget=1
+		)
 
 		row = self.report_row(self.run_report(), COST_CENTER)
 		self.assertEqual(row[self.field("Budget")], 120000)
@@ -65,7 +65,9 @@ class TestBudgetVarianceReport(ERPNextTestSuite):
 		self.assertEqual(row[self.field("Variance")], 120000)
 
 	def test_actual_expense_updates_actual_and_variance(self):
-		make_budget(budget_against="Cost Center", cost_center=COST_CENTER, budget_amount=120000, submit_budget=1)
+		make_budget(
+			budget_against="Cost Center", cost_center=COST_CENTER, budget_amount=120000, submit_budget=1
+		)
 		# book an actual expense well within the annual budget so the "Stop" action does not block it
 		make_journal_entry(ACCOUNT, "_Test Bank - _TC", 50000, cost_center=COST_CENTER, submit=True)
 
@@ -74,7 +76,9 @@ class TestBudgetVarianceReport(ERPNextTestSuite):
 		self.assertEqual(row[self.field("Variance")], 70000)  # 120000 - 50000
 
 	def test_budget_against_filter_limits_dimensions(self):
-		make_budget(budget_against="Cost Center", cost_center=COST_CENTER, budget_amount=120000, submit_budget=1)
+		make_budget(
+			budget_against="Cost Center", cost_center=COST_CENTER, budget_amount=120000, submit_budget=1
+		)
 		make_budget(
 			budget_against="Cost Center", cost_center=COST_CENTER_2, budget_amount=80000, submit_budget=1
 		)
@@ -84,7 +88,9 @@ class TestBudgetVarianceReport(ERPNextTestSuite):
 		self.assertEqual(dimensions, {COST_CENTER})
 
 	def test_monthly_period_totals(self):
-		make_budget(budget_against="Cost Center", cost_center=COST_CENTER, budget_amount=120000, submit_budget=1)
+		make_budget(
+			budget_against="Cost Center", cost_center=COST_CENTER, budget_amount=120000, submit_budget=1
+		)
 		make_journal_entry(ACCOUNT, "_Test Bank - _TC", 50000, cost_center=COST_CENTER, submit=True)
 
 		row = self.report_row(self.run_report(period="Monthly"), COST_CENTER)
