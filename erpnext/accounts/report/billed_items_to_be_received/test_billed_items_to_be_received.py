@@ -87,3 +87,16 @@ class TestBilledItemsToBeReceived(ERPNextTestSuite):
 
 		rows = self.get_rows_for(self.run_report(posting_date="2000-01-01"), pi.name)
 		self.assertEqual(len(rows), 0)
+
+	def test_purchase_invoice_filter_scopes_to_that_invoice(self):
+		"""The optional purchase_invoice filter must narrow to that invoice only."""
+		pi = make_purchase_invoice(
+			supplier="_Test Supplier", item_code="_Test Item", qty=5, rate=200, update_stock=0
+		)
+		other = make_purchase_invoice(
+			supplier="_Test Supplier", item_code="_Test Item", qty=3, rate=200, update_stock=0
+		)
+
+		names = {row.get("name") for row in self.run_report(purchase_invoice=pi.name)}
+		self.assertEqual(names, {pi.name})
+		self.assertNotIn(other.name, names)
