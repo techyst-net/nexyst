@@ -103,12 +103,8 @@ class TestShareBalanceReport(ERPNextTestSuite):
 		self.assertEqual(other_row[2], 40)
 		self.assertEqual(other_row[4], 400)
 
-	def test_report_reflects_current_balance_regardless_of_date(self):
-		# NOTE: the report reads the Shareholder's current `share_balance` table
-		# and does NOT actually filter by the `date` value (it is required but
-		# unused in the computation). So an as-on date before the issue still
-		# shows the current holding rather than 0. This asserts the real
-		# behavior and flags the missing date-based filtering.
+	def test_as_on_date_before_issue_shows_no_holding(self):
+		# the report is as-on `date`: before any share transfer, the shareholder holds nothing
 		create_share_transfer(
 			transfer_type="Issue",
 			to_shareholder=self.shareholder,
@@ -120,8 +116,36 @@ class TestShareBalanceReport(ERPNextTestSuite):
 			date="2026-06-01",
 		)
 
-		row = self.get_row(date="2020-01-01")  # long before the issue
-		self.assertEqual(row[2], 100)
+		data = execute(
+			frappe._dict({"date": "2026-05-01", "company": COMPANY, "shareholder": self.shareholder})
+		)[1]
+		self.assertEqual(data, [])
+
+	def test_as_on_date_reflects_holding_up_to_that_date(self):
+		# two issues on different dates; an as-on date between them sees only the first
+		create_share_transfer(
+			transfer_type="Issue",
+			to_shareholder=self.shareholder,
+			share_type=self.share_type,
+			from_no=1,
+			to_no=100,
+			no_of_shares=100,
+			rate=10,
+			date="2026-06-01",
+		)
+		create_share_transfer(
+			transfer_type="Issue",
+			to_shareholder=self.shareholder,
+			share_type=self.share_type,
+			from_no=101,
+			to_no=200,
+			no_of_shares=100,
+			rate=20,
+			date="2026-06-10",
+		)
+
+		self.assertEqual(self.get_row(date="2026-06-05")[2], 100)  # only the first issue
+		self.assertEqual(self.get_row(date="2026-06-15")[2], 200)  # both issues
 
 	def get_row(self, date, shareholder=None):
 		filters = frappe._dict(
