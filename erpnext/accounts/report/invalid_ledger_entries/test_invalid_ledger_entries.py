@@ -109,6 +109,14 @@ class TestInvalidLedgerEntries(ERPNextTestSuite):
 		flagged = {row.get("voucher_no") for row in self.run_report(account=[unrelated])}
 		self.assertNotIn(orphan.name, flagged)
 
+	def test_account_filter_accepts_a_scalar(self):
+		"""A scalar (non-list) account filter must not crash the query."""
+		orphan = self.make_submitted_jv()
+		frappe.db.set_value("Journal Entry", orphan.name, "docstatus", 2, update_modified=False)
+
+		flagged = {row.get("voucher_no") for row in self.run_report(account=self.debit_account)}
+		self.assertIn(orphan.name, flagged)
+
 	def test_period_filter_excludes_out_of_range(self):
 		"""Vouchers posted outside the from/to window must not be scanned."""
 		orphan = self.make_submitted_jv()
