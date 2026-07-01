@@ -81,3 +81,26 @@ class TestStockLedgerVariance(ERPNextTestSuite):
 		# self-consistent ledger, so no variance rows are expected.
 		data = self.run_report(item_code=item)
 		self.assertFalse([row for row in data if row.get("item_code") == item])
+
+	def test_incorrect_balance_qty_is_flagged(self):
+		from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
+
+		item = "_Test Item 2"
+		warehouse = "Stores - _TC"
+		frappe.db.set_value("Item", item, "valuation_method", "Moving Average")
+
+		entry = make_stock_entry(
+			item_code=item, to_warehouse=warehouse, qty=10, rate=100, posting_date="2026-06-01"
+		)
+		sle = frappe.db.get_value(
+			"Stock Ledger Entry",
+			{"voucher_no": entry.name, "item_code": item, "warehouse": warehouse},
+			"name",
+		)
+
+		# corrupt the stored running balance (expected 10 from the receipt, but now claims 7)
+		frappe.db.set_value("Stock Ledger Entry", sle, "qty_after_transaction", 7, update_modified=False)
+
+		data = self.run_report(item_code=item, difference_in="Qty")
+		row = next(r for r in data if r.get("item_code") == item)
+		self.assertEqual(row["difference_in_qty"], -3)  # 7 (stored) - 10 (expected)
