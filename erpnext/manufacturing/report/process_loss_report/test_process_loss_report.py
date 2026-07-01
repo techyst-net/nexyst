@@ -73,7 +73,7 @@ class TestProcessLossReport(ERPNextTestSuite):
 		self.assertEqual(wo_order.process_loss_qty, 1)
 		self.assertEqual(wo_order.produced_qty, 4)
 
-		data = self.run_report(work_order=wo_order.name)
+		data = self.run_report()
 		row = self.find_row(data, wo_order.name)
 
 		self.assertIsNotNone(row, "Work order with process loss should appear in the report")
@@ -93,26 +93,22 @@ class TestProcessLossReport(ERPNextTestSuite):
 		self.assertEqual(wo_order.process_loss_qty, 0)
 		self.assertEqual(wo_order.produced_qty, 5)
 
-		data = self.run_report(work_order=wo_order.name)
+		data = self.run_report()
 		self.assertIsNone(
 			self.find_row(data, wo_order.name),
 			"Work order that produced the full planned qty should not appear (no loss)",
 		)
 
-	def test_item_and_work_order_filters_are_ineffective(self):
-		"""BUG: the `item` and `work_order` filters in process_loss_report.get_data
-		call `query.where(...)` without reassigning the result. frappe's query
-		builder is immutable, so `.where()` returns a new query and these extra
-		conditions are silently dropped. A non-matching item filter therefore fails
-		to exclude the row. This test documents the current (buggy) behaviour; if the
-		report is fixed to reassign the query, update the assertion below to
-		`assertIsNone`.
-		"""
+	def test_item_filter_scopes_rows(self):
 		wo_order = self.make_manufactured_work_order(planned_qty=5, produced_qty=4)
 
-		# A non-matching item filter should exclude the row, but currently does not.
-		data = self.run_report(item="_Test FG Item 2")
-		self.assertIsNotNone(
-			self.find_row(data, wo_order.name),
-			"Filter bug regressed/fixed: `item` filter now takes effect - update this test",
-		)
+		# a matching production item includes the row, a non-matching one excludes it
+		self.assertIsNotNone(self.find_row(self.run_report(item="_Test FG Item"), wo_order.name))
+		self.assertIsNone(self.find_row(self.run_report(item="_Test FG Item 2"), wo_order.name))
+
+	def test_work_order_filter_scopes_rows(self):
+		wo_order = self.make_manufactured_work_order(planned_qty=5, produced_qty=4)
+
+		# the matching work order is included, a different work order name is excluded
+		self.assertIsNotNone(self.find_row(self.run_report(work_order=wo_order.name), wo_order.name))
+		self.assertIsNone(self.find_row(self.run_report(work_order=f"{wo_order.name}-XX"), wo_order.name))
