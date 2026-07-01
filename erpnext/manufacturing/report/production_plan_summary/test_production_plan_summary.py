@@ -7,6 +7,7 @@ from erpnext.manufacturing.doctype.production_plan.test_production_plan import c
 from erpnext.manufacturing.doctype.work_order.mapper import make_stock_entry as make_se_from_wo
 from erpnext.manufacturing.doctype.work_order.test_work_order import make_wo_order_test_record
 from erpnext.manufacturing.report.production_plan_summary.production_plan_summary import execute
+from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.tests.utils import ERPNextTestSuite
 
 
@@ -37,6 +38,17 @@ class TestProductionPlanSummary(ERPNextTestSuite):
 		wo.production_plan_item = plan.po_items[0].name
 		wo.submit()
 		return wo
+
+	def stock_required_materials(self, wo):
+		# make sure every raw material is available in its source warehouse before manufacturing,
+		# otherwise a clean database raises NegativeStockError
+		for item in wo.required_items:
+			make_stock_entry(
+				item_code=item.item_code,
+				to_warehouse=item.source_warehouse or "_Test Warehouse - _TC",
+				qty=item.required_qty + 10,
+				rate=100,
+			)
 
 	def get_work_order_row(self, data, item_code):
 		for row in data:
@@ -84,6 +96,7 @@ class TestProductionPlanSummary(ERPNextTestSuite):
 		"""Producing part of the work order updates produced and pending quantities."""
 		plan = self.make_plan(planned_qty=2)
 		wo = self.make_submitted_work_order(plan, qty=2)
+		self.stock_required_materials(wo)
 
 		se = frappe.get_doc(make_se_from_wo(wo.name, "Manufacture", 1))
 		se.submit()
