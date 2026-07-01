@@ -425,10 +425,10 @@ def repost(doc):
 		if isinstance(message, dict):
 			message = message.get("message")
 
-		status = "Failed"
-		# If failed because of timeout, set status to In Progress
-		if traceback and ("timeout" in traceback.lower() or "Deadlock found" in traceback):
-			status = "In Progress"
+		# Recoverable errors (deadlock, lock/query timeout, job timeout) re-queue as In Progress.
+		# Classify by type: the old traceback string-match only knew MariaDB's "Deadlock found" and
+		# missed Postgres deadlocks ("deadlock detected"), failing them permanently.
+		status = "In Progress" if isinstance(e, RecoverableErrors) else "Failed"
 
 		if traceback:
 			message += "<br><br>" + "<b>Traceback:</b> <br>" + traceback
@@ -447,7 +447,8 @@ def repost(doc):
 				"Email Account", {"default_outgoing": 1, "enable_outgoing": 1}, "name"
 			)
 
-			if outgoing_email_account and not isinstance(e, RecoverableErrors):
+			# status == "Failed" already implies e is not recoverable, so no need to re-check here.
+			if outgoing_email_account:
 				notify_error_to_stock_managers(doc, message)
 				doc.set_status("Failed")
 	finally:
