@@ -55,9 +55,16 @@ class SupplierScorecard(Document):
 		self.update_standing()
 
 	def on_update(self):
-		score = make_all_scorecards(self.name)
-		if score > 0:
-			self.save()
+		# Guard against recursion: the save() below re-enters on_update().
+		if self.flags.in_rescore:
+			return
+		if make_all_scorecards(self.name) > 0:
+			# New periods were created; re-save to refresh score and standings.
+			self.flags.in_rescore = True
+			try:
+				self.save()
+			finally:
+				self.flags.in_rescore = False
 
 	def validate_standings(self):
 		# Standings must form a continuous chain of bands covering 0 to 100 with no gaps or overlaps
