@@ -9,7 +9,7 @@ from frappe import _, throw
 from frappe.desk.form.assign_to import clear, close_all_assignments
 from frappe.model.mapper import get_mapped_doc
 from frappe.query_builder.functions import Max, Min, Sum
-from frappe.utils import add_days, add_to_date, cstr, date_diff, flt, get_link_to_form, getdate, today
+from frappe.utils import add_days, add_to_date, date_diff, flt, get_link_to_form, getdate, today
 from frappe.utils.data import format_date
 from frappe.utils.nestedset import NestedSet
 
@@ -247,25 +247,32 @@ class Task(NestedSet):
 	def check_recursion(self):
 		if self.flags.ignore_recursion_check:
 			return
-		check_list = [["task", "parent"], ["parent", "task"]]
-		for d in check_list:
-			task_list, count = [self.name], 0
-			while len(task_list) > count:
-				tasks = frappe.get_all(
-					"Task Depends On",
-					filters={d[1]: cstr(task_list[count])},
-					fields=[d[0]],
-					as_list=True,
-				)
-				count = count + 1
-				for b in tasks:
-					if b[0] == self.name:
-						frappe.throw(_("Circular Reference Error"), CircularReferenceError)
-					if b[0]:
-						task_list.append(b[0])
+		# "Task Depends On" is a directed edge (parent depends on `task`); a cycle exists if this
+		# task is reachable from itself along either direction. One recursive CTE per direction
+		# fetches the whole reachable set in a single query -- UNION makes it cycle-safe at any
+		# depth, so unlike the old per-node BFS it needs no arbitrary depth cap.
+		for select_field, filter_field in (("task", "parent"), ("parent", "task")):
+			if self._reaches_self(select_field, filter_field):
+				frappe.throw(_("Circular Reference Error"), CircularReferenceError)
 
-				if count == 15:
-					break
+	def _reaches_self(self, select_field: str, filter_field: str) -> bool:
+		depends_on = frappe.qb.DocType("Task Depends On")
+		tree = frappe.qb.Table("dependency_tree")
+		seed = (
+			frappe.qb.from_(depends_on)
+			.select(depends_on[select_field].as_("node"))
+			.where(depends_on[filter_field] == self.name)
+		)
+		recursion = (
+			frappe.qb.from_(depends_on)
+			.join(tree)
+			.on(depends_on[filter_field] == tree.node)
+			.select(depends_on[select_field])
+		)
+		reachable = (
+			frappe.qb.with_(seed + recursion, "dependency_tree", recursive=True).from_(tree).select(tree.node)
+		).run(pluck=True)
+		return self.name in reachable
 
 	def reschedule_dependent_tasks(self):
 		end_date = self.exp_end_date or self.act_end_date
