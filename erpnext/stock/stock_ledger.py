@@ -262,22 +262,25 @@ def make_entry(args, allow_negative_stock=False, via_landed_cost_voucher=False):
 	return sle
 
 
-# Reposts wait this long for the per-(item, warehouse) gate before giving up. A repost of one item
-# is bounded, and a QueryTimeoutError here is recoverable -- the repost job re-queues and retries.
-REPOST_LOCK_TIMEOUT = 600
+# A repost waits this long for another repost's per-(item, warehouse) gate before giving up. Kept
+# well under the 1800s repost job timeout so a wait can't burn the whole budget, and short enough
+# that a contended worker re-queues (recoverable QueryTimeoutError) and frees the slot for other
+# items instead of pinning it.
+REPOST_LOCK_TIMEOUT = 300
 
 
 def repost_gate(item_code, warehouse):
-	"""Serialize concurrent reposts of the same (item, warehouse) with a session-level advisory lock
-	acquired BEFORE the inner `... for update` row locks. It is an outer gate: two reposts touching
-	the same item wait for each other instead of racing into a lock-order deadlock (which repost
-	otherwise only survives by retrying). The row locks still enforce correctness -- this only cuts
-	the deadlock/retry churn. Advisory locks exist on postgres + mariadb; elsewhere there is no gate."""
-	# hasattr keeps this a graceful opt-in: if this ERPNext deploys before frappe.db.advisory_lock
-	# lands (frappe#40466), fall back to no gate rather than raising a non-recoverable AttributeError
-	# that would permanently mark the Repost Item Valuation as Failed.
+	"""Serialize concurrent background reposts of the same (item, warehouse) with a session-level
+	advisory lock taken before the inner `... for update` row locks, so they take turns instead of
+	racing into a lock-order deadlock. Row locks still enforce correctness; this only cuts the
+	deadlock/retry churn. Scope is repost-vs-repost only -- the synchronous repost_current_voucher
+	submit path is deliberately not gated (blocking a submit behind a background repost would be a
+	worse regression) and keeps relying on the existing deadlock retry. No advisory locks, no gate."""
+	# hasattr keeps this a graceful opt-in: on an ERPNext predating frappe.db.advisory_lock, fall
+	# back to no gate rather than raising and marking the Repost Item Valuation permanently Failed.
 	if frappe.db.db_type in ("postgres", "mariadb") and hasattr(frappe.db, "advisory_lock"):
-		return frappe.db.advisory_lock(f"stock_repost:{item_code}:{warehouse}", timeout=REPOST_LOCK_TIMEOUT)
+		# Tuple key: a colon in item_code/warehouse can't collide two distinct pairs onto one lock.
+		return frappe.db.advisory_lock(("stock_repost", item_code, warehouse), timeout=REPOST_LOCK_TIMEOUT)
 	return nullcontext()
 
 
