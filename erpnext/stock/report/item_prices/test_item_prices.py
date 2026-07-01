@@ -29,6 +29,7 @@ class TestItemPrices(ERPNextTestSuite):
 			if row[item_idx] == item_code:
 				return row
 		self.fail(f"No report row found for item {item_code}")
+		return None
 
 	def cell(self, columns, row, label):
 		return row[self.labels(columns).index(label)]
