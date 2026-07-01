@@ -452,7 +452,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-06-30 17:24:11.542162",
+ "modified": "2026-07-01 14:22:16.927245",
  "modified_by": "Administrator",
  "module": "Setup",
  "name": "Home",
@@ -462,11 +462,7 @@
  "public": 1,
  "quick_lists": [],
  "restrict_to_domain": "",
- "roles": [
-  {
-   "role": "Desk User"
-  }
- ],
+ "roles": [],
  "sequence_id": 1.0,
  "shortcuts": [
   {
