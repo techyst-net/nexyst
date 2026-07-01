@@ -364,3 +364,15 @@ class StockLedgerEntry(Document):
 def on_doctype_update():
 	frappe.db.add_index("Stock Ledger Entry", ["voucher_no", "voucher_type"])
 	frappe.db.add_index("Stock Ledger Entry", ["item_code", "warehouse", "posting_datetime", "creation"])
+
+	if frappe.db.db_type == "postgres":
+		# Postgres-only partial index for date-range stock reports (Stock Ledger / Stock Balance)
+		# that scan across all items: they filter `is_cancelled = 0` and sort by posting_datetime.
+		# The existing item_code-leading composite can't serve an all-items date scan. `where` is a
+		# no-op on MariaDB, so this is added only on postgres.
+		frappe.db.add_index(
+			"Stock Ledger Entry",
+			["company", "posting_datetime", "creation"],
+			index_name="sle_active_posting",
+			where="is_cancelled = 0",
+		)
