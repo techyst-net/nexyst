@@ -188,7 +188,7 @@ def remove_standard_fields(out: ItemDetailsCtx):
 	return out
 
 
-def set_valuation_rate(out: ItemDetailsCtx, ctx: ItemDetailsCtx):
+def set_valuation_rate(out: ItemDetailsCtx | dict, ctx: ItemDetailsCtx):
 	from erpnext.selling.doctype.product_bundle.product_bundle import get_active_product_bundle
 
 	active_bundle = get_active_product_bundle(ctx.item_code)
@@ -1215,7 +1215,7 @@ def _get_stock_uom_rate(rate: float, ctx: ItemDetailsCtx):
 
 
 def get_item_price(
-	pctx: ItemDetailsCtx, item_code, ignore_party=False, force_batch_no=False
+	pctx: ItemDetailsCtx | dict, item_code, ignore_party=False, force_batch_no=False
 ) -> list[dict]:
 	"""
 	Get name, price_list_rate from Item Price based on conditions
@@ -1224,6 +1224,7 @@ def get_item_price(
 	        optional fields transaction_date, customer, supplier
 	:param item_code: str, Item Doctype field item_code
 	"""
+	pctx: ItemDetailsCtx = frappe._dict(pctx)
 
 	ip = frappe.qb.DocType("Item Price")
 	query = (
@@ -1761,7 +1762,7 @@ def get_serial_no(_args: Any, serial_nos: list | None = None, sales_order: str |
 	return serial_nos
 
 
-def update_party_blanket_order(ctx: ItemDetailsCtx, out: ItemDetailsCtx):
+def update_party_blanket_order(ctx: ItemDetailsCtx, out: ItemDetailsCtx | dict):
 	if out["against_blanket_order"]:
 		blanket_order_details = get_blanket_order_details(ctx)
 		if blanket_order_details:
