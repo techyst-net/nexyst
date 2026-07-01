@@ -2,7 +2,7 @@
 # See license.txt
 
 import frappe
-from frappe.utils import add_days, getdate, nowdate
+from frappe.utils import getdate
 
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
@@ -16,10 +16,9 @@ class TestPaymentPeriodBasedOnInvoiceDate(ERPNextTestSuite):
 	"""Depth tests for the Payment Period Based On Invoice Date report.
 
 	The report lists Payment Ledger Entries against invoices and buckets the paid
-	amount by the invoice's age into ranges: range1 (0-30), range2 (30-60),
-	range3 (60-90), range4 (90 Above). The age is measured from the invoice
-	posting date up to today, so invoice posting dates are placed relative to
-	``nowdate()`` to land deterministically in a given bucket.
+	amount by the payment period -- how long after the invoice the payment was made
+	(payment date - invoice date) -- into ranges: range1 (0-30), range2 (30-60),
+	range3 (60-90), range4 (90 Above).
 	"""
 
 	def run_report(self, **extra):
@@ -28,8 +27,8 @@ class TestPaymentPeriodBasedOnInvoiceDate(ERPNextTestSuite):
 				"company": "_Test Company",
 				"payment_type": "Incoming",
 				"party_type": "Customer",
-				"from_date": add_days(nowdate(), -180),
-				"to_date": nowdate(),
+				"from_date": "2026-01-01",
+				"to_date": "2026-12-31",
 			}
 		)
 		filters.update(extra)
@@ -45,21 +44,18 @@ class TestPaymentPeriodBasedOnInvoiceDate(ERPNextTestSuite):
 				return row
 		return None
 
-	def pay_invoice(self, invoice):
+	def pay_invoice(self, invoice, payment_date):
 		pe = get_payment_entry("Sales Invoice", invoice.name)
-		pe.posting_date = nowdate()
+		pe.posting_date = payment_date
 		pe.reference_no = "1"
-		pe.reference_date = nowdate()
+		pe.reference_date = payment_date
 		pe.submit()
 		return pe
 
 	def test_paid_amount_lands_in_0_30_bucket(self):
-		invoice = create_sales_invoice(
-			customer="_Test Customer",
-			rate=1000,
-			posting_date=add_days(nowdate(), -15),
-		)
-		payment = self.pay_invoice(invoice)
+		# invoice 2026-06-01, paid 2026-06-20 -> 19 days after -> 0-30 bucket
+		invoice = create_sales_invoice(customer="_Test Customer", rate=1000, posting_date="2026-06-01")
+		payment = self.pay_invoice(invoice, "2026-06-20")
 
 		columns, data = self.run_report()
 
@@ -68,10 +64,11 @@ class TestPaymentPeriodBasedOnInvoiceDate(ERPNextTestSuite):
 
 		# Positional assertions on the row shape.
 		self.assertEqual(row[2], "Customer")
-		self.assertEqual(row[4], getdate(nowdate()))  # payment posting date
+		self.assertEqual(row[4], getdate("2026-06-20"))  # payment posting date
 		self.assertEqual(row[5], invoice.name)  # against invoice
-		self.assertEqual(row[6], getdate(add_days(nowdate(), -15)))  # invoice posting date
+		self.assertEqual(row[6], getdate("2026-06-01"))  # invoice posting date
 		self.assertEqual(row[8], 1000)  # amount
+		self.assertEqual(row[10], 19)  # age = payment date - invoice date
 
 		# Buckets: 0-30 filled, others empty.
 		self.assertEqual(row[11], 1000)  # range1 (0-30)
@@ -80,12 +77,9 @@ class TestPaymentPeriodBasedOnInvoiceDate(ERPNextTestSuite):
 		self.assertEqual(row[14], 0)  # range4 (90 Above)
 
 	def test_paid_amount_lands_in_30_60_bucket(self):
-		invoice = create_sales_invoice(
-			customer="_Test Customer 1",
-			rate=1000,
-			posting_date=add_days(nowdate(), -45),
-		)
-		payment = self.pay_invoice(invoice)
+		# invoice 2026-06-01, paid 2026-07-16 -> 45 days after -> 30-60 bucket
+		invoice = create_sales_invoice(customer="_Test Customer 1", rate=1000, posting_date="2026-06-01")
+		payment = self.pay_invoice(invoice, "2026-07-16")
 
 		columns, data = self.run_report()
 
@@ -93,6 +87,7 @@ class TestPaymentPeriodBasedOnInvoiceDate(ERPNextTestSuite):
 		self.assertIsNotNone(row, "Payment row not found in report output")
 
 		self.assertEqual(row[8], 1000)  # amount
+		self.assertEqual(row[10], 45)  # age = payment date - invoice date
 		# Buckets: 30-60 filled, others empty.
 		self.assertEqual(row[11], 0)  # range1 (0-30)
 		self.assertEqual(row[12], 1000)  # range2 (30-60)
