@@ -37,6 +37,37 @@ class TestStockAndAccountValueComparison(ERPNextTestSuite):
 		# and GL values for the receipt voucher, so nothing should be flagged.
 		self.assertEqual(rows, [])
 
+	def test_stock_account_gl_mismatch_is_flagged(self):
+		warehouse = create_warehouse("_Test SAVC Mismatch WH", company=COMPANY)
+		account = frappe.get_value("Warehouse", warehouse, "account")
+
+		receipt = make_stock_entry(
+			item_code="_Test Item",
+			to_warehouse=warehouse,
+			qty=10,
+			rate=100,
+			company=COMPANY,
+			posting_date="2026-06-01",
+		)
+
+		# Simulate corruption: the stock-account GL entry for this receipt drifts out of sync
+		# with the stock ledger (stock value stays 1000, but the account only shows 600).
+		frappe.db.set_value(
+			"GL Entry",
+			{"voucher_no": receipt.name, "account": account, "is_cancelled": 0},
+			"debit_in_account_currency",
+			600,
+			update_modified=False,
+		)
+
+		rows = self.run_report(account=account)
+
+		row = next(r for r in rows if r["voucher_no"] == receipt.name)
+		self.assertEqual(row["ledger_type"], "Stock Ledger Entry")
+		self.assertEqual(row["stock_value"], 1000)  # unchanged stock ledger value
+		self.assertEqual(row["account_value"], 600)  # tampered GL value
+		self.assertEqual(row["difference_value"], 400)  # 1000 - 600, above the 0.1 threshold
+
 	def run_report(self, **extra):
 		filters = {"company": COMPANY, "as_on_date": "2026-12-31"}
 		filters.update(extra)
