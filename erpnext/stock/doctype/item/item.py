@@ -1372,7 +1372,8 @@ def get_purchase_voucher_details(doctype, item_code, document_name=None):
 		query = query.select(parent_doc.transaction_date)
 		query = query.orderby(parent_doc.transaction_date, parent_doc.name, order=Order.desc)
 
-	return query.run(as_dict=1)
+	# only the latest ([0]) row is ever used, so fetch just that instead of every purchase of the item
+	return query.limit(1).run(as_dict=1)
 
 
 def check_stock_uom_with_bin(item, stock_uom):
@@ -1762,3 +1763,13 @@ def get_default_warehouse_for_opening_stock(item, company: str, warehouse: str |
 			"No warehouse found for company {0}. Please set a Default Warehouse in Item Defaults or Stock Settings."
 		).format(frappe.bold(company))
 	)
+
+
+def on_doctype_update():
+	if frappe.db.db_type == "postgres":
+		# The Item link-search (erpnext.controllers.queries.item_query) filters
+		# `item_code/item_name LIKE '%txt%'` -- a leading-wildcard LIKE no btree can serve. pg_trgm
+		# GIN indexes accelerate it. Item is read-heavy/write-light master data, so GIN maintenance
+		# cost is negligible. Postgres-only (`using` is a no-op on MariaDB, which has its own FULLTEXT).
+		frappe.db.add_index("Item", ["item_code"], using="gin_trgm")
+		frappe.db.add_index("Item", ["item_name"], using="gin_trgm")
