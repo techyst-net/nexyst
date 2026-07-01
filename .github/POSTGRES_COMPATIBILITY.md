@@ -185,7 +185,8 @@ These are auto-handled by the framework and are **not** breaks:
   full rollback is safe only when it (a) immediately re-`throw`s/`raise`s (MariaDB rolls back anyway),
   (b) has nothing successful before it (a single op), or (c) the batch is genuinely meant to be
   **atomic** (a partial result is an invalid state → rollback + mark *Failed* is correct). Otherwise use
-  a **per-iteration / per-record savepoint**.
+  a **per-iteration / per-record savepoint** — and keep the function's success/`None` return contract:
+  do **not** return the doc when the savepoint was rolled back.
 
 ---
 
