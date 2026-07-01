@@ -6,7 +6,7 @@
    "label": "Completed Projects"
   }
  ],
- "content": "[{\"id\":\"7Mbx6I5JUf\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"QYGHTcrCDB\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Hello</b></span>\",\"col\":12}},{\"id\":\"fVYsju6dB9\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Completed Projects\",\"col\":12}},{\"id\":\"67w8up7H_0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Projects\",\"col\":4}},{\"id\":\"IFEYSadaYc\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Non Completed Tasks\",\"col\":4}},{\"id\":\"VqbqxA0YL1\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Working Hours\",\"col\":4}},{\"id\":\"oGhjvYjfv-\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"TdsgJyG3EI\",\"type\":\"card\",\"data\":{\"card_name\":\"Projects\",\"col\":4}},{\"id\":\"nIc0iyvf1T\",\"type\":\"card\",\"data\":{\"card_name\":\"Time Tracking\",\"col\":4}},{\"id\":\"8G1if4jsQ7\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"o7qTNRXZI8\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
+ "content": "[{\"id\":\"7Mbx6I5JUf\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"fVYsju6dB9\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Completed Projects\",\"col\":12}},{\"id\":\"67w8up7H_0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Projects\",\"col\":4}},{\"id\":\"IFEYSadaYc\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Non Completed Tasks\",\"col\":4}},{\"id\":\"VqbqxA0YL1\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Working Hours\",\"col\":4}},{\"id\":\"oGhjvYjfv-\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"TdsgJyG3EI\",\"type\":\"card\",\"data\":{\"card_name\":\"Projects\",\"col\":4}},{\"id\":\"nIc0iyvf1T\",\"type\":\"card\",\"data\":{\"card_name\":\"Time Tracking\",\"col\":4}},{\"id\":\"8G1if4jsQ7\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"o7qTNRXZI8\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
  "creation": "2020-03-02 15:46:04.874669",
  "custom_blocks": [],
  "docstatus": 0,
@@ -27,12 +27,42 @@
    "type": "Card Break"
   },
   {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Projects",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
    "dependencies": "",
    "hidden": 0,
    "is_query_report": 0,
    "label": "Project",
    "link_count": 0,
    "link_to": "Project",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Project",
+   "link_count": 0,
+   "link_to": "Project",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Task",
+   "link_count": 0,
+   "link_to": "Task",
    "link_type": "DocType",
    "onboard": 1,
    "type": "Link"
@@ -63,9 +93,42 @@
    "dependencies": "",
    "hidden": 0,
    "is_query_report": 0,
+   "label": "Project Template",
+   "link_count": 0,
+   "link_to": "Project Template",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "Project Type",
    "link_count": 0,
    "link_to": "Project Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Project Type",
+   "link_count": 0,
+   "link_to": "Project Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "Project",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Project Update",
+   "link_count": 0,
+   "link_to": "Project Update",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
@@ -90,12 +153,42 @@
    "type": "Card Break"
   },
   {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Time Tracking",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
    "dependencies": "",
    "hidden": 0,
    "is_query_report": 0,
    "label": "Timesheet",
    "link_count": 0,
    "link_to": "Timesheet",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Timesheet",
+   "link_count": 0,
+   "link_to": "Timesheet",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Activity Type",
+   "link_count": 0,
+   "link_to": "Activity Type",
    "link_type": "DocType",
    "onboard": 1,
    "type": "Link"
@@ -123,12 +216,42 @@
    "type": "Link"
   },
   {
+   "dependencies": "Activity Type",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Activity Cost",
+   "link_count": 0,
+   "link_to": "Activity Cost",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
    "hidden": 0,
    "is_query_report": 0,
    "label": "Reports",
    "link_count": 0,
    "onboard": 0,
    "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reports",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "Timesheet",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Daily Timesheet Summary",
+   "link_count": 0,
+   "link_to": "Daily Timesheet Summary",
+   "link_type": "Report",
+   "onboard": 1,
+   "type": "Link"
   },
   {
    "dependencies": "Timesheet",
@@ -156,9 +279,42 @@
    "dependencies": "Project",
    "hidden": 0,
    "is_query_report": 1,
+   "label": "Project wise Stock Tracking",
+   "link_count": 0,
+   "link_to": "Project wise Stock Tracking",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "Project",
+   "hidden": 0,
+   "is_query_report": 1,
    "label": "Timesheet Billing Summary",
    "link_count": 0,
    "link_to": "Timesheet Billing Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "Project",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Timesheet Billing Summary",
+   "link_count": 0,
+   "link_to": "Timesheet Billing Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "Task",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Delayed Tasks Summary",
+   "link_count": 0,
+   "link_to": "Delayed Tasks Summary",
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
@@ -185,6 +341,24 @@
   {
    "hidden": 0,
    "is_query_report": 0,
+   "label": "Settings",
+   "link_count": 1,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Projects Settings",
+   "link_count": 0,
+   "link_to": "Projects Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "Projects Settings",
    "link_count": 0,
    "link_to": "Projects Settings",
@@ -193,7 +367,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-06-14 13:44:07.964218",
+ "modified": "2026-07-01 13:20:50.651608",
  "modified_by": "Administrator",
  "module": "Projects",
  "module_onboarding": "Projects Onboarding",
@@ -224,6 +398,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "home",
    "indent": 0,
    "keep_closed": 0,
@@ -237,6 +412,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "chart",
    "indent": 0,
    "keep_closed": 0,
@@ -250,6 +426,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "projects",
    "indent": 0,
    "keep_closed": 0,
@@ -263,6 +440,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "list-todo",
    "indent": 0,
    "keep_closed": 0,
@@ -276,6 +454,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "calendar-clock",
    "indent": 0,
    "keep_closed": 0,
@@ -289,6 +468,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "database",
    "indent": 1,
    "keep_closed": 1,
@@ -301,6 +481,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Activity Type",
@@ -313,6 +494,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Activity Cost",
@@ -325,6 +507,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Project Template",
@@ -337,6 +520,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Project Type",
@@ -349,6 +533,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Project Update",
@@ -361,6 +546,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "sheet",
    "indent": 1,
    "keep_closed": 1,
@@ -373,6 +559,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "",
    "indent": 0,
    "keep_closed": 0,
@@ -386,6 +573,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Daily Timesheet Summary",
@@ -398,6 +586,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Timesheet Billing Summary",
@@ -410,6 +599,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Project wise Stock Tracking",
@@ -422,6 +612,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Delayed Tasks Summary",
@@ -434,6 +625,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "settings",
    "indent": 0,
    "keep_closed": 0,
