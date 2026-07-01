@@ -5,6 +5,7 @@ import copy
 import gzip
 import json
 from collections import deque
+from contextlib import nullcontext
 
 import frappe
 from frappe import _, bold, scrub
@@ -261,6 +262,25 @@ def make_entry(args, allow_negative_stock=False, via_landed_cost_voucher=False):
 	return sle
 
 
+# Reposts wait this long for the per-(item, warehouse) gate before giving up. A repost of one item
+# is bounded, and a QueryTimeoutError here is recoverable -- the repost job re-queues and retries.
+REPOST_LOCK_TIMEOUT = 600
+
+
+def repost_gate(item_code, warehouse):
+	"""Serialize concurrent reposts of the same (item, warehouse) with a session-level advisory lock
+	acquired BEFORE the inner `... for update` row locks. It is an outer gate: two reposts touching
+	the same item wait for each other instead of racing into a lock-order deadlock (which repost
+	otherwise only survives by retrying). The row locks still enforce correctness -- this only cuts
+	the deadlock/retry churn. Advisory locks exist on postgres + mariadb; elsewhere there is no gate."""
+	# hasattr keeps this a graceful opt-in: if this ERPNext deploys before frappe.db.advisory_lock
+	# lands (frappe#40466), fall back to no gate rather than raising a non-recoverable AttributeError
+	# that would permanently mark the Repost Item Valuation as Failed.
+	if frappe.db.db_type in ("postgres", "mariadb") and hasattr(frappe.db, "advisory_lock"):
+		return frappe.db.advisory_lock(f"stock_repost:{item_code}:{warehouse}", timeout=REPOST_LOCK_TIMEOUT)
+	return nullcontext()
+
+
 def repost_future_sle(
 	items_to_be_repost=None,
 	voucher_type=None,
@@ -289,22 +309,25 @@ def repost_future_sle(
 	while index < len(items_to_be_repost):
 		validate_item_warehouse(items_to_be_repost[index])
 
-		obj = update_entries_after(
-			{
-				"item_code": items_to_be_repost[index].get("item_code"),
-				"warehouse": items_to_be_repost[index].get("warehouse"),
-				"posting_date": items_to_be_repost[index].get("posting_date"),
-				"posting_time": items_to_be_repost[index].get("posting_time"),
-				"creation": items_to_be_repost[index].get("creation"),
-				"current_idx": index,
-				"items_to_be_repost": items_to_be_repost,
-				"repost_doc": doc,
-				"repost_affected_transaction": repost_affected_transaction,
-				"item_wh_wise_last_posted_sle": resume_item_wh_wise_last_posted_sle,
-			},
-			allow_negative_stock=allow_negative_stock,
-			via_landed_cost_voucher=via_landed_cost_voucher,
-		)
+		item_code = items_to_be_repost[index].get("item_code")
+		warehouse = items_to_be_repost[index].get("warehouse")
+		with repost_gate(item_code, warehouse):
+			obj = update_entries_after(
+				{
+					"item_code": item_code,
+					"warehouse": warehouse,
+					"posting_date": items_to_be_repost[index].get("posting_date"),
+					"posting_time": items_to_be_repost[index].get("posting_time"),
+					"creation": items_to_be_repost[index].get("creation"),
+					"current_idx": index,
+					"items_to_be_repost": items_to_be_repost,
+					"repost_doc": doc,
+					"repost_affected_transaction": repost_affected_transaction,
+					"item_wh_wise_last_posted_sle": resume_item_wh_wise_last_posted_sle,
+				},
+				allow_negative_stock=allow_negative_stock,
+				via_landed_cost_voucher=via_landed_cost_voucher,
+			)
 
 		index += 1
 
