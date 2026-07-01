@@ -47,7 +47,9 @@ class TestItemWiseSalesHistory(ERPNextTestSuite):
 	def test_date_range_filters_on_transaction_date(self):
 		so = make_sales_order(transaction_date="2026-06-01")
 
-		in_range = {row["sales_order"] for row in self.run_report(from_date="2026-05-01", to_date="2026-07-01")[1]}
+		in_range = {
+			row["sales_order"] for row in self.run_report(from_date="2026-05-01", to_date="2026-07-01")[1]
+		}
 		self.assertIn(so.name, in_range)
 
 		out_of_range = {
@@ -67,10 +69,12 @@ class TestItemWiseSalesHistory(ERPNextTestSuite):
 		item_codes = {row["item_code"] for row in self.run_report(item_code="_Test Item 2")[1]}
 		self.assertEqual(item_codes, {"_Test Item 2"})
 		# the filtered-out line of the same order must not leak in
-		self.assertTrue(all(row["sales_order"] == so.name for row in self.run_report(item_code="_Test Item 2")[1]))
+		self.assertTrue(
+			all(row["sales_order"] == so.name for row in self.run_report(item_code="_Test Item 2")[1])
+		)
 
 	def test_customer_filter(self):
-		so = make_sales_order(customer="_Test Customer 1", transaction_date="2026-06-01")
+		make_sales_order(customer="_Test Customer 1", transaction_date="2026-06-01")
 		make_sales_order(customer="_Test Customer 2", transaction_date="2026-06-01")
 
 		customers = {row["customer"] for row in self.run_report(customer="_Test Customer 1")[1]}
