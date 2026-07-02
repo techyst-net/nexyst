@@ -86,13 +86,23 @@ class TestBOMVarianceReport(ERPNextTestSuite):
 		self.assertEqual(len(matched), 1)
 		self.assertEqual(matched[0].get("bom_no"), self.bom_no)
 
-	def test_work_order_without_over_production_is_excluded(self):
+	def test_unstarted_work_order_is_excluded(self):
 		work_order = make_wo_order_test_record(
 			item=self.production_item,
 			qty=2,
 			source_warehouse=self.warehouse,
 			skip_transfer=1,
 		)
+
+		data = self.run_report(work_order=work_order.name)
+
+		matched = [row for row in data if row.get("work_order") == work_order.name]
+		self.assertEqual(matched, [])
+
+	def test_work_order_produced_exactly_on_plan_is_excluded(self):
+		# the canonical no-variance case: produced qty equals the planned qty, so the
+		# report (which lists only over-produced orders) must not include it
+		work_order = self.create_over_produced_work_order(ordered_qty=2, produced_qty=2)
 
 		data = self.run_report(work_order=work_order.name)
 
