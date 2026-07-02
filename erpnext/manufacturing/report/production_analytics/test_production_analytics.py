@@ -2,6 +2,7 @@
 # See license.txt
 
 import frappe
+from frappe import _
 from frappe.utils import get_first_day, get_last_day, today
 
 from erpnext.tests.utils import ERPNextTestSuite
@@ -26,14 +27,19 @@ class TestProductionAnalytics(ERPNextTestSuite):
 	def get_period_count(self, columns, data, status, period_label):
 		"""Return the count for a status row under the period column resolved by label."""
 		period_fieldname = next(col["fieldname"] for col in columns if col.get("label") == period_label)
-		row = next(row for row in data if row["status"] == status)
+		# the report stores the translated status label, so translate before matching
+		row = next(row for row in data if row["status"] == _(status))
 		return row[period_fieldname]
 
 	def test_submitted_work_order_increments_status_count(self):
 		from erpnext.manufacturing.doctype.work_order.test_work_order import make_wo_order_test_record
 
+		# pin the reporting window once so both runs use the same period even if the
+		# test happens to straddle a month boundary
+		from_date, to_date = get_first_day(today()), get_last_day(today())
+
 		# The current month is the period a newly created Work Order falls into (bucketed by creation date).
-		cols_before, data_before = self.run_report()
+		cols_before, data_before = self.run_report(from_date=from_date, to_date=to_date)
 		period_label = cols_before[-1]["label"]
 		before = self.get_period_count(cols_before, data_before, "Not Started", period_label)
 
@@ -42,7 +48,7 @@ class TestProductionAnalytics(ERPNextTestSuite):
 		# A freshly submitted Work Order with no material transfer has status "Not Started".
 		self.assertEqual(wo.status, "Not Started")
 
-		cols_after, data_after = self.run_report()
+		cols_after, data_after = self.run_report(from_date=from_date, to_date=to_date)
 		after = self.get_period_count(cols_after, data_after, "Not Started", period_label)
 
 		self.assertEqual(after, before + 1)
@@ -57,4 +63,4 @@ class TestProductionAnalytics(ERPNextTestSuite):
 		# One row per known Work Order status.
 		statuses = {row["status"] for row in data}
 		for status in ("Not Started", "Overdue", "Pending", "Completed", "Closed", "Stopped"):
-			self.assertIn(status, statuses)
+			self.assertIn(_(status), statuses)
