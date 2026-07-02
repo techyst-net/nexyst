@@ -67,8 +67,8 @@ class TestCostOfPoorQualityReport(ERPNextTestSuite):
 		self.assertEqual(row["item_code"], corrective_jc.production_item)
 		self.assertEqual(row["hour_rate"], 100)
 		self.assertEqual(row["total_time_in_mins"], corrective_jc.total_time_in_mins)
-		# operating_cost = hour_rate * total_time_in_mins / 60
-		self.assertEqual(row["operating_cost"], 100 * corrective_jc.total_time_in_mins / 60.0)
+		# operating_cost = hour_rate * total_time_in_mins / 60 (SQL float -> compare approximately)
+		self.assertAlmostEqual(row["operating_cost"], 100 * corrective_jc.total_time_in_mins / 60.0, places=6)
 
 	def test_non_corrective_job_card_is_excluded(self):
 		corrective_jc, _operation, _workstation = self.create_corrective_job_card()
