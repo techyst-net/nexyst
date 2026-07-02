@@ -261,7 +261,9 @@ class TestPaymentEntry(ERPNextTestSuite):
 				"allocated_amount": pi2.outstanding_amount,
 			},
 		)
-		pe.paid_amount = pe.references[0].allocated_amount + pe.references[1].allocated_amount
+		pe.paid_amount = pe.received_amount = (
+			pe.references[0].allocated_amount + pe.references[1].allocated_amount
+		)
 		pe.insert()
 		pe.submit()
 
@@ -276,15 +278,28 @@ class TestPaymentEntry(ERPNextTestSuite):
 		pe.paid_amount = pe.references[0].allocated_amount + 200  # overpay -> 200 advance
 		pe.received_amount = pe.paid_amount
 		pe.insert()
+		pe.submit()
 
+		self.assertEqual(pe.docstatus, 1)
 		self.assertEqual(pe.unallocated_amount, 200)
+
+		# end-to-end: submitting posts a balanced GL for the full paid amount (250
+		# settling the invoice + 200 advance)
+		gl_entries = frappe.get_all(
+			"GL Entry",
+			filters={"voucher_no": pe.name, "is_cancelled": 0},
+			fields=["debit", "credit"],
+		)
+		self.assertTrue(gl_entries, "Submitted payment produced no GL entries")
+		self.assertEqual(flt(sum(e.debit for e in gl_entries)), flt(sum(e.credit for e in gl_entries)))
+		self.assertEqual(flt(sum(e.debit for e in gl_entries)), 450)
 
 	def test_overallocation_against_purchase_invoice_throws(self):
 		pi = make_purchase_invoice()  # outstanding 250
 
 		pe = get_payment_entry("Purchase Invoice", pi.name, bank_account="_Test Cash - _TC")
 		pe.references[0].allocated_amount += 100  # 350 > 250 outstanding
-		pe.paid_amount = pe.references[0].allocated_amount
+		pe.paid_amount = pe.received_amount = pe.references[0].allocated_amount
 		self.assertRaises(frappe.ValidationError, pe.insert)
 
 	def test_payment_against_sales_invoice_to_check_status(self):
