@@ -64,6 +64,7 @@ class TestLeadOwnerEfficiency(ERPNextTestSuite):
 		).insert()
 
 		row = self.owner_row(self.run_report())
+		self.assertIsNotNone(row, "Lead owner missing from report")
 		self.assertEqual(row["lead_count"], 1)
 		self.assertEqual(row["opp_count"], 1)
 		# one opportunity from one lead -> 100% opp/lead conversion
