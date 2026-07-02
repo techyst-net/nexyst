@@ -6,6 +6,9 @@ from frappe.utils import flt, nowdate
 
 from erpnext.accounts.utils import get_fiscal_year
 from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
+from erpnext.selling.report.sales_person_target_variance_based_on_item_group.test_sales_person_target_variance_based_on_item_group import (
+	create_target_distribution,
+)
 from erpnext.selling.report.territory_target_variance_based_on_item_group.territory_target_variance_based_on_item_group import (
 	execute,
 )
@@ -38,20 +41,14 @@ class TestTerritoryTargetVarianceBasedOnItemGroup(ERPNextTestSuite):
 			)
 		)[1]
 
+		# no item_group is set on the target, so the report emits exactly one row per
+		# territory -- assert all three figures against that single row
 		rows = [frappe._dict(r) for r in result if r.get("territory") == territory.name]
-		self.assertTrue(rows, "Target territory missing from report")
-		achieved = sum(flt(r.total_achieved) for r in rows)
-		self.assertEqual(flt(rows[0].total_target, 2), 50)
-		self.assertEqual(flt(achieved, 2), 20)
-		self.assertEqual(flt(rows[0].total_variance, 2), -30)
-
-
-def create_target_distribution(fiscal_year):
-	distribution = frappe.new_doc("Monthly Distribution")
-	distribution.distribution_id = "Target Report Distribution"
-	distribution.fiscal_year = fiscal_year
-	distribution.get_months()
-	return distribution.insert()
+		self.assertEqual(len(rows), 1, "expected exactly one row for the target territory")
+		row = rows[0]
+		self.assertEqual(flt(row.total_target, 2), 50)
+		self.assertEqual(flt(row.total_achieved, 2), 20)
+		self.assertEqual(flt(row.total_variance, 2), -30)
 
 
 def create_territory_with_target(name, fiscal_year, distribution_id, target_qty=50):
