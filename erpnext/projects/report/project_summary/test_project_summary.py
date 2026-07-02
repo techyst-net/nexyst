@@ -2,6 +2,7 @@
 # See license.txt
 
 import frappe
+from frappe import _
 
 from erpnext.projects.report.project_summary.project_summary import execute
 from erpnext.tests.utils import ERPNextTestSuite
@@ -57,8 +58,8 @@ class TestProjectSummary(ERPNextTestSuite):
 		self.make_task(project, "Completed")
 		self.make_task(project, "Open")
 
-		report_summary = self.run_report(project)[4]
+		_columns, _data, _message, _chart, report_summary = self.run_report(project)
 		summary = {s["label"]: s["value"] for s in report_summary}
-		self.assertEqual(summary["Total Tasks"], 2)
-		self.assertEqual(summary["Completed Tasks"], 1)
-		self.assertEqual(summary["Overdue Tasks"], 0)
+		self.assertEqual(summary[_("Total Tasks")], 2)
+		self.assertEqual(summary[_("Completed Tasks")], 1)
+		self.assertEqual(summary[_("Overdue Tasks")], 0)
