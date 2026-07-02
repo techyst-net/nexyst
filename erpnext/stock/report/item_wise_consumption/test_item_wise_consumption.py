@@ -4,6 +4,7 @@
 import frappe
 
 from erpnext.stock.doctype.delivery_note.test_delivery_note import create_delivery_note
+from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.doctype.purchase_receipt.test_purchase_receipt import make_purchase_receipt
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.stock.report.item_wise_consumption.item_wise_consumption import execute
@@ -22,7 +23,9 @@ class TestItemWiseConsumption(ERPNextTestSuite):
 		return execute(filters)[1]
 
 	def test_consumed_vs_delivered_split(self):
-		item = "_Test Item"
+		# a uniquely-named item guarantees no residual stock/consumption from other
+		# tests leaks in -- the report aggregates an item across all warehouses.
+		item = make_item(properties={"is_stock_item": 1}).name
 		# purchase receipt gives the supplier mapping and stocks the item
 		make_purchase_receipt(
 			item_code=item,
@@ -41,5 +44,7 @@ class TestItemWiseConsumption(ERPNextTestSuite):
 		self.assertEqual(row[5], 400)  # consumed amount
 		self.assertEqual(row[6], 3)  # delivered qty
 		self.assertEqual(row[7], 300)  # delivered amount
-		self.assertEqual(row[8], 7)  # total qty
+		self.assertEqual(row[8], 7)  # total qty = consumed + delivered
+		self.assertEqual(row[9], 700)  # total amount = consumed + delivered amount
+		self.assertEqual(row[9], row[5] + row[7])  # total aggregates the two amounts
 		self.assertIn("_Test Supplier", row[10])
