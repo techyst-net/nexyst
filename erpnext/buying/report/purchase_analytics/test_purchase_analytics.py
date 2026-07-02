@@ -71,14 +71,23 @@ class TestPurchaseAnalytics(ERPNextTestSuite):
 
 		self.assertIn(item_group, rows)
 		self.assertIn("All Item Groups", rows)
+		# the raw item code must not leak as its own entity; the root sits at indent 0
+		self.assertNotIn("_Test Item", rows)
+		self.assertEqual(rows["All Item Groups"]["indent"], 0)
 		self.assertAlmostEqual(rows[item_group]["total"] - base_group, flt(po.base_net_total), places=2)
+		self.assertGreaterEqual(flt(rows["All Item Groups"]["total"]), flt(po.base_net_total))
 
 	def test_supplier_group_by_quantity(self):
 		filters = self._filters(tree_type="Supplier Group", value_quantity="Quantity")
 		base = self._rows(filters)
 		base_qty = flt(base.get(SUPPLIER_GROUP, {}).get("total", 0.0))
+		base_root_qty = flt(base.get("All Supplier Groups", {}).get("total", 0.0))
 
 		po = self.make_po(qty=7, rate=100)
 		rows = self._rows(filters)
 
 		self.assertAlmostEqual(rows[SUPPLIER_GROUP]["total"] - base_qty, flt(po.total_qty), places=2)
+		# the quantity must roll up to the root too, not just the leaf group
+		self.assertAlmostEqual(
+			rows["All Supplier Groups"]["total"] - base_root_qty, flt(po.total_qty), places=2
+		)
