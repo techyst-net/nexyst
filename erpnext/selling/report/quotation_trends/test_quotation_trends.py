@@ -62,12 +62,15 @@ class TestQuotationTrends(ERPNextTestSuite):
 		# Monthly period => one bucket per month; a 2026-06-01 quotation hits "Jun (Qty)"/"(Amt)".
 		labels, before = self.run_report(period="Monthly")
 		before_jun_qty = self._cell(before, "Item", "_Test Item", "Jun (Qty)", labels)
+		before_jun_amt = self._cell(before, "Item", "_Test Item", "Jun (Amt)", labels)
 		before_may_qty = self._cell(before, "Item", "_Test Item", "May (Qty)", labels)
 
 		make_quotation(item="_Test Item", qty=3, rate=100, transaction_date=TXN_DATE)
 
 		labels, after = self.run_report(period="Monthly")
 		self.assertEqual(self._cell(after, "Item", "_Test Item", "Jun (Qty)", labels) - before_jun_qty, 3)
+		# the amount path is a separate SUM(base_net_amount) case, so assert it too
+		self.assertEqual(self._cell(after, "Item", "_Test Item", "Jun (Amt)", labels) - before_jun_amt, 300)
 		# nothing was quoted in May, so that bucket is unchanged
 		self.assertEqual(self._cell(after, "Item", "_Test Item", "May (Qty)", labels) - before_may_qty, 0)
 
