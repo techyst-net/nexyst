@@ -72,6 +72,8 @@ class TestProductionPlanSummary(ERPNextTestSuite):
 		self.assertIsNotNone(summary)
 		self.assertEqual(summary.get("qty"), 2)
 		self.assertEqual(summary.get("produced_qty"), 0)
+		# nothing produced yet, so the whole planned qty is pending
+		self.assertEqual(summary.get("pending_qty"), 2)
 		self.assertIsNone(self.get_work_order_row(data, "_Test FG Item"))
 
 	def test_summary_with_pending_work_order(self):
