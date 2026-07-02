@@ -12,7 +12,10 @@ TERRITORY = "_Test Territory"
 
 class TestTerritoryWiseSales(ERPNextTestSuite):
 	"""The report walks the Opportunity -> Quotation -> Sales Order -> Sales Invoice
-	funnel and totals each stage's amount per territory."""
+	funnel and totals each stage's amount per territory.
+
+	These tests cover the Opportunity and Quotation stages; the Sales Order and
+	Sales Invoice (order_amount / billing_amount) stages are not yet exercised."""
 
 	def make_opportunity(self, amount=5000):
 		return frappe.get_doc(
