@@ -275,10 +275,11 @@ def repost_gate(item_code, warehouse):
 	racing into a lock-order deadlock. Row locks still enforce correctness; this only cuts the
 	deadlock/retry churn. Scope is repost-vs-repost only -- the synchronous repost_current_voucher
 	submit path is deliberately not gated (blocking a submit behind a background repost would be a
-	worse regression) and keeps relying on the existing deadlock retry. No advisory locks, no gate."""
+	worse regression) and keeps relying on the existing deadlock retry. Postgres only: MariaDB
+	keeps the plain deadlock-retry path."""
 	# hasattr keeps this a graceful opt-in: on an ERPNext predating frappe.db.advisory_lock, fall
 	# back to no gate rather than raising and marking the Repost Item Valuation permanently Failed.
-	if frappe.db.db_type in ("postgres", "mariadb") and hasattr(frappe.db, "advisory_lock"):
+	if frappe.db.db_type == "postgres" and hasattr(frappe.db, "advisory_lock"):
 		# Tuple key: a colon in item_code/warehouse can't collide two distinct pairs onto one lock.
 		return frappe.db.advisory_lock(("stock_repost", item_code, warehouse), timeout=REPOST_LOCK_TIMEOUT)
 	return nullcontext()
