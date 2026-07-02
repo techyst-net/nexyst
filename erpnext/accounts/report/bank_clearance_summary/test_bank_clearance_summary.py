@@ -37,7 +37,7 @@ class TestBankClearanceSummary(ERPNextTestSuite):
 		self.assertIsNotNone(row, "Journal Entry not listed in Bank Clearance Summary")
 		self.assertEqual(row[0], "Journal Entry")
 		self.assertEqual(frappe.utils.getdate(row[2]), frappe.utils.getdate("2026-06-01"))
-		self.assertEqual(row[4], None)  # clearance_date empty -> uncleared
+		self.assertIsNone(row[4])  # clearance_date empty -> uncleared
 		self.assertEqual(row[5], "Sales - _TC")  # against account
 		self.assertEqual(row[6], 5000)  # debit - credit on the bank account
 
@@ -55,6 +55,10 @@ class TestBankClearanceSummary(ERPNextTestSuite):
 		# Within range: present
 		self.assertIsNotNone(self.find_row(self.run_report(), je.name))
 
-		# Narrow window after the posting date: excluded
-		data = self.run_report(from_date="2026-07-01", to_date="2026-12-31")
-		self.assertIsNone(self.find_row(data, je.name))
+		# Window entirely after the posting date (from_date lower bound): excluded
+		after = self.run_report(from_date="2026-07-01", to_date="2026-12-31")
+		self.assertIsNone(self.find_row(after, je.name))
+
+		# Window ending before the posting date (to_date upper bound): excluded
+		before = self.run_report(from_date="2026-01-01", to_date="2026-06-09")
+		self.assertIsNone(self.find_row(before, je.name))
