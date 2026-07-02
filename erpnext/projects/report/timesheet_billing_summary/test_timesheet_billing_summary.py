@@ -54,7 +54,9 @@ class TestTimesheetBillingSummary(ERPNextTestSuite):
 		self.assertEqual(group_rows[0]["hours"], 2)
 
 	def test_draft_excluded_unless_requested(self):
-		ts = make_timesheet(self.employee, is_billable=1, project=self.project.name, do_not_submit=True)
+		ts = make_timesheet(
+			self.employee, simulate=True, is_billable=1, project=self.project.name, do_not_submit=True
+		)
 
 		# submitted-only by default: the draft timesheet is absent
 		self.assertNotIn(ts.name, {r.get("timesheet") for r in self.run_report()})
