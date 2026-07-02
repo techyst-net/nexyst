@@ -9,16 +9,26 @@ from erpnext.tests.utils import ERPNextTestSuite
 
 
 class TestBOMExplorer(ERPNextTestSuite):
+	def setUp(self):
+		# the tests look up `_Test FG Item`'s BOM, which comes from the BOM fixtures;
+		# load them so the file also passes when run in isolation
+		self.load_test_records("BOM")
+
 	def run_report(self, bom):
 		filters = frappe._dict({"bom": bom})
 		return execute(filters)[1]
+
+	def top_level_rows_by_item(self, data):
+		# key only the direct (indent 0) components, so an item that also appears in a
+		# deeper sub-assembly can't overwrite the top-level row we assert against
+		return {row["item_code"]: row for row in data if row["indent"] == 0}
 
 	def test_default_bom_lists_components_at_top_level(self):
 		bom = frappe.db.get_value("BOM", {"item": "_Test FG Item", "is_active": 1, "is_default": 1})
 		self.assertIsNotNone(bom, "Default active BOM for _Test FG Item not found")
 
 		data = self.run_report(bom)
-		rows_by_item = {row["item_code"]: row for row in data}
+		rows_by_item = self.top_level_rows_by_item(data)
 
 		self.assertIn("_Test Item", rows_by_item)
 		self.assertIn("_Test Item Home Desktop 100", rows_by_item)
@@ -31,7 +41,7 @@ class TestBOMExplorer(ERPNextTestSuite):
 	def test_qty_matches_bom_item_qty(self):
 		bom = frappe.db.get_value("BOM", {"item": "_Test FG Item", "is_active": 1, "is_default": 1})
 		data = self.run_report(bom)
-		rows_by_item = {row["item_code"]: row for row in data}
+		rows_by_item = self.top_level_rows_by_item(data)
 
 		for bom_item in frappe.get_all(
 			"BOM Item", filters={"parent": bom}, fields=["item_code", "qty", "uom"]
