@@ -63,6 +63,14 @@ class TestQualityInspectionSummary(ERPNextTestSuite):
 		)
 		self.assertEqual(self._rows_for_qi(data), [])
 
+	def test_item_code_filter_includes_matching(self):
+		data = self.run_report(
+			from_date=add_days(nowdate(), -1),
+			to_date=add_days(nowdate(), 1),
+			item_code=["_Test Item"],
+		)
+		self.assertEqual(len(self._rows_for_qi(data)), 1)
+
 	def test_item_code_filter_excludes_other_item(self):
 		other_item = frappe.generate_hash(length=10)
 		data = self.run_report(
