@@ -81,7 +81,9 @@ class TestCustomFinancialStatement(ERPNextTestSuite):
 		self.assertIn("Test Expense", rows)
 		self.assertIn("Expense Doubled", rows)
 
-		period_key = rows["Test Expense"].get("_segment_info", {}).get("period_keys", [])[0]
+		period_keys = rows["Test Expense"].get("_segment_info", {}).get("period_keys", [])
+		self.assertTrue(period_keys, "expected at least one period key in _segment_info")
+		period_key = period_keys[0]
 
 		# the account-data row picks up the posted expense; the calculated row doubles it
 		self.assertEqual(flt(rows["Test Expense"][period_key]), 2000.0)
