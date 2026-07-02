@@ -27,7 +27,9 @@ class TestCogsByItemGroup(ERPNextTestSuite):
 		# test's COGS. The report sums COGS up the whole item-group tree keyed on the
 		# company's default expense account, so a shared group would accumulate COGS
 		# booked by any other test/fixture for the same company within the date range.
-		item_group = make_item_group("_Test COGS Item Group")
+		# The group name is unique per run so items created by earlier runs (which
+		# reuse a fixed group name) can't inflate the total either.
+		item_group = make_item_group(f"_Test COGS Item Group {frappe.generate_hash(length=6)}")
 		item = make_item(properties={"is_stock_item": 1, "item_group": item_group}).name
 
 		make_stock_entry(
