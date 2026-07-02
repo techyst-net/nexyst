@@ -31,11 +31,20 @@ class TestSalesPersonCommissionSummary(ERPNextTestSuite):
 		)
 		si.insert()
 		si.submit()
+		si.reload()  # reflect any values recomputed on submit
 		return si
 
 	def run_report(self, **extra):
 		filters = frappe._dict(
-			{"company": "_Test Company", "doc_type": "Sales Invoice", "sales_person": self.sales_person}
+			{
+				"company": "_Test Company",
+				"doc_type": "Sales Invoice",
+				"sales_person": self.sales_person,
+				# scope to this test's posting date so the query isn't unbounded over
+				# every invoice for the shared sales person
+				"from_date": "2026-06-01",
+				"to_date": "2026-06-01",
+			}
 		)
 		filters.update(extra)
 		return execute(filters)[1]
@@ -64,8 +73,9 @@ class TestSalesPersonCommissionSummary(ERPNextTestSuite):
 	def test_appends_total_row(self):
 		self.make_invoice_with_commission()
 		rows = self.run_report()
-		# the report appends a blank total row after the data rows
-		self.assertTrue(rows)
+		# the report appends a blank total row after one or more real data rows
+		self.assertGreaterEqual(len(rows), 2)
+		self.assertTrue(any(r[0] for r in rows[:-1]), "expected real data rows before the total row")
 		self.assertEqual(rows[-1], [""] * len(rows[0]))
 
 	def test_sales_person_filter_scopes_rows(self):
