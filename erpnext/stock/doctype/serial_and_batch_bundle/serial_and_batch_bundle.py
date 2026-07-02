@@ -1814,6 +1814,27 @@ class SerialandBatchBundle(Document):
 		self.set("entries", [])
 
 
+def on_doctype_update():
+	if frappe.db.db_type == "postgres":
+		# Bundle-direct lookups (get_ledgers_from_serial_batch_bundle, get_picked_*) always filter
+		# `is_cancelled = 0` and scope by voucher_no or item_code+warehouse -- none of which the parent
+		# bundle is otherwise indexed on (only voucher_type/voucher_detail_no are). Partial indexes keep
+		# only the active bundles. Postgres-only (`where` is a no-op on MariaDB, and MariaDB's optimizer
+		# ignores partial predicates anyway).
+		frappe.db.add_index(
+			"Serial and Batch Bundle",
+			["voucher_no"],
+			index_name="sabb_active_voucher",
+			where="is_cancelled = 0",
+		)
+		frappe.db.add_index(
+			"Serial and Batch Bundle",
+			["item_code", "warehouse"],
+			index_name="sabb_active_item_wh",
+			where="is_cancelled = 0",
+		)
+
+
 @frappe.whitelist()
 def download_blank_csv_template(content: str | list):
 	csv_data = []

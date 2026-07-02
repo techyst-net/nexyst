@@ -455,6 +455,7 @@ def get_basic_details(ctx: frappe._dict, item, overwrite_warehouse=True) -> frap
 		[
 			"stock_delivered_but_not_billed",
 			"disable_sdbnb_in_sr",
+			"enable_stock_delivered_but_not_billed",
 		],
 		as_dict=True,
 	)
@@ -464,6 +465,7 @@ def get_basic_details(ctx: frappe._dict, item, overwrite_warehouse=True) -> frap
 		and ctx.is_stock_item
 		and company_values
 		and company_values.stock_delivered_but_not_billed
+		and company_values.enable_stock_delivered_but_not_billed
 		and not ctx.get("is_fixed_asset")
 		and not ctx.get("is_subcontracted")
 	):
@@ -1220,8 +1222,6 @@ def get_item_price(pctx: frappe._dict, item_code, ignore_party=False, force_batc
 	        optional fields transaction_date, customer, supplier
 	:param item_code: str, Item Doctype field item_code
 	"""
-	pctx: frappe._dict = frappe._dict(pctx)
-
 	ip = frappe.qb.DocType("Item Price")
 	query = (
 		frappe.qb.from_(ip)
