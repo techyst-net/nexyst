@@ -455,6 +455,7 @@ def get_basic_details(ctx: frappe._dict, item, overwrite_warehouse=True) -> frap
 		[
 			"stock_delivered_but_not_billed",
 			"disable_sdbnb_in_sr",
+			"enable_stock_delivered_but_not_billed",
 		],
 		as_dict=True,
 	)
@@ -464,6 +465,7 @@ def get_basic_details(ctx: frappe._dict, item, overwrite_warehouse=True) -> frap
 		and ctx.is_stock_item
 		and company_values
 		and company_values.stock_delivered_but_not_billed
+		and company_values.enable_stock_delivered_but_not_billed
 		and not ctx.get("is_fixed_asset")
 		and not ctx.get("is_subcontracted")
 	):
