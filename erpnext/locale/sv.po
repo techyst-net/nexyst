@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: frappe\n"
 "Report-Msgid-Bugs-To: hello@frappe.io\n"
 "POT-Creation-Date: 2026-06-28 10:20+0000\n"
-"PO-Revision-Date: 2026-06-29 20:08\n"
+"PO-Revision-Date: 2026-07-01 20:39\n"
 "Last-Translator: hello@frappe.io\n"
 "Language-Team: Swedish\n"
 "MIME-Version: 1.0\n"
@@ -8227,7 +8227,7 @@ msgstr "Saldo Historik per Parti"
 #: erpnext/stock/report/stock_ledger_invariant_check/stock_ledger_invariant_check.py:183
 #: erpnext/stock/report/stock_ledger_variance/stock_ledger_variance.py:86
 msgid "Batchwise Valuation"
-msgstr "Partivis Värdering"
+msgstr "Partibaserad Värdering"
 
 #. Label of the section_break_3 (Section Break) field in DocType 'Stock
 #. Reconciliation Item'
@@ -9319,7 +9319,7 @@ msgstr "Beräkna Uppskatade Ankomst Tider"
 #. Settings'
 #: erpnext/selling/doctype/selling_settings/selling_settings.json
 msgid "Calculate Product Bundle price based on child Item's rates"
-msgstr "Beräkna Artikel Paket pris baserat på priser för underordnade artiklar"
+msgstr "Beräkna Artikel Paket pris baserat på priser för paket artiklar"
 
 #. Description of the 'Hidden Line (Internal Use Only)' (Check) field in
 #. DocType 'Financial Report Row'
@@ -15680,7 +15680,7 @@ msgstr "Avdraget från"
 #. Deduction Certificate'
 #: erpnext/regional/doctype/lower_deduction_certificate/lower_deduction_certificate.json
 msgid "Deductee Details"
-msgstr "Avdragsberättigad Detaljer"
+msgstr "Avdragstagare Detaljer"
 
 #. Label of a Workspace Sidebar Item
 #: erpnext/workspace_sidebar/taxes.json
@@ -17908,7 +17908,7 @@ msgstr "Uppdatera inte Varianter vid Spara"
 #. Settings'
 #: erpnext/stock/doctype/stock_settings/stock_settings.json
 msgid "Do not use Batch-wise Valuation"
-msgstr "Använd inte Partivis Värdering"
+msgstr "Använd inte Partibaserad Värdering"
 
 #: erpnext/assets/doctype/asset/asset.js:957
 msgid "Do you really want to restore this scrapped asset?"
@@ -19193,9 +19193,9 @@ msgid "Enabling this will do the following:\n"
 msgstr "Om du aktiverar detta kommer följande att hända:\n"
 "<ul style=\"padding-left:16px\">\n"
 "<li>Pris Kolumn i alla Artikel Paket tabeller redigerbar.</li>\n"
-"<li>Beräkna priser för alla <a href=\"/desk/product-bundle\" rel=\"noopener noreferrer\">artikel paket</a> i Artikel tabell, baserat på priser för dess underordnade artiklar, som anges i Artikel Paket tabell. </li>\n"
+"<li>Beräkna priser för alla <a href=\"/desk/product-bundle\" rel=\"noopener noreferrer\">Artikel Paket</a> i Artikel tabell, baserat på priser för paket artiklar, som anges i Artikel Paket tabell. </li>\n"
 "</ul>\n"
-"Observera: Om detta är aktiverat kommer uppdatering av pris för artikel paket i artikel tabell inte att ändra dess pris. Det kommer att återställas till det pris som baseras på dess underordnade artiklar när dokumentet sparas."
+"Observera: Om detta är aktiverat kommer uppdatering av pris för artikel paket i artikel tabell inte att ändra deras pris. Det kommer att återställas till pris som baseras på paket artiklar när dokument sparas."
 
 #. Label of the encashment_date (Date) field in DocType 'Employee'
 #: erpnext/setup/doctype/employee/employee.json
@@ -33834,7 +33834,7 @@ msgstr "Öppning Faktura Verktyg"
 #: erpnext/accounts/doctype/purchase_invoice/services/gl_composer.py:832
 #: erpnext/accounts/doctype/sales_invoice/services/gl_composer.py:642
 msgid "Opening Invoice has rounding adjustment of {0}.<br><br> '{1}' account is required to post these values. Please set it in Company: {2}.<br><br> Or, '{3}' can be enabled to not post any rounding adjustment."
-msgstr "Öppning Fakturan har avrundning justering på {0}.<br><br> '{1}' konto erfordras för att bokföra dessa värden. Ange det i Bolag: {2}.<br><br> Eller så kan '{3}' aktiveras för att inte bokföra någon avrundning justering."
+msgstr "Öppning Faktura har avrundning justering på {0}.<br><br> '{1}' konto erfordras för att bokföra dessa värden. Ange det i Bolag: {2}.<br><br> Eller så kan '{3}' aktiveras för att inte bokföra någon avrundning justering."
 
 #: erpnext/accounts/doctype/opening_invoice_creation_tool/opening_invoice_creation_tool_dashboard.html:8
 msgid "Opening Invoices"
@@ -59194,7 +59194,7 @@ msgstr "Använd <strong>Python</strong> filter för att hämta Konton"
 #. Label of the use_batchwise_valuation (Check) field in DocType 'Batch'
 #: erpnext/stock/doctype/batch/batch.json
 msgid "Use Batch-wise Valuation"
-msgstr "Använd Partivis Värdering"
+msgstr "Använd Partibaserad Värdering"
 
 #. Label of the use_csv_sniffer (Check) field in DocType 'Bank Statement
 #. Import'
@@ -60825,7 +60825,7 @@ msgstr "Garanti Utgång (Serienummer)"
 #: erpnext/stock/doctype/serial_no/serial_no.json
 #: erpnext/support/doctype/warranty_claim/warranty_claim.json
 msgid "Warranty Expiry Date"
-msgstr "Garanti Utgångsdatum"
+msgstr "Garanti Utgång Datum"
 
 #. Label of the warranty_period (Int) field in DocType 'Serial No'
 #: erpnext/stock/doctype/serial_no/serial_no.json
