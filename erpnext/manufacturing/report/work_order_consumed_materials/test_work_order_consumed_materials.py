@@ -62,9 +62,12 @@ class TestWorkOrderConsumedMaterials(ERPNextTestSuite):
 
 		self.assertEqual(len(rows), len(wo.required_items))
 
-		reported = {row["raw_material_item_code"]: row for row in rows}
-		for item in wo.required_items:
-			row = reported[item.item_code]
+		# pair rows to required items by sorting rather than a dict keyed on item code, so
+		# a BOM with two lines for the same component wouldn't silently collapse to one row
+		rows_sorted = sorted(rows, key=lambda r: (r["raw_material_item_code"], r["required_qty"]))
+		items_sorted = sorted(wo.required_items, key=lambda i: (i.item_code, i.required_qty))
+		for row, item in zip(rows_sorted, items_sorted, strict=True):
+			self.assertEqual(row["raw_material_item_code"], item.item_code)
 			self.assertEqual(row["required_qty"], item.required_qty)
 			self.assertEqual(row["transferred_qty"], item.required_qty)
 			self.assertEqual(row["consumed_qty"], item.required_qty)
@@ -99,6 +102,9 @@ class TestWorkOrderConsumedMaterials(ERPNextTestSuite):
 
 	def test_date_range_filter_excludes_work_order(self):
 		wo = self.make_manufactured_work_order(qty=1)
+
+		# positive anchor: the WO shows up within the default (current) window
+		self.assertIn(wo.name, {row.get("parent") for row in self.run_report()})
 
 		# a window that ends before the WO was created must not include it
 		data = self.run_report(from_date=add_days(nowdate(), -10), to_date=add_days(nowdate(), -5))
