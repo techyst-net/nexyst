@@ -54,6 +54,7 @@ class TestJobCardSummary(ERPNextTestSuite):
 			self.assertEqual(row.get("production_item"), jc.production_item)
 
 	def test_operation_filter_scopes_rows(self):
+		self.assertTrue(self.job_cards, "Work Order did not produce any Job Cards")
 		operation = self.job_cards[0].operation
 		matching = {jc.name for jc in self.job_cards if jc.operation == operation}
 
@@ -61,8 +62,18 @@ class TestJobCardSummary(ERPNextTestSuite):
 		self.assertEqual({row.get("name") for row in rows}, matching)
 
 	def test_status_filter(self):
-		open_rows = self.rows_for_work_order(self.run_report(status="Open"))
-		self.assertEqual({row.get("name") for row in open_rows}, {jc.name for jc in self.job_cards})
+		self.assertTrue(self.job_cards, "Work Order did not produce any Job Cards")
+
+		# The status filter matches the Job Card's *stored* status, so derive the
+		# expected set from that rather than assuming fresh cards are literally "Open".
+		stored_status = self.job_cards[0].status
+		expected = {jc.name for jc in self.job_cards if jc.status == stored_status}
+
+		rows = self.rows_for_work_order(self.run_report(status=stored_status))
+		self.assertEqual({row.get("name") for row in rows}, expected)
+		# any non-completed card is displayed as "Open" regardless of its stored status
+		for row in rows:
+			self.assertEqual(row.get("status"), "Open")
 
 		# None of the freshly created job cards are Completed yet.
 		completed_rows = self.rows_for_work_order(self.run_report(status="Completed"))
