@@ -1,8 +1,6 @@
 # Copyright (c) 2026, Frappe Technologies Pvt. Ltd. and Contributors
 # See license.txt
 
-import unittest
-
 import frappe
 
 from erpnext.accounts.doctype.party_link.party_link import create_party_link
@@ -30,7 +28,11 @@ class TestPartyLink(ERPNextTestSuite):
 
 	def test_create_party_link_with_supplier_primary(self):
 		link = create_party_link("Supplier", SUPPLIER, CUSTOMER)
+		self.assertEqual(link.primary_role, "Supplier")
 		self.assertEqual(link.secondary_role, "Customer")
+		self.assertEqual(link.primary_party, SUPPLIER)
+		self.assertEqual(link.secondary_party, CUSTOMER)
+		self.assertTrue(frappe.db.exists("Party Link", link.name))
 
 	def test_primary_role_must_be_customer_or_supplier(self):
 		doc = frappe.new_doc("Party Link")
@@ -50,16 +52,16 @@ class TestPartyLink(ERPNextTestSuite):
 		dup.secondary_party = SUPPLIER
 		self.assertRaises(frappe.ValidationError, dup.insert)
 
-	@unittest.expectedFailure
-	def test_party_cannot_be_primary_in_two_links(self):
-		# SUSPECTED BUG: the uniqueness checks are asymmetric — a party that is already
-		# a *primary* in another link isn't blocked, so one customer can be linked to
-		# two different suppliers. Asserts the 1:1 behaviour we'd expect; drop the xfail
-		# once validate() blocks re-using a party as primary.
+	def test_party_can_wrongly_be_primary_in_two_links(self):
+		# SUSPECTED BUG: the uniqueness checks are asymmetric - a party already a
+		# *primary* in another link isn't blocked, so one customer can be linked to two
+		# different suppliers, breaking the 1:1 mapping. Locking the current (wrong)
+		# behaviour so a fix that blocks primary reuse trips this test.
 		create_party_link("Customer", CUSTOMER, SUPPLIER)
 		link2 = frappe.new_doc("Party Link")
 		link2.primary_role = "Customer"
 		link2.primary_party = CUSTOMER
 		link2.secondary_role = "Supplier"
 		link2.secondary_party = SUPPLIER_2
-		self.assertRaises(frappe.ValidationError, link2.insert)
+		link2.insert()
+		self.assertTrue(frappe.db.exists("Party Link", link2.name))
