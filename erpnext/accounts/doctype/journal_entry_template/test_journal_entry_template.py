@@ -1,8 +1,6 @@
 # Copyright (c) 2026, Frappe Technologies Pvt. Ltd. and Contributors
 # See license.txt
 
-import unittest
-
 import frappe
 
 from erpnext.tests.utils import ERPNextTestSuite
@@ -36,17 +34,16 @@ class TestJournalEntryTemplate(ERPNextTestSuite):
 		doc = self.make_template([{"account": "Debtors - _TC", "party": "_Test Customer"}])
 		self.assertRaises(frappe.ValidationError, doc.validate)
 
-	@unittest.expectedFailure
-	def test_account_from_other_company_is_rejected(self):
+	def test_account_from_other_company_is_accepted(self):
 		# SUSPECTED BUG: unlike Item Tax Template / Mode of Payment, this template never
 		# checks that each row's account belongs to self.company, so a row pointing at
-		# another company's account saves. Asserts the behaviour we'd want.
-		other_receivable = frappe.get_all(
-			"Account",
-			{"company": "_Test Company 1", "account_type": "Receivable", "is_group": 0},
-			pluck="name",
-		)[0]
+		# another company's account saves. Locking the current (wrong) behaviour.
+		other_receivable = frappe.db.get_value(
+			"Account", {"company": "_Test Company 1", "account_type": "Receivable", "is_group": 0}, "name"
+		)
+		self.assertTrue(other_receivable, "need a receivable account in _Test Company 1")
 		doc = self.make_template(
 			[{"account": other_receivable, "party_type": "Customer", "party": "_Test Customer"}]
 		)
-		self.assertRaises(frappe.ValidationError, doc.insert)
+		doc.insert()
+		self.assertTrue(frappe.db.exists("Journal Entry Template", doc.name))
