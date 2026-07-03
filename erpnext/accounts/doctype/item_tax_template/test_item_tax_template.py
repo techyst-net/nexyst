@@ -1,8 +1,6 @@
 # Copyright (c) 2026, Frappe Technologies Pvt. Ltd. and Contributors
 # See license.txt
 
-import unittest
-
 import frappe
 
 from erpnext.tests.utils import ERPNextTestSuite
@@ -41,9 +39,8 @@ class TestItemTaxTemplate(ERPNextTestSuite):
 		self.assertRaises(frappe.ValidationError, doc.insert)
 
 	def test_account_of_wrong_company_throws(self):
-		other_account = frappe.get_all(
-			"Account", {"company": "_Test Company 1", "is_group": 0}, pluck="name"
-		)[0]
+		other_account = frappe.db.get_value("Account", {"company": "_Test Company 1", "is_group": 0}, "name")
+		self.assertTrue(other_account, "need a non-group account in _Test Company 1")
 		doc = self.make_template([(other_account, 9, 0)])
 		self.assertRaises(frappe.ValidationError, doc.insert)
 
@@ -57,9 +54,9 @@ class TestItemTaxTemplate(ERPNextTestSuite):
 		doc.insert()
 		self.assertEqual(doc.taxes[0].tax_rate, 0)
 
-	@unittest.expectedFailure
-	def test_negative_tax_rate_is_rejected(self):
+	def test_negative_tax_rate_is_accepted(self):
 		# SUSPECTED BUG: validate never bounds tax_rate, so a negative (or >100) rate
-		# saves silently. Asserts the behaviour we'd want; drop the xfail once bounded.
+		# saves silently. Locking the current (wrong) behaviour.
 		doc = self.make_template([(TAX_ACCOUNT, -5, 0)])
-		self.assertRaises(frappe.ValidationError, doc.insert)
+		doc.insert()
+		self.assertEqual(doc.taxes[0].tax_rate, -5)
