@@ -8,7 +8,12 @@ import frappe
 from erpnext.accounts.doctype.process_subscription.process_subscription import (
 	create_subscription_process,
 )
-from erpnext.accounts.doctype.subscription.test_subscription import create_plan, create_subscription
+from erpnext.accounts.doctype.subscription.test_subscription import (
+	create_parties,
+	create_subscription,
+	make_plans,
+	reset_settings,
+)
 from erpnext.tests.utils import ERPNextTestSuite
 
 
@@ -18,7 +23,11 @@ class TestProcessSubscription(ERPNextTestSuite):
 
 	def setUp(self):
 		frappe.set_user("Administrator")
-		create_plan(plan_name="_Test Plan Name", currency="INR")
+		# mirror TestSubscription setup so subscriptions build against known settings
+		make_plans()
+		create_parties()
+		reset_settings()
+		frappe.db.set_value("Company", "_Test Company", "accounts_frozen_till_date", None)
 
 	def enqueued_subscriptions(self, subscription=None):
 		"""Submit a Process Subscription while capturing what gets enqueued."""
