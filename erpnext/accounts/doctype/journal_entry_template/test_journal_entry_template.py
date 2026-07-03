@@ -34,10 +34,7 @@ class TestJournalEntryTemplate(ERPNextTestSuite):
 		doc = self.make_template([{"account": "Debtors - _TC", "party": "_Test Customer"}])
 		self.assertRaises(frappe.ValidationError, doc.validate)
 
-	def test_account_from_other_company_is_accepted(self):
-		# SUSPECTED BUG: unlike Item Tax Template / Mode of Payment, this template never
-		# checks that each row's account belongs to self.company, so a row pointing at
-		# another company's account saves. Locking the current (wrong) behaviour.
+	def test_account_from_other_company_is_rejected(self):
 		other_receivable = frappe.db.get_value(
 			"Account", {"company": "_Test Company 1", "account_type": "Receivable", "is_group": 0}, "name"
 		)
@@ -45,5 +42,4 @@ class TestJournalEntryTemplate(ERPNextTestSuite):
 		doc = self.make_template(
 			[{"account": other_receivable, "party_type": "Customer", "party": "_Test Customer"}]
 		)
-		doc.insert()
-		self.assertTrue(frappe.db.exists("Journal Entry Template", doc.name))
+		self.assertRaises(frappe.ValidationError, doc.insert)
