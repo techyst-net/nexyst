@@ -63,14 +63,11 @@ class TestProcessPaymentReconciliation(ERPNextTestSuite):
 		self.assertEqual(pr.invoice_limit, 1000)
 		self.assertEqual(pr.payment_limit, 1000)
 
-	def test_get_pr_instance_drops_bank_cash_and_cost_center_filters(self):
-		# SUSPECTED BUG: get_pr_instance's field list omits bank_cash_account and
-		# cost_center, so those filters are silently lost when the tool run is built.
-		# Locking the current (wrong) behaviour.
+	def test_get_pr_instance_copies_bank_cash_and_cost_center(self):
 		doc = self.make_ppr(bank_cash_account="Cash - _TC")
 		doc.cost_center = "_Test Cost Center - _TC"
 		doc.insert()
 
 		pr = get_pr_instance(doc.name)
-		self.assertFalse(pr.get("bank_cash_account"))
-		self.assertFalse(pr.get("cost_center"))
+		self.assertEqual(pr.bank_cash_account, "Cash - _TC")
+		self.assertEqual(pr.cost_center, "_Test Cost Center - _TC")
