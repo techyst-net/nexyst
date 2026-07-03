@@ -37,6 +37,9 @@ class TestAccountClosingBalance(ERPNextTestSuite):
 		row = next(iter(merged.values()))
 		self.assertEqual(row["debit"], 150)
 		self.assertEqual(row["credit"], 20)
+		# the account-currency columns are accumulated in the same pass
+		self.assertEqual(row["debit_in_account_currency"], 150)
+		self.assertEqual(row["credit_in_account_currency"], 20)
 
 	def test_entries_are_kept_separate_per_dimension(self):
 		merged = aggregate_with_last_account_closing_balance(
