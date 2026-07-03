@@ -26,14 +26,17 @@ class TestRepostPaymentLedger(ERPNextTestSuite):
 		return doc
 
 	def test_loads_submitted_vouchers_on_or_after_cutoff(self):
-		in_range = create_sales_invoice(company=COMPANY, posting_date="2026-06-15", rate=100, qty=1)
+		after_cutoff = create_sales_invoice(company=COMPANY, posting_date="2026-06-15", rate=100, qty=1)
+		on_cutoff = create_sales_invoice(company=COMPANY, posting_date="2026-06-01", rate=100, qty=1)
 		before_cutoff = create_sales_invoice(company=COMPANY, posting_date="2026-01-15", rate=100, qty=1)
 
 		doc = self.make_repost(posting_date="2026-06-01", voucher_type="Sales Invoice")
 		doc.save()  # before_validate loads the vouchers and sets status
 
 		loaded = {v.voucher_no for v in doc.repost_vouchers}
-		self.assertIn(in_range.name, loaded)
+		self.assertIn(after_cutoff.name, loaded)
+		# the filter is >= so an invoice posted exactly on the cutoff is included
+		self.assertIn(on_cutoff.name, loaded)
 		self.assertNotIn(before_cutoff.name, loaded)
 		self.assertEqual(doc.repost_status, "Queued")
 
