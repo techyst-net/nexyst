@@ -1,8 +1,6 @@
 # Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
 # See license.txt
 
-from datetime import timedelta
-
 import frappe
 from frappe.utils import add_days, getdate, now_datetime, today
 
