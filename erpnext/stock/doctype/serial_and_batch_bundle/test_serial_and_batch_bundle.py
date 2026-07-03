@@ -1516,7 +1516,9 @@ class TestSerialandBatchBundleLogic(ERPNextTestSuite):
 		self.assertEqual(agg["B2"], 5)
 
 	def test_get_type_of_transaction_derives_direction(self):
-		se = lambda **kw: get_type_of_transaction(frappe._dict(doctype="Stock Entry"), frappe._dict(**kw))
+		def se(**kw):
+			return get_type_of_transaction(frappe._dict(doctype="Stock Entry"), frappe._dict(**kw))
+
 		self.assertEqual(se(s_warehouse="W"), "Outward")  # issuing from a source warehouse
 		self.assertEqual(se(), "Inward")  # only a target warehouse
 		self.assertEqual(
