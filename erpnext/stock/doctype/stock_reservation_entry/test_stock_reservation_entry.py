@@ -984,8 +984,22 @@ class TestStockReservationEntryValidation(ERPNextTestSuite):
 
 	def test_all_mandatory_fields_are_required(self):
 		self.make_sre().validate_mandatory()  # everything set -> passes
-		self.assertRaises(frappe.ValidationError, self.make_sre(reserved_qty=0).validate_mandatory)
-		self.assertRaises(frappe.ValidationError, self.make_sre(item_code=None).validate_mandatory)
+		# clearing any single mandatory field is rejected
+		mandatory = [
+			"item_code",
+			"warehouse",
+			"voucher_type",
+			"voucher_no",
+			"voucher_detail_no",
+			"available_qty",
+			"voucher_qty",
+			"stock_uom",
+			"reserved_qty",
+			"company",
+		]
+		for field in mandatory:
+			with self.subTest(field=field):
+				self.assertRaises(frappe.ValidationError, self.make_sre(**{field: None}).validate_mandatory)
 
 	def test_amended_document_is_rejected(self):
 		self.assertRaises(frappe.ValidationError, self.make_sre(amended_from="SRE-0001").validate_amended_doc)
