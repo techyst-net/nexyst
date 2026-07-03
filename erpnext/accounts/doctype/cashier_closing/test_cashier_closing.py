@@ -20,6 +20,7 @@ class TestCashierClosing(ERPNextTestSuite):
 		si = create_sales_invoice(rate=rate, qty=1, posting_date=DATE, do_not_submit=True)
 		si.posting_time = "10:30:00"
 		si.submit()
+		si.reload()  # read outstanding_amount as persisted after submit
 		return si
 
 	def make_closing(self, user="Administrator", payments=None, **args):
@@ -37,6 +38,11 @@ class TestCashierClosing(ERPNextTestSuite):
 
 	def test_from_time_must_be_before_to_time(self):
 		doc = self.make_closing(from_time="18:00:00", time="09:00:00")
+		self.assertRaises(frappe.ValidationError, doc.save)
+
+	def test_equal_from_and_to_time_is_rejected(self):
+		# validate_time uses >=, so a zero-length window is also blocked
+		doc = self.make_closing(from_time="09:00:00", time="09:00:00")
 		self.assertRaises(frappe.ValidationError, doc.save)
 
 	def test_net_amount_rolls_up_outstanding_and_adjustments(self):
