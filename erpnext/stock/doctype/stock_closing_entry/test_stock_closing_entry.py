@@ -87,5 +87,5 @@ class TestStockClosingEntryDuplicate(ERPNextTestSuite):
 	def test_non_overlapping_range_is_allowed(self):
 		self.submit_closing(self.make_closing("2026-01-01", "2026-03-31"))
 		later = self.make_closing("2026-04-01", "2026-06-30")
-		later.insert()
-		self.assertTrue(later.name)
+		later.insert()  # would raise if validate_duplicate wrongly flagged it as overlapping
+		self.assertTrue(frappe.db.exists("Stock Closing Entry", later.name))
