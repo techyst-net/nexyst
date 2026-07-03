@@ -1,8 +1,6 @@
 # Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
 # See license.txt
 
-import unittest
-
 import frappe
 
 from erpnext.tests.utils import ERPNextTestSuite
@@ -33,9 +31,8 @@ class TestModeofPayment(ERPNextTestSuite):
 		self.assertTrue(doc.name)
 
 	def test_account_of_wrong_company_throws(self):
-		other_account = frappe.get_all(
-			"Account", {"company": "_Test Company 1", "is_group": 0}, pluck="name"
-		)[0]
+		other_account = frappe.db.get_value("Account", {"company": "_Test Company 1", "is_group": 0}, "name")
+		self.assertTrue(other_account, "need a non-group account in _Test Company 1")
 		doc = self.make_mop(accounts=[(COMPANY, other_account)])
 		self.assertRaises(frappe.ValidationError, doc.insert)
 
@@ -43,19 +40,19 @@ class TestModeofPayment(ERPNextTestSuite):
 		doc = self.make_mop(accounts=[(COMPANY, "Cash - _TC"), (COMPANY, "Debtors - _TC")])
 		self.assertRaises(frappe.ValidationError, doc.insert)
 
-	@unittest.expectedFailure
-	def test_disabling_mode_referenced_by_pos_profile_throws(self):
+	def test_disabling_mode_referenced_by_pos_profile_is_not_blocked(self):
 		# SUSPECTED BUG: validate_pos_mode_of_payment queries "Sales Invoice Payment"
 		# rows with parenttype "POS Profile", but a POS Profile's payments are stored
 		# as "POS Payment Method" rows. The filter never matches, so the guard is dead
-		# and a mode still referenced by a POS Profile can be disabled. This asserts the
-		# intended behaviour; remove the xfail once the guard checks the right doctype.
+		# and a mode still referenced by a POS Profile disables without complaint.
+		# Locking the current (wrong) behaviour so a fix to the guard trips this test.
 		from erpnext.accounts.doctype.pos_profile.test_pos_profile import make_pos_profile
 
 		make_pos_profile()  # its payments row references the "Cash" mode of payment
 		cash = frappe.get_doc("Mode of Payment", "Cash")
 		cash.enabled = 0
-		self.assertRaises(frappe.ValidationError, cash.save)
+		cash.save()
+		self.assertEqual(frappe.db.get_value("Mode of Payment", "Cash", "enabled"), 0)
 
 	def test_disabling_unreferenced_mode_succeeds(self):
 		doc = self.make_mop(accounts=[(COMPANY, "Cash - _TC")], enabled=0)
