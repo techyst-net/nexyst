@@ -30,18 +30,18 @@ class TestProcessPaymentReconciliation(ERPNextTestSuite):
 		doc.to_invoice_date = args.get("to_invoice_date")
 		return doc
 
+	def other_company_account(self, **extra):
+		filters = {"company": "_Test Company 1", "is_group": 0, **extra}
+		account = frappe.db.get_value("Account", filters, "name")
+		self.assertTrue(account, "need a matching account in _Test Company 1")
+		return account
+
 	def test_receivable_account_must_belong_to_company(self):
-		other = frappe.get_all(
-			"Account",
-			{"company": "_Test Company 1", "account_type": "Receivable", "is_group": 0},
-			pluck="name",
-		)[0]
-		doc = self.make_ppr(receivable_payable_account=other)
+		doc = self.make_ppr(receivable_payable_account=self.other_company_account(account_type="Receivable"))
 		self.assertRaises(frappe.ValidationError, doc.insert)
 
 	def test_bank_cash_account_must_belong_to_company(self):
-		other = frappe.get_all("Account", {"company": "_Test Company 1", "is_group": 0}, pluck="name")[0]
-		doc = self.make_ppr(bank_cash_account=other)
+		doc = self.make_ppr(bank_cash_account=self.other_company_account())
 		self.assertRaises(frappe.ValidationError, doc.insert)
 
 	def test_submit_sets_status_to_queued(self):
@@ -62,3 +62,15 @@ class TestProcessPaymentReconciliation(ERPNextTestSuite):
 		# the tool run is capped so a single process can't fetch unbounded rows
 		self.assertEqual(pr.invoice_limit, 1000)
 		self.assertEqual(pr.payment_limit, 1000)
+
+	def test_get_pr_instance_drops_bank_cash_and_cost_center_filters(self):
+		# SUSPECTED BUG: get_pr_instance's field list omits bank_cash_account and
+		# cost_center, so those filters are silently lost when the tool run is built.
+		# Locking the current (wrong) behaviour.
+		doc = self.make_ppr(bank_cash_account="Cash - _TC")
+		doc.cost_center = "_Test Cost Center - _TC"
+		doc.insert()
+
+		pr = get_pr_instance(doc.name)
+		self.assertFalse(pr.get("bank_cash_account"))
+		self.assertFalse(pr.get("cost_center"))
