@@ -41,13 +41,15 @@ class TestRepostPaymentLedger(ERPNextTestSuite):
 		self.assertEqual(doc.repost_status, "Queued")
 
 	def test_add_manually_preserves_user_rows(self):
-		# a Sales Invoice that WOULD match the filter, to prove manual mode ignores it
-		si = create_sales_invoice(company=COMPANY, posting_date="2026-06-15", rate=100, qty=1)
+		# manually add a BEFORE-cutoff invoice (which the filter would never load) while a
+		# matching after-cutoff invoice also exists. If auto-loading wrongly ran it would
+		# drop the manual row and pull the after-cutoff one, so this distinguishes the modes.
+		manual_si = create_sales_invoice(company=COMPANY, posting_date="2026-01-15", rate=100, qty=1)
+		create_sales_invoice(company=COMPANY, posting_date="2026-06-15", rate=100, qty=1)
 
-		doc = self.make_repost(add_manually=1)
-		doc.append("repost_vouchers", {"voucher_type": "Sales Invoice", "voucher_no": si.name})
+		doc = self.make_repost(add_manually=1, posting_date="2026-06-01")
+		doc.append("repost_vouchers", {"voucher_type": "Sales Invoice", "voucher_no": manual_si.name})
 		doc.save()
 
 		rows = [(v.voucher_type, v.voucher_no) for v in doc.repost_vouchers]
-		# the row is kept exactly as entered; no filter-based auto-loading happens
-		self.assertEqual(rows, [("Sales Invoice", si.name)])
+		self.assertEqual(rows, [("Sales Invoice", manual_si.name)])
