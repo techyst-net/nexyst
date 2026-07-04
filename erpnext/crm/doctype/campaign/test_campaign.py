@@ -50,3 +50,21 @@ class TestCampaign(ERPNextTestSuite):
 		# the edit updates the existing mirror rather than creating a second one
 		mirrors = frappe.get_all("UTM Campaign", filters={"crm_campaign": campaign.name})
 		self.assertEqual(len(mirrors), 1)
+
+	def test_two_campaigns_sharing_a_name_do_not_hijack_each_others_mirror(self):
+		# a naming series lets two Campaigns share a display name; each must keep its own mirror
+		original = frappe.defaults.get_global_default("campaign_naming_by")
+		frappe.defaults.set_global_default("campaign_naming_by", "Naming Series")
+		try:
+			first = self.make_campaign(campaign_name="_Test Shared Mirror", naming_series="SAL-CAM-.YYYY.-")
+			second = self.make_campaign(campaign_name="_Test Shared Mirror", naming_series="SAL-CAM-.YYYY.-")
+		finally:
+			frappe.defaults.set_global_default("campaign_naming_by", original or "")
+
+		# the first Campaign's mirror is untouched; the second gets a distinct one
+		self.assertEqual(
+			frappe.db.get_value("UTM Campaign", "_Test Shared Mirror", "crm_campaign"), first.name
+		)
+		second_mirror = frappe.db.get_value("UTM Campaign", {"crm_campaign": second.name})
+		self.assertTrue(second_mirror)
+		self.assertNotEqual(second_mirror, "_Test Shared Mirror")
