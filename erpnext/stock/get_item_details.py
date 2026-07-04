@@ -698,7 +698,7 @@ def get_barcode_data(items_list=None, item_code=None):
 
 @frappe.whitelist()
 def get_item_tax_info(
-	doc: Document | str | None,
+	doc: Document | dict | str | None,
 	tax_category: str,
 	item_codes: list | str,
 	item_rates: dict | str | None = None,
