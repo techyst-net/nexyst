@@ -43,17 +43,17 @@ class TestAppointmentBookingSettings(ERPNextTestSuite):
 		)
 
 	def test_validate_checks_every_slot(self):
-		doc = self.make_settings(appointment_duration=30)
-		doc.append(
+		bad = self.make_settings(appointment_duration=30)
+		bad.append(
 			"availability_of_slots",
 			{"day_of_week": "Monday", "from_time": "09:00:00", "to_time": "09:45:00"},
 		)
-		self.assertRaises(frappe.ValidationError, doc.validate)
+		self.assertRaises(frappe.ValidationError, bad.validate)
 
 		# a clean 60-minute slot passes end to end
-		doc.availability_of_slots = []
-		doc.append(
+		good = self.make_settings(appointment_duration=30)
+		good.append(
 			"availability_of_slots",
 			{"day_of_week": "Monday", "from_time": "09:00:00", "to_time": "10:00:00"},
 		)
-		doc.validate()
+		good.validate()
