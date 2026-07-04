@@ -42,3 +42,11 @@ class TestCampaign(ERPNextTestSuite):
 		utm = frappe.get_doc("UTM Campaign", campaign.campaign_name)
 		self.assertEqual(utm.campaign_description, "Spring push")
 		self.assertEqual(utm.crm_campaign, campaign.name)
+
+	def test_editing_campaign_name_reuses_the_same_utm_campaign(self):
+		campaign = self.make_campaign(campaign_name="_Test Campaign Rename A")
+		campaign.campaign_name = "_Test Campaign Rename B"
+		campaign.save()
+		# the edit updates the existing mirror rather than creating a second one
+		mirrors = frappe.get_all("UTM Campaign", filters={"crm_campaign": campaign.name})
+		self.assertEqual(len(mirrors), 1)

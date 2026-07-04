@@ -32,14 +32,16 @@ class Campaign(Document):
 		self.sync_utm_campaign()
 
 	def sync_utm_campaign(self):
+		# look up the existing mirror by the stable Campaign link first, so editing
+		# campaign_name updates that mirror instead of creating a duplicate
+		existing = frappe.db.get_value("UTM Campaign", {"crm_campaign": self.name}) or self.campaign_name
 		try:
-			mc = frappe.get_doc("UTM Campaign", self.campaign_name)
+			mc = frappe.get_doc("UTM Campaign", existing)
 		except frappe.DoesNotExistError:
 			mc = frappe.new_doc("UTM Campaign")
 			mc.name = self.campaign_name
 		mc.campaign_description = self.description
-		# link to this Campaign by its document name, which differs from campaign_name
-		# when a naming series is used
+		# link by the document name, which differs from campaign_name when a naming series is used
 		mc.crm_campaign = self.name
 		mc.save(ignore_permissions=True)
 
