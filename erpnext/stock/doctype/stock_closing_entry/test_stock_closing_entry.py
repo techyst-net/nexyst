@@ -84,6 +84,18 @@ class TestStockClosingEntryDuplicate(ERPNextTestSuite):
 		overlap = self.make_closing("2026-02-01", "2026-04-30")
 		self.assertRaises(frappe.ValidationError, overlap.insert)
 
+	def test_fully_contained_range_is_rejected(self):
+		# a range entirely inside an existing entry's range is still a duplicate
+		self.submit_closing(self.make_closing("2026-01-01", "2026-12-31"))
+		contained = self.make_closing("2026-03-01", "2026-03-31")
+		self.assertRaises(frappe.ValidationError, contained.insert)
+
+	def test_enclosing_range_is_rejected(self):
+		# and so is a range that fully encloses an existing entry's range
+		self.submit_closing(self.make_closing("2026-03-01", "2026-03-31"))
+		enclosing = self.make_closing("2026-01-01", "2026-12-31")
+		self.assertRaises(frappe.ValidationError, enclosing.insert)
+
 	def test_non_overlapping_range_is_allowed(self):
 		self.submit_closing(self.make_closing("2026-01-01", "2026-03-31"))
 		later = self.make_closing("2026-04-01", "2026-06-30")
