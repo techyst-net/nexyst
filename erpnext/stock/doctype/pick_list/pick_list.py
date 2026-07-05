@@ -952,10 +952,22 @@ def get_picked_items_qty(items, contains_packed_items=False) -> list[dict]:
 	)
 
 	# Lock the picked-qty rows so a concurrent pick can't change them mid-transaction. MariaDB carries
-	# the lock on the grouped query; postgres rejects FOR UPDATE with GROUP BY, so lock the same rows
-	# in a separate plain SELECT first (held for the transaction).
+	# the lock on the grouped query (its gap locks also block rows other in-flight picks are about to
+	# submit); postgres has no gap locks, so first serialize on the referenced SO/packed item rows
+	# (they always exist), then lock the matching picked rows in a separate plain SELECT.
 	if frappe.db.db_type == "postgres":
-		frappe.qb.from_(pi_item).select(pi_item.name).where(conditions).for_update().run()
+		parent = frappe.qb.DocType("Packed Item" if contains_packed_items else "Sales Order Item")
+		(
+			frappe.qb.from_(parent)
+			.select(parent.name)
+			.where(parent.name.isin(items))
+			.orderby(parent.name)
+			.for_update()
+			.run()
+		)
+		frappe.qb.from_(pi_item).select(pi_item.name).where(conditions).orderby(
+			pi_item.name
+		).for_update().run()
 	else:
 		query = query.for_update()
 

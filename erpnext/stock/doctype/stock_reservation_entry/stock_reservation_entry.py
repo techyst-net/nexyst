@@ -716,10 +716,19 @@ def get_available_qty_to_reserve(
 			conditions &= sre.name != ignore_sre
 
 		# Lock the rows being aggregated so a concurrent reservation can't change them mid-transaction.
-		# MariaDB carries the lock on the aggregate query itself; postgres rejects FOR UPDATE with an
-		# aggregate, so on postgres lock the same rows in a separate plain SELECT first (held for the txn).
+		# MariaDB carries the lock on the aggregate query itself (its gap locks also serialize two
+		# FIRST reservations, when no SRE rows exist yet); postgres has no gap locks, so gate on the
+		# Bin row (exists once there is stock), then lock the matching SREs in a plain SELECT.
 		if frappe.db.db_type == "postgres":
-			frappe.qb.from_(sre).select(sre.name).where(conditions).for_update().run()
+			bin_table = frappe.qb.DocType("Bin")
+			(
+				frappe.qb.from_(bin_table)
+				.select(bin_table.name)
+				.where((bin_table.item_code == item_code) & (bin_table.warehouse == warehouse))
+				.for_update()
+				.run()
+			)
+			frappe.qb.from_(sre).select(sre.name).where(conditions).orderby(sre.name).for_update().run()
 
 		query = (
 			frappe.qb.from_(sre)
