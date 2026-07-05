@@ -246,6 +246,7 @@ class ProductionPlanReport:
 				& (poi.warehouse.isin(self.warehouses))
 				& (po.docstatus == 1)
 				& (po.status.notin(["Closed", "Completed", "Cancelled"]))
+				& (poi.qty > poi.received_qty)
 			)
 			.groupby(poi.item_code, poi.warehouse)
 		).run(as_dict=True)
