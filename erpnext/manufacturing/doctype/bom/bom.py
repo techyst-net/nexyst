@@ -1319,8 +1319,12 @@ def _add_secondary_item_columns(query, t, stock_item_condition):
 
 
 def _add_normal_item_columns(query, t, amount_col, stock_item_condition, track_semi_finished_goods):
-	# non-grouped columns are constant per grouped item_code (+operation/operation_row_id) -> Max()
-	# keeps the GROUP BY valid on postgres while returning the value MySQL picked arbitrarily.
+	# Grouped also by bom_no/is_phantom_item: the pair MUST come from the same BOM Item row --
+	# _add_bom_item_to_dict recurses into bom_no when is_phantom_item is set, so independent Max()
+	# per column could pair one line's phantom flag with another line's bom_no and explode the
+	# wrong sub-BOM (same fix as sub_assembly_queries). The remaining non-grouped columns are
+	# constant per grouped item_code (+operation/operation_row_id) -> Max() keeps the GROUP BY
+	# valid on postgres while returning the value MySQL picked arbitrarily.
 	# NOTE: base_rate is aliased "rate" below and is what callers receive; bom_item.rate was selected
 	# under the same alias and silently shadowed (last value wins in the dict), so it is dropped here
 	# -- output is unchanged.
@@ -1335,14 +1339,15 @@ def _add_normal_item_columns(query, t, amount_col, stock_item_condition, track_s
 		Max(t.bom_item.description).as_("description"),
 		Max(t.bom_item.base_rate).as_("rate"),
 		Max(t.bom_item.operation_row_id).as_("operation_row_id"),
-		Max(t.bom_item.is_phantom_item).as_("is_phantom_item"),
-		Max(t.bom_item.bom_no).as_("bom_no"),
+		t.bom_item.is_phantom_item,
+		t.bom_item.bom_no,
 	).where(stock_item_condition | (t.bom_item.is_phantom_item == 1))
 
 	if track_semi_finished_goods:
 		group_by = [t.bom_item.item_code, t.bom_item.operation_row_id, t.item_doc.stock_uom]
 	else:
 		group_by = [t.bom_item.item_code, t.item_doc.stock_uom, t.bom_item.operation]
+	group_by += [t.bom_item.bom_no, t.bom_item.is_phantom_item]
 
 	return query, group_by
 
