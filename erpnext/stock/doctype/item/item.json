@@ -385,7 +385,7 @@
    "fieldname": "valuation_method",
    "fieldtype": "Select",
    "label": "Valuation Method",
-   "options": "\nFIFO\nMoving Average\nLIFO"
+   "options": "\nFIFO\nMoving Average\nLIFO\nStandard Cost"
   },
   {
    "depends_on": "is_stock_item",
