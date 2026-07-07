@@ -132,7 +132,7 @@ class MaterialRequestService:
 
 @frappe.whitelist()
 def get_items_for_material_requests(
-	doc: str | frappe._dict | Document,
+	doc: str | dict | Document,
 	warehouses: str | list | None = None,
 	get_parent_warehouse_data: bool | int | None = None,
 ):
