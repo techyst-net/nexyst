@@ -17,6 +17,7 @@ from erpnext.selling.doctype.customer.mapper import (
 	make_quotation,
 	parse_full_name,
 )
+from erpnext.setup.utils import get_exchange_rate
 from erpnext.tests.utils import ERPNextTestSuite
 
 
@@ -29,20 +30,9 @@ class TestCustomer(ERPNextTestSuite):
 		frappe.defaults.set_user_default("company", company)
 		self.addCleanup(frappe.defaults.clear_user_default, "company")
 
-		# Seed a deterministic rate so the test does not depend on the live exchange-rate API.
-		rate = 83.0
-		exchange = frappe.get_doc(
-			{
-				"doctype": "Currency Exchange",
-				"date": nowdate(),
-				"from_currency": foreign_currency,
-				"to_currency": company_currency,
-				"exchange_rate": rate,
-				"for_selling": 1,
-				"for_buying": 1,
-			}
-		).insert(ignore_if_duplicate=True)
-		self.addCleanup(frappe.delete_doc, "Currency Exchange", exchange.name, force=1)
+		# Master data seeds a current-dated exchange rate, so make_quotation should
+		# resolve that rate instead of falling back to the default conversion rate of 1.0.
+		expected_rate = get_exchange_rate(foreign_currency, company_currency, nowdate())
 
 		customer = frappe.get_doc(
 			{
@@ -59,7 +49,7 @@ class TestCustomer(ERPNextTestSuite):
 		self.assertEqual(quotation.currency, foreign_currency)
 		self.assertNotEqual(flt(quotation.conversion_rate), 1.0)
 		self.assertNotEqual(flt(quotation.conversion_rate), 0.0)
-		self.assertEqual(flt(quotation.conversion_rate), rate)
+		self.assertEqual(flt(quotation.conversion_rate), flt(expected_rate))
 
 	def test_get_customer_name_dedupes_with_numeric_suffix(self):
 		# When a customer name already exists, get_customer_name appends "- <max suffix + 1>". The
