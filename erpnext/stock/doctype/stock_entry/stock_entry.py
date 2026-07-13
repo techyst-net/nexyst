@@ -558,6 +558,10 @@ class StockEntry(StockController, SubcontractingInwardController):
 		outgoing_items_cost = self.set_rate_for_outgoing_items(reset_outgoing_rate, raise_error_if_no_rate)
 		raise_error_if_no_rate = raise_error_if_no_rate and not self.is_new()
 
+		bom_cost_allocation_per = (
+			frappe.get_cached_value("BOM", self.bom_no, "cost_allocation_per") if self.bom_no else None
+		)
+
 		zero_valuation_items = []
 		for d in self.get("items"):
 			if d.s_warehouse or d.set_basic_rate_manually:
@@ -569,12 +573,21 @@ class StockEntry(StockController, SubcontractingInwardController):
 				d.basic_amount = 0.0
 				continue
 
-			self._set_incoming_item_rate(d, outgoing_items_cost, raise_error_if_no_rate, zero_valuation_items)
+			self._set_incoming_item_rate(
+				d, outgoing_items_cost, raise_error_if_no_rate, zero_valuation_items, bom_cost_allocation_per
+			)
 
 		if zero_valuation_items:
 			self._notify_zero_valuation_rate(zero_valuation_items)
 
-	def _set_incoming_item_rate(self, d, outgoing_items_cost, raise_error_if_no_rate, zero_valuation_items):
+	def _set_incoming_item_rate(
+		self,
+		d,
+		outgoing_items_cost,
+		raise_error_if_no_rate,
+		zero_valuation_items,
+		bom_cost_allocation_per=None,
+	):
 		if d.allow_zero_valuation_rate and d.basic_rate and self.purpose != "Receive from Customer":
 			d.basic_rate = 0.0
 			zero_valuation_items.append(d.item_code)
@@ -585,7 +598,7 @@ class StockEntry(StockController, SubcontractingInwardController):
 				d.basic_rate = self.get_basic_rate_for_repacked_items(d.transfer_qty, outgoing_items_cost)
 
 			if self.bom_no:
-				d.basic_rate *= frappe.get_value("BOM", self.bom_no, "cost_allocation_per") / 100
+				d.basic_rate *= bom_cost_allocation_per / 100
 		elif d.secondary_item_type and d.bom_secondary_item:
 			cost_allocation_per = frappe.get_value(
 				"BOM Secondary Item", d.bom_secondary_item, "cost_allocation_per"
