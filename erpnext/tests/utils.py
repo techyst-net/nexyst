@@ -2564,7 +2564,7 @@ class BootStrapTestData:
 				"for_selling": 1,
 			},
 		]
-		self.make_records(["from_currency", "to_currency", "date"], records)
+		self.make_records(["from_currency", "to_currency", "date", "for_buying", "for_selling"], records)
 
 	def make_operation(self):
 		records = [
