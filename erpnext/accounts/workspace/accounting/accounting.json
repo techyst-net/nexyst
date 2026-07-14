@@ -1,8 +1,29 @@
 {
  "app": "erpnext",
- "charts": [],
- "content": "[]",
- "creation": "2026-07-14 12:00:00.000000",
+ "charts": [
+  {
+   "chart_name": "Profit and Loss",
+   "label": "Profit and Loss"
+  },
+  {
+   "chart_name": "Accounts Receivable Ageing",
+   "label": "Accounts Receivable Ageing"
+  },
+  {
+   "chart_name": "Accounts Payable Ageing",
+   "label": "Accounts Payable Ageing"
+  },
+  {
+   "chart_name": "Bank Balance",
+   "label": "Bank Balance"
+  },
+  {
+   "chart_name": "Budget Variance",
+   "label": "Budget Variance"
+  }
+ ],
+ "content": "[{\"id\":\"acc_ov_hdr1\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Accounting Overview</b></span>\",\"col\":12}},{\"id\":\"acc_ov_nc01\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Outgoing Bills\",\"col\":3}},{\"id\":\"acc_ov_nc02\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Incoming Bills\",\"col\":3}},{\"id\":\"acc_ov_nc03\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Incoming Payment\",\"col\":3}},{\"id\":\"acc_ov_nc04\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Outgoing Payment\",\"col\":3}},{\"id\":\"acc_ov_ch01\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Profit and Loss\",\"col\":12}},{\"id\":\"acc_ov_ch02\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Accounts Receivable Ageing\",\"col\":6}},{\"id\":\"acc_ov_ch03\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Accounts Payable Ageing\",\"col\":6}},{\"id\":\"acc_ov_ch04\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Bank Balance\",\"col\":6}},{\"id\":\"acc_ov_ch05\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Budget Variance\",\"col\":6}}]",
+ "creation": "2026-07-14 12:00:00",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
@@ -15,12 +36,29 @@
  "label": "Accounting",
  "link_type": "DocType",
  "links": [],
- "modified": "2026-07-14 12:00:00.000000",
+ "modified": "2026-07-14 14:28:55.763394",
  "modified_by": "Administrator",
  "module": "Accounts",
  "module_onboarding": "Accounting Onboarding",
  "name": "Accounting",
- "number_cards": [],
+ "number_cards": [
+  {
+   "label": "Outgoing Bills",
+   "number_card_name": "Total Outgoing Bills"
+  },
+  {
+   "label": "Incoming Bills",
+   "number_card_name": "Total Incoming Bills"
+  },
+  {
+   "label": "Incoming Payment",
+   "number_card_name": "Total Incoming Payment"
+  },
+  {
+   "label": "Outgoing Payment",
+   "number_card_name": "Total Outgoing Payment"
+  }
+ ],
  "owner": "Administrator",
  "public": 1,
  "quick_lists": [],
@@ -45,6 +83,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "database",
    "indent": 1,
    "keep_closed": 0,
@@ -57,6 +96,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Chart of Accounts",
@@ -69,6 +109,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Chart of Cost Centers",
@@ -81,6 +122,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Account Category",
@@ -93,6 +135,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Accounting Dimension",
@@ -105,6 +148,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Currency",
@@ -117,6 +161,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Currency Exchange",
@@ -129,6 +174,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Finance Book",
@@ -141,6 +187,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Mode of Payment",
@@ -153,6 +200,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Payment Term",
@@ -165,6 +213,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Journal Entry Template",
@@ -177,6 +226,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Terms and Conditions",
@@ -189,6 +239,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Company",
@@ -201,6 +252,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Fiscal Year",
@@ -213,6 +265,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "book-open-check",
    "indent": 1,
    "keep_closed": 1,
@@ -225,6 +278,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "",
    "indent": 0,
    "keep_closed": 0,
@@ -238,6 +292,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "",
    "indent": 0,
    "keep_closed": 0,
@@ -251,6 +306,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "",
    "indent": 0,
    "keep_closed": 0,
@@ -264,6 +320,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "",
    "indent": 0,
    "keep_closed": 0,
@@ -277,6 +334,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "",
    "indent": 0,
    "keep_closed": 0,
@@ -290,6 +348,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "coins",
    "indent": 1,
    "keep_closed": 1,
@@ -302,6 +361,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "panel-bottom-close",
    "indent": 0,
    "keep_closed": 0,
@@ -316,6 +376,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "panel-top-close",
    "indent": 0,
    "keep_closed": 0,
@@ -329,6 +390,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "package",
    "indent": 0,
    "keep_closed": 0,
@@ -342,6 +404,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "triangle",
    "indent": 0,
    "keep_closed": 0,
@@ -355,6 +418,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "book-open-text",
    "indent": 0,
    "keep_closed": 0,
@@ -368,6 +432,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "book-text",
    "indent": 0,
    "keep_closed": 0,
@@ -381,6 +446,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Tax Withholding Group",
@@ -393,6 +459,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "notebook-text",
    "indent": 0,
    "keep_closed": 0,
@@ -406,6 +473,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "wallet",
    "indent": 1,
    "keep_closed": 1,
@@ -446,6 +514,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "coins",
    "indent": 1,
    "keep_closed": 1,
@@ -458,6 +527,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "user",
    "indent": 0,
    "keep_closed": 0,
@@ -471,6 +541,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "move-horizontal",
    "indent": 0,
    "keep_closed": 0,
@@ -484,6 +555,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "repeat",
    "indent": 1,
    "keep_closed": 1,
@@ -496,6 +568,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "circle-dollar-sign",
    "indent": 0,
    "keep_closed": 0,
@@ -509,6 +582,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "receipt-text",
    "indent": 0,
    "keep_closed": 0,
@@ -522,6 +596,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "settings",
    "indent": 0,
    "keep_closed": 0,
@@ -535,6 +610,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "sheet",
    "indent": 1,
    "keep_closed": 1,
@@ -547,6 +623,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "TDS Computation Summary",
@@ -559,6 +636,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Tax Withholding Details",
@@ -585,6 +663,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "list",
    "indent": 0,
    "keep_closed": 0,
@@ -598,6 +677,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "notepad-text",
    "indent": 0,
    "keep_closed": 0,
@@ -611,6 +691,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "wrench",
    "indent": 1,
    "keep_closed": 1,
@@ -623,6 +704,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "icon": "",
    "indent": 0,
    "keep_closed": 0,
@@ -636,6 +718,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Currency Exchange Settings",
@@ -647,6 +730,6 @@
   }
  ],
  "standard": 1,
- "title": "Accounts Setup",
+ "title": "Accounting",
  "type": "Workspace"
 }
