@@ -2136,6 +2136,7 @@ class TestProductionPlan(ERPNextTestSuite):
 		mr_items = get_items_for_material_requests(
 			pln.as_dict(), warehouses=[{"warehouse": source_warehouse}]
 		)
+		self.assertEqual(len(mr_items), 2)
 		items_by_type = {d.get("material_request_type"): d for d in mr_items}
 		self.assertEqual(items_by_type["Material Transfer"].get("quantity"), 7.0)
 		self.assertEqual(items_by_type["Purchase"].get("quantity"), 1000.0)
