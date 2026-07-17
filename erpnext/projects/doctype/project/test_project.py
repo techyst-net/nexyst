@@ -332,6 +332,23 @@ class TestProject(ERPNextTestSuite):
 		self.assertEqual(project.percent_complete, 100)
 		self.assertEqual(project.status, "Cancelled")
 
+	def test_on_hold_project_keeps_status(self):
+		project, tasks = self._project_with_tasks("Task Completion", 4)
+
+		# an On hold project is not auto-flipped to Completed even at 100%
+		project.status = "On hold"
+		for task in tasks:
+			frappe.db.set_value("Task", task, "status", "Completed")
+		project.update_percent_complete()
+		self.assertEqual(project.percent_complete, 100)
+		self.assertEqual(project.status, "On hold")
+
+		# nor auto-flipped back to Open when below 100%
+		frappe.db.set_value("Task", tasks[0], "status", "Open")
+		project.update_percent_complete()
+		self.assertEqual(project.percent_complete, 75)
+		self.assertEqual(project.status, "On hold")
+
 	def test_percent_complete_by_task_progress(self):
 		project, tasks = self._project_with_tasks("Task Progress", 2)
 
