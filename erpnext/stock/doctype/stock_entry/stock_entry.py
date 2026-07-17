@@ -1578,6 +1578,28 @@ def make_stock_in_entry(source_name: str, target_doc: str | Document | None = No
 
 
 @frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def get_pending_work_orders(
+	doctype: str, txt: str, searchfield: str, start: int, page_length: int, filters: dict
+) -> list:
+	work_order = frappe.qb.DocType("Work Order")
+	query = frappe.qb.get_query(
+		"Work Order",
+		fields=["name", "production_item"],
+		filters={
+			"docstatus": 1,
+			"company": filters.get("company"),
+			"name": ("like", f"%{txt}%"),
+		},
+		order_by="name",
+		limit=cint(page_length),
+		offset=cint(start),
+		ignore_permissions=False,
+	)
+	return query.where(work_order.qty > work_order.produced_qty).run()
+
+
+@frappe.whitelist()
 def get_work_order_details(work_order: str, company: str):
 	work_order = frappe.get_doc("Work Order", work_order)
 	pending_qty_to_produce = flt(work_order.qty) - flt(work_order.produced_qty)
