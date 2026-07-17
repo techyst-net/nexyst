@@ -28,7 +28,7 @@ def clear_logs_with_references(doctype, filters):
 			pluck="name",
 		)
 		if attached_files:
-			frappe.delete_doc("File", attached_files, ignore_permissions=True)
+			frappe.delete_doc("File", attached_files, ignore_permissions=True, delete_permanently=True)
 
 		for reference_doctype, (doctype_field, name_field) in LOG_REFERENCE_FIELDS.items():
 			frappe.db.delete(reference_doctype, {doctype_field: doctype, name_field: ("in", batch)})
