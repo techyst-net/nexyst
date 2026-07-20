@@ -622,7 +622,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-07-20 15:48:06.603686",
+ "modified": "2026-07-03 13:44:07.820564",
  "modified_by": "Administrator",
  "module": "Selling",
  "module_onboarding": "Selling Onboarding",
@@ -653,7 +653,6 @@
   {
    "child": 0,
    "collapsible": 1,
-   "default_workspace": 0,
    "icon": "house",
    "indent": 0,
    "keep_closed": 0,
@@ -667,7 +666,6 @@
   {
    "child": 0,
    "collapsible": 1,
-   "default_workspace": 0,
    "icon": "chart-column",
    "indent": 0,
    "keep_closed": 0,
@@ -681,7 +679,6 @@
   {
    "child": 0,
    "collapsible": 1,
-   "default_workspace": 0,
    "icon": "receipt-text",
    "indent": 0,
    "keep_closed": 0,
@@ -695,7 +692,6 @@
   {
    "child": 0,
    "collapsible": 1,
-   "default_workspace": 0,
    "icon": "store",
    "indent": 0,
    "keep_closed": 0,
@@ -709,7 +705,6 @@
   {
    "child": 0,
    "collapsible": 1,
-   "default_workspace": 0,
    "icon": "receipt",
    "indent": 0,
    "keep_closed": 0,
@@ -723,7 +718,6 @@
   {
    "child": 0,
    "collapsible": 1,
-   "default_workspace": 0,
    "icon": "computer",
    "indent": 1,
    "keep_closed": 1,
@@ -736,7 +730,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "icon": "",
    "indent": 0,
    "keep_closed": 0,
@@ -750,7 +743,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "POS Profile",
@@ -763,7 +755,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "POS Invoice",
@@ -776,7 +767,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "POS Opening Entry",
@@ -789,7 +779,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "POS Closing Entry",
@@ -802,7 +791,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "POS Invoice Merge Log",
@@ -815,7 +803,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "POS Settings",
@@ -828,7 +815,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Loyalty Program",
@@ -841,7 +827,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Loyalty Point Entry",
@@ -854,7 +839,6 @@
   {
    "child": 0,
    "collapsible": 1,
-   "default_workspace": 0,
    "icon": "package",
    "indent": 1,
    "keep_closed": 1,
@@ -867,7 +851,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "icon": "",
    "indent": 0,
    "keep_closed": 0,
@@ -881,7 +864,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Item Group",
@@ -894,7 +876,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Price List",
@@ -907,7 +888,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Item Price",
@@ -920,7 +900,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Pricing Rule",
@@ -933,7 +912,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Promotional Scheme",
@@ -946,7 +924,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Coupon Code",
@@ -959,7 +936,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Blanket Order",
@@ -972,7 +948,6 @@
   {
    "child": 0,
    "collapsible": 1,
-   "default_workspace": 0,
    "icon": "database",
    "indent": 1,
    "keep_closed": 1,
@@ -985,7 +960,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 1,
    "icon": "",
    "indent": 0,
    "keep_closed": 0,
@@ -999,7 +973,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Customer Group",
@@ -1012,7 +985,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Address",
@@ -1025,7 +997,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Contact",
@@ -1038,7 +1009,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Territory",
@@ -1051,7 +1021,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Campaign",
@@ -1064,7 +1033,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Sales Person",
@@ -1077,7 +1045,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Sales Partner",
@@ -1090,7 +1057,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Monthly Distribution",
@@ -1103,7 +1069,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Terms Template",
@@ -1116,7 +1081,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Tax Template",
@@ -1129,7 +1093,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Product Bundle",
@@ -1142,7 +1105,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "UTM Source",
@@ -1155,7 +1117,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Shipping Rule",
@@ -1168,7 +1129,6 @@
   {
    "child": 0,
    "collapsible": 1,
-   "default_workspace": 0,
    "icon": "sheet",
    "indent": 1,
    "keep_closed": 1,
@@ -1181,7 +1141,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Sales Register",
@@ -1194,7 +1153,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Item-wise Sales Register",
@@ -1207,7 +1165,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Sales Analytics",
@@ -1220,7 +1177,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Customer Addresses And Contacts",
@@ -1233,7 +1189,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Inactive Customers",
@@ -1246,7 +1201,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Sales Invoice Trends",
@@ -1259,7 +1213,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Customer Credit Balance",
@@ -1272,7 +1225,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Customers Without Any Sales Transactions",
@@ -1285,7 +1237,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Sales Partners Commission",
@@ -1298,7 +1249,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Available Stock for Packing Items",
@@ -1311,7 +1261,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Territory Target Variance Based On Item Group",
@@ -1324,7 +1273,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Sales Person Target Variance Based On Item Group",
@@ -1337,7 +1285,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Sales Partner Target Variance Based On Item Group",
@@ -1350,7 +1297,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Pending SO Items For Purchase Request",
@@ -1363,7 +1309,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Sales Funnel",
@@ -1376,7 +1321,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Sales Order Analysis",
@@ -1389,7 +1333,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Customer Acquisition and Loyalty",
@@ -1402,7 +1345,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Quotation Trends",
@@ -1415,7 +1357,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Sales Order Trends",
@@ -1428,7 +1369,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Item-wise Sales History",
@@ -1441,7 +1381,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "default_workspace": 0,
    "indent": 0,
    "keep_closed": 0,
    "label": "Sales Person-wise Transaction Summary",
@@ -1454,7 +1393,6 @@
   {
    "child": 0,
    "collapsible": 1,
-   "default_workspace": 0,
    "icon": "settings",
    "indent": 0,
    "keep_closed": 0,
