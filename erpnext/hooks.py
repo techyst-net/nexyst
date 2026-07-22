@@ -400,6 +400,9 @@ doc_events = {
 	tuple(company_restricted_transaction_doctypes): {
 		"validate": "erpnext.stock.doctype.company_restriction.company_restriction.validate_transaction_company",
 	},
+	("Item", "Customer", "Supplier"): {
+		"validate": "erpnext.stock.doctype.company_restriction.company_restriction.validate_allowed_companies",
+	},
 	"Stock Entry": {
 		"on_submit": "erpnext.stock.doctype.material_request.material_request.update_completed_and_requested_qty",
 		"on_cancel": "erpnext.stock.doctype.material_request.material_request.update_completed_and_requested_qty",

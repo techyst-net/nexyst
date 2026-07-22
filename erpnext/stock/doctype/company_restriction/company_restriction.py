@@ -79,7 +79,7 @@ def has_permission(doc, ptype=None, user=None):
 	return any(row.company in allowed_companies for row in doc.get("allowed_companies") or [])
 
 
-def validate_allowed_companies(doc):
+def validate_allowed_companies(doc, method=None):
 	if not doc.get("restrict_to_companies"):
 		doc.set("allowed_companies", [])
 	elif not doc.get("allowed_companies") and not doc.flags.ignore_mandatory:
