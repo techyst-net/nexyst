@@ -1,10 +1,19 @@
 # Copyright (c) 2026, Frappe Technologies Pvt. Ltd. and contributors
 # For license information, please see license.txt
 
+from collections import defaultdict
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import comma_and
 from pypika.terms import Bracket, ExistsCriterion
+
+RESTRICTABLE_MASTER_DOCTYPES = ("Item", "Customer", "Supplier")
+
+
+class CompanyRestrictionError(frappe.ValidationError):
+	pass
 
 
 class CompanyRestriction(Document):
@@ -40,6 +49,10 @@ def get_permission_query_conditions(user, doctype=None):
 	if not allowed_companies:
 		return None
 
+	return get_restriction_criterion(doctype, allowed_companies)
+
+
+def get_restriction_criterion(doctype, companies):
 	parent = frappe.qb.DocType(doctype)
 	restriction = frappe.qb.DocType("Company Restriction")
 	allowed_rows = (
@@ -49,7 +62,7 @@ def get_permission_query_conditions(user, doctype=None):
 			(restriction.parenttype == doctype)
 			& (restriction.parentfield == "allowed_companies")
 			& (restriction.parent == parent.name)
-			& (restriction.company.isin(allowed_companies))
+			& (restriction.company.isin(companies))
 		)
 	)
 	return Bracket((parent.restrict_to_companies == 0) | ExistsCriterion(allowed_rows))
@@ -93,6 +106,68 @@ def validate_allowed_companies(doc):
 				_("You are not permitted to add or remove Company {0} in Allowed Companies").format(company),
 				frappe.PermissionError,
 			)
+
+
+def validate_transaction_company(doc, method=None):
+	company = doc.get("company")
+	if not company:
+		return
+
+	for doctype, names in get_master_references(doc).items():
+		if blocked := get_blocked_masters(doctype, names, company):
+			frappe.throw(
+				_("{0} {1} cannot be used with Company {2} because of Company Restrictions").format(
+					_(doctype),
+					comma_and([frappe.bold(name) for name in blocked], add_quotes=False),
+					frappe.bold(company),
+				),
+				CompanyRestrictionError,
+				title=_("Restricted to Other Companies"),
+			)
+
+
+def get_master_references(doc):
+	references = defaultdict(set)
+	collect_master_references(doc, references)
+	for table_field in doc.meta.get_table_fields():
+		for row in doc.get(table_field.fieldname) or []:
+			collect_master_references(row, references)
+
+	return references
+
+
+def collect_master_references(row, references):
+	meta = frappe.get_meta(row.doctype)
+	for field in meta.get_link_fields():
+		if field.options in RESTRICTABLE_MASTER_DOCTYPES and (value := row.get(field.fieldname)):
+			references[field.options].add(value)
+
+	for field in meta.get_dynamic_link_fields():
+		doctype = row.get(field.options)
+		if doctype in RESTRICTABLE_MASTER_DOCTYPES and (value := row.get(field.fieldname)):
+			references[doctype].add(value)
+
+
+def get_blocked_masters(doctype, names, company):
+	restricted = frappe.get_all(
+		doctype,
+		filters={"name": ("in", sorted(names)), "restrict_to_companies": 1},
+		pluck="name",
+	)
+	if not restricted:
+		return []
+
+	allowed = frappe.get_all(
+		"Company Restriction",
+		filters={
+			"parenttype": doctype,
+			"parentfield": "allowed_companies",
+			"parent": ("in", restricted),
+			"company": company,
+		},
+		pluck="parent",
+	)
+	return sorted(set(restricted) - set(allowed))
 
 
 @frappe.whitelist()

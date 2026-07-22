@@ -364,6 +364,26 @@ pre_submit_validation_doctypes = [
 	"Sales Order",
 ]
 
+company_restricted_transaction_doctypes = [
+	"Quotation",
+	"Sales Order",
+	"Delivery Note",
+	"Sales Invoice",
+	"POS Invoice",
+	"Material Request",
+	"Request for Quotation",
+	"Supplier Quotation",
+	"Purchase Order",
+	"Purchase Receipt",
+	"Purchase Invoice",
+	"Stock Entry",
+	"Stock Reconciliation",
+	"Payment Entry",
+	"Journal Entry",
+	"Subcontracting Order",
+	"Subcontracting Receipt",
+]
+
 doc_events = {
 	"*": {
 		"validate": [
@@ -376,6 +396,9 @@ doc_events = {
 	},
 	tuple(pre_submit_validation_doctypes): {
 		"validate": "erpnext.accounts.utils.pre_submit_validation",
+	},
+	tuple(company_restricted_transaction_doctypes): {
+		"validate": "erpnext.stock.doctype.company_restriction.company_restriction.validate_transaction_company",
 	},
 	"Stock Entry": {
 		"on_submit": "erpnext.stock.doctype.material_request.material_request.update_completed_and_requested_qty",
