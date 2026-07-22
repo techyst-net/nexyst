@@ -13,17 +13,12 @@ RESTRICTABLE_MASTER_DOCTYPES = ("Item", "Customer", "Supplier")
 
 COMPANY_RESTRICTION_EXEMPT_DOCTYPES = frozenset(
 	{
-		"Advance Payment Ledger Entry",
 		"Asset",
 		"Bank Transaction",
-		"Bin",
 		"Exchange Rate Revaluation",
-		"GL Entry",
 		"Landed Cost Voucher",
-		"Loyalty Point Entry",
 		"POS Closing Entry",
 		"POS Invoice Merge Log",
-		"Payment Ledger Entry",
 		"Payment Reconciliation",
 		"Process Payment Reconciliation",
 		"Repost Accounting Ledger",
@@ -31,9 +26,6 @@ COMPANY_RESTRICTION_EXEMPT_DOCTYPES = frozenset(
 		"Repost Payment Ledger",
 		"Serial No",
 		"Serial and Batch Bundle",
-		"Stock Closing Balance",
-		"Stock Ledger Entry",
-		"Stock Reservation Entry",
 		"Unreconcile Payment",
 	}
 )
@@ -136,7 +128,7 @@ def validate_allowed_companies(doc, method=None):
 
 
 def validate_transaction_company(doc, method=None):
-	if doc.doctype in COMPANY_RESTRICTION_EXEMPT_DOCTYPES:
+	if doc.doctype in COMPANY_RESTRICTION_EXEMPT_DOCTYPES or doc.meta.in_create:
 		return
 
 	company_field = doc.meta.get_field("company")
