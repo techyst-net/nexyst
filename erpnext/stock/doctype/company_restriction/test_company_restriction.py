@@ -60,10 +60,22 @@ class TestCompanyRestriction(ERPNextTestSuite):
 		item.restrict_to_companies = 1
 		self.assertRaises(frappe.MandatoryError, item.save)
 
-	def test_hooked_doctypes_have_company_field(self):
-		from erpnext.hooks import company_restricted_transaction_doctypes
+	def test_exempt_doctypes_exist(self):
+		from erpnext.stock.doctype.company_restriction.company_restriction import (
+			COMPANY_RESTRICTION_EXEMPT_DOCTYPES,
+		)
 
-		for doctype in company_restricted_transaction_doctypes:
-			self.assertTrue(
-				frappe.get_meta(doctype).has_field("company"), f"{doctype} has no company field"
-			)
+		for doctype in COMPANY_RESTRICTION_EXEMPT_DOCTYPES:
+			self.assertTrue(frappe.db.exists("DocType", doctype), f"{doctype} is not a DocType")
+
+	def test_cancel_works_after_restriction_change(self):
+		from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
+
+		item = make_item()
+		stock_entry = make_stock_entry(
+			item_code=item.name, qty=5, to_warehouse="_Test Warehouse - _TC", rate=100
+		)
+
+		self.restrict_to_companies("Item", item.name, ["_Test Company 1"])
+		stock_entry.reload()
+		stock_entry.cancel()

@@ -364,44 +364,12 @@ pre_submit_validation_doctypes = [
 	"Sales Order",
 ]
 
-company_restricted_transaction_doctypes = [
-	"Quotation",
-	"Sales Order",
-	"Delivery Note",
-	"Sales Invoice",
-	"POS Invoice",
-	"Material Request",
-	"Request for Quotation",
-	"Supplier Quotation",
-	"Purchase Order",
-	"Purchase Receipt",
-	"Purchase Invoice",
-	"Stock Entry",
-	"Stock Reconciliation",
-	"Payment Entry",
-	"Journal Entry",
-	"Subcontracting Order",
-	"Subcontracting Receipt",
-	"BOM",
-	"Work Order",
-	"Job Card",
-	"Production Plan",
-	"Pick List",
-	"Blanket Order",
-	"Asset Capitalization",
-	"Asset Repair",
-	"Dunning",
-	"Installation Note",
-	"Maintenance Schedule",
-	"Maintenance Visit",
-	"Warranty Claim",
-]
-
 doc_events = {
 	"*": {
 		"validate": [
 			"erpnext.support.doctype.service_level_agreement.service_level_agreement.apply",
 			"erpnext.setup.doctype.transaction_deletion_record.transaction_deletion_record.check_for_running_deletion_job",
+			"erpnext.stock.doctype.company_restriction.company_restriction.validate_transaction_company",
 		],
 	},
 	tuple(period_closing_doctypes): {
@@ -409,9 +377,6 @@ doc_events = {
 	},
 	tuple(pre_submit_validation_doctypes): {
 		"validate": "erpnext.accounts.utils.pre_submit_validation",
-	},
-	tuple(company_restricted_transaction_doctypes): {
-		"validate": "erpnext.stock.doctype.company_restriction.company_restriction.validate_transaction_company",
 	},
 	("Item", "Customer", "Supplier"): {
 		"validate": "erpnext.stock.doctype.company_restriction.company_restriction.validate_allowed_companies",
