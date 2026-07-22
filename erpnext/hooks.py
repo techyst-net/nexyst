@@ -382,6 +382,19 @@ company_restricted_transaction_doctypes = [
 	"Journal Entry",
 	"Subcontracting Order",
 	"Subcontracting Receipt",
+	"BOM",
+	"Work Order",
+	"Job Card",
+	"Production Plan",
+	"Pick List",
+	"Blanket Order",
+	"Asset Capitalization",
+	"Asset Repair",
+	"Dunning",
+	"Installation Note",
+	"Maintenance Schedule",
+	"Maintenance Visit",
+	"Warranty Claim",
 ]
 
 doc_events = {

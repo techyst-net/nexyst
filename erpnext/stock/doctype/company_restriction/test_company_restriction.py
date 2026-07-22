@@ -59,3 +59,11 @@ class TestCompanyRestriction(ERPNextTestSuite):
 		item = make_item()
 		item.restrict_to_companies = 1
 		self.assertRaises(frappe.MandatoryError, item.save)
+
+	def test_hooked_doctypes_have_company_field(self):
+		from erpnext.hooks import company_restricted_transaction_doctypes
+
+		for doctype in company_restricted_transaction_doctypes:
+			self.assertTrue(
+				frappe.get_meta(doctype).has_field("company"), f"{doctype} has no company field"
+			)
