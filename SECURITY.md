@@ -1,7 +1,16 @@
 # Security Policy
 
-The ERPNext team and community take security issues seriously. To report a security issue, please go through the information mentioned [here](https://frappe.io/security).
+## Reporting a vulnerability
 
-You can help us make ERPNext and all its users more secure by following the [Reporting guidelines](https://frappe.io/security).
+Report suspected vulnerabilities privately to **zeshanshakil0@gmail.com**.
+Please do not open a public issue for security reports.
 
-We appreciate your efforts to responsibly disclose your findings. We'll endeavor to respond quickly, and will keep you updated throughout the process.
+Include where possible: affected version or commit, the impact, and steps to
+reproduce.
+
+## Upstream advisories
+
+This product is derived from a third-party GPLv3 ERP application and runs on the
+Frappe framework (see `UPSTREAM.md`). Security advisories for either upstream
+project can apply here. Track upstream releases for both and apply relevant
+patches.

@@ -7,7 +7,7 @@
  "icon": "settings",
  "icon_type": "Link",
  "idx": 10,
- "label": "ERPNext Settings",
+ "label": "ERP Settings",
  "link_to": "ERPNext Settings",
  "link_type": "Workspace Sidebar",
  "logo_url": "",

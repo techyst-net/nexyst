@@ -1,0 +1,15 @@
+{
+  "db_host": "mysql-zeshancodes-2c2e.k.aivencloud.com",
+  "db_port": 19566,
+  "db_type": "mariadb",
+  "root_login": "avnadmin",
+  "root_password": "AVNS_FyQPr0heGDy0ozO7yzs",
+  "_redis_note": "ERPNext needs THREE separate Redis instances, not three DB numbers. Replace these once the dedicated instances exist.",
+  "redis_cache": "CHANGE_ME_redis_cache_uri",
+  "redis_queue": "CHANGE_ME_redis_queue_uri",
+  "redis_socketio": "CHANGE_ME_redis_socketio_uri",
+  "socketio_port": 9001,
+  "webserver_port": 8020,
+  "developer_mode": 0,
+  "server_script_enabled": 0
+}

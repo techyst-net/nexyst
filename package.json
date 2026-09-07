@@ -1,16 +1,9 @@
 {
   "name": "erpnext",
-  "description": "Open Source ERP System powered by the Frappe Framework",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/frappe/erpnext.git"
-  },
-  "homepage": "https://frappe.io/erpnext",
-  "author": "Frappe Technologies Pvt. Ltd.",
+  "description": "Zeshan ERP \u2014 business operations, unified",
+  "homepage": "https://zeshan.local",
+  "author": "Zeshan",
   "license": "GPL-3.0",
-  "bugs": {
-    "url": "https://github.com/frappe/erpnext/issues"
-  },
   "scripts": {
     "postinstall": "cd banking && yarn install",
     "dev": "cd banking && yarn dev",

@@ -1,177 +1,78 @@
+# Zeshan ERP
 
-<div align="center">
-    <a href="https://frappe.io/erpnext">
-	<img src="./erpnext/public/images/v16/erpnext.svg" alt="ERPNext Logo" height="80px" width="80px"/>
-    </a>
-    <h2>ERPNext</h2>
-    <div align="center">
-        <p>Powerful, Intuitive and Open-Source ERP</p>
-    </div>
+A full business-operations application: accounting, stock, buying, selling,
+manufacturing, projects, assets, quality and support.
 
-[![Learn on Frappe School](https://img.shields.io/badge/Frappe%20School-Learn%20ERPNext-blue?style=flat-square)](https://frappe.school)<br><br>
-[![CI](https://github.com/frappe/erpnext/actions/workflows/server-tests-mariadb.yml/badge.svg?event=schedule)](https://github.com/frappe/erpnext/actions/workflows/server-tests-mariadb.yml)
-[![docker pulls](https://img.shields.io/docker/pulls/frappe/erpnext.svg)](https://hub.docker.com/r/frappe/erpnext)
+This is a **Frappe application**, not a standalone service. It installs into a
+Frappe bench alongside the framework, which supplies the web server, the desk
+UI, authentication, the ORM, the background worker and the REST/RPC API.
 
-</div>
+## Architecture
 
-<div align="center">
-	<img src="./erpnext/public/images/v16/hero_image.png" alt="ERPNext Hero Image"/>
-</div>
+| Layer | Provided by |
+|---|---|
+| Desk UI, auth, ORM, workers, API | Frappe framework (separate install) |
+| Business modules and DocTypes | this app (`erpnext/`) |
+| Banking SPA | `banking/` — React + Vite, built into `/assets/erpnext/banking/` |
+| Database | MariaDB 10.6+ (Postgres is only partially supported upstream) |
+| Cache / queue / realtime | Redis — three separate instances |
 
-<div align="center">
-	<a href="https://erpnext-demo.frappe.cloud/api/method/erpnext_demo.erpnext_demo.auth.login_demo">Live Demo</a>
-	-
-	<a href="https://frappe.io/erpnext">Website</a>
-	-
-	<a href="https://docs.frappe.io/erpnext/">Documentation</a>
-</div>
+## Local setup
 
-## ERPNext
-
-100% Open-Source ERP System to help you run your business.
-
-### Motivation
-
-Running a business is a complex task - handling invoices, tracking stock, managing personnel, and other daily operations. In a market where software is sold separately to manage each of these tasks, ERPNext does all of the above and more, for free.
-
-### Key Features
-
-- **Accounting**: All the tools you need to manage cash flow in one place, right from recording transactions to summarizing and analyzing financial reports.
-- **Order Management**: Track inventory levels, replenish stock, and manage sales orders, customers, suppliers, shipments, deliverables, and order fulfillment.
-- **Manufacturing**: Simplifies the production cycle, helps track material consumption, exhibits capacity planning, handles subcontracting, and more!
-- **Asset Management**: From purchase to disposal, IT infrastructure to equipment. Covers every branch of your organization, all in one centralized system.
-- **Projects**: Deliver both internal and external projects on time, budget and profitability. Track tasks, timesheets, and issues by project.
-
-<details open>
-
-<summary>More</summary>
-	<img src="https://erpnext.com/files/v16_bom.png"/>
-	<img src="https://erpnext.com/files/v16_stock_summary.png"/>
-	<img src="https://erpnext.com/files/v16_job_card.png"/>
-	<img src="https://erpnext.com/files/v16_tasks.png"/>
-</details>
-
-### Under the Hood
-
-- [**Frappe Framework**](https://github.com/frappe/frappe): A full-stack web application framework written in Python and JavaScript. The framework provides a robust foundation for building web applications, including a database abstraction layer, user authentication, and a REST API.
-
-- [**Frappe UI**](https://github.com/frappe/frappe-ui): A Vue-based UI library, to provide a modern user interface. The Frappe UI library provides a variety of components that can be used to build single-page applications on top of the Frappe Framework.
-
-## Production Setup
-
-### Managed Hosting
-
-You can try [Frappe Cloud](https://frappecloud.com), a simple, user-friendly, and sophisticated [open-source](https://github.com/frappe/press) platform to host Frappe applications reliably and securely.
-
-It handles installation, setup, upgrades, monitoring, maintenance, and support of your Frappe deployments. It is a fully featured developer platform with an ability to manage and control multiple Frappe deployments.
-
-<div>
-	<a href="https://erpnext-demo.frappe.cloud/app/home" target="_blank" rel="noopener noreferrer">
-		<picture>
-			<source media="(prefers-color-scheme: dark)" srcset="https://frappe.io/files/try-on-fc-white.png">
-			<img src="https://frappe.io/files/try-on-fc-black.png" alt="Try on Frappe Cloud" height="28" />
-		</picture>
-	</a>
-</div>
-
-
-### Self-Hosted
-#### Docker
-
-See [Frappe Docker Documentation](https://github.com/frappe/frappe_docker) for full documentation & FAQ on Docker setup
-
-#### Prerequisites
-
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose v2](https://docs.docker.com/compose/)
-- [git](https://docs.github.com/en/get-started/getting-started-with-git/set-up-git)
-
-> For Docker basics and best practices refer to Docker's [documentation](https://docs.docker.com)
-
-### Try on your environment
-
-> **⚠️ Disposable demo only**
->
-> **This setup is intended for quick evaluation. Expect to throw the environment away.** You will not be able to install custom apps to this setup. For production deployments, custom configurations, and detailed explanations, see the full documentation.
-
-First clone the repo:
+Requires an existing Frappe bench. Install `bench` first, then:
 
 ```sh
-git clone https://github.com/frappe/frappe_docker
-cd frappe_docker
+bench init zeshan-bench --frappe-branch develop
+cd zeshan-bench
+
+bench get-app erpnext /path/to/03-erpnext
+bench new-site zeshan.localhost
+bench --site zeshan.localhost install-app erpnext
+bench start
 ```
 
-Then run:
+The desk UI is then at `http://zeshan.localhost:8000/app`.
+
+Build the banking SPA when working on it:
 
 ```sh
-docker compose -f pwd.yml up -d
+yarn install     # runs banking/ install via postinstall
+yarn build       # emits into /assets/erpnext/banking/
 ```
-Wait for a couple of minutes for ERPNext site to be created or check the `create-site` container logs before opening browser on port `8080`. (username: `Administrator`, password: `admin`)
 
-See [Frappe Docker](https://github.com/frappe/frappe_docker/blob/main/docs/01-getting-started/03-arm64.md) for ARM based docker setup
+See [OPERATIONS.md](./OPERATIONS.md) for configuration keys, ports and
+deployment requirements.
 
+## Branding
 
-## Development Setup
-### Manual Install
+Applied through the app's supported extension points rather than by patching the
+framework:
 
-The Easy Way: our install script for bench will install all dependencies (e.g. MariaDB). See https://github.com/frappe/bench for more details.
+- `erpnext/hooks.py` — app title, publisher, colour, logo URL, favicon, email
+  brand image, transactional mail footer
+- `erpnext/setup/install.py` — the `app_name` written to System Settings on
+  install (this is what the desk UI displays), and the seeded help-menu links
+- `erpnext/startup/__init__.py` — `product_name`
+- `erpnext/public/scss/zeshan-theme.scss` — redefines the framework's CSS custom
+  properties. This app's bundle loads after the framework stylesheet, so the
+  palette applies to the whole desk without forking the framework.
+- `erpnext/public/images/` — asset **contents** replaced, filenames kept so
+  every existing reference still resolves
 
-New passwords will be created for the ERPNext "Administrator" user, the MariaDB root user, and the Frappe user (the script displays the passwords and saves them to ~/frappe_passwords.txt).
+### Limitation
 
+The desk shell is rendered by the Frappe framework, which is a separate
+repository and is not part of this directory. The theme override above retints
+it through the framework's own custom properties, which covers the palette,
+radii and typeface. Anything the framework hard-codes outside those properties —
+and the framework's own login-page wordmark — can only be changed by also
+customising the framework install. Set the site's own logo and title through
+**Website Settings** and **Navbar Settings** in the UI, which the framework
+reads at runtime.
 
-### Local
+## Provenance and licence
 
-To setup the repository locally follow the steps mentioned below:
-
-1. Setup bench by following the [Installation Steps](https://frappeframework.com/docs/user/en/installation) and start the server
-   ```
-   bench start
-   ```
-
-2. In a separate terminal window, run the following commands:
-   ```
-   # Create a new site
-   bench new-site erpnext.localhost
-   ```
-
-3. Get the ERPNext app and install it
-   ```
-   # Get the ERPNext app
-   bench get-app https://github.com/frappe/erpnext
-
-   # Install the app
-   bench --site erpnext.localhost install-app erpnext
-   ```
-
-4. Open the URL `http://erpnext.localhost:8000/app` in your browser, you should see the app running
-
-## Learning and Community
-
-1. [Frappe School](https://school.frappe.io) - Learn Frappe Framework and ERPNext from the various courses by the maintainers or from the community.
-2. [Official documentation](https://docs.erpnext.com/) - Extensive documentation for ERPNext.
-3. [Discussion Forum](https://discuss.frappe.io/c/erpnext/6) - Engage with the community of ERPNext users and service providers.
-4. [Telegram Group](https://erpnext_public.t.me) - Get instant help from huge community of users.
-
-
-## Contributing
-
-1. [Issue Guidelines](https://github.com/frappe/erpnext/wiki/Issue-Guidelines)
-2. [Report Security Vulnerabilities](https://erpnext.com/security)
-3. [Pull Request Requirements](https://github.com/frappe/erpnext/wiki/Contribution-Guidelines)
-4. [Translations](https://crowdin.com/project/frappe)
-
-
-## Logo and Trademark Policy
-
-Please read our [Logo and Trademark Policy](TRADEMARK_POLICY.md).
-
-<br />
-<br />
-<div align="center" style="padding-top: 0.75rem;">
-	<a href="https://frappe.io" target="_blank">
-		<picture>
-			<source media="(prefers-color-scheme: dark)" srcset="https://frappe.io/files/Frappe-white.png">
-			<img src="https://frappe.io/files/Frappe-black.png" alt="Frappe Technologies" height="28"/>
-		</picture>
-	</a>
-</div>
+GPLv3. See [UPSTREAM.md](./UPSTREAM.md), [license.txt](./license.txt) and
+[attributions.md](./attributions.md). The licence text and copyright notices
+must be retained, and source must be offered to anyone you distribute this
+application to.
