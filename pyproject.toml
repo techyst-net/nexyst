@@ -1,9 +1,9 @@
 [project]
 name = "erpnext"
 authors = [
-    { name = "Frappe Technologies Pvt Ltd", email = "developers@frappe.io"}
+    { name = "Zeshan", email = "zeshanshakil0@gmail.com"}
 ]
-description = "Open Source ERP"
+description = "Zeshan ERP — business operations, unified"
 requires-python = ">=3.14"
 readme = "README.md"
 dynamic = ["version"]
@@ -88,7 +88,4 @@ docstring-code-format = true
 
 
 [project.urls]
-Homepage = "https://frappe.io/erpnext"
-Repository = "https://github.com/frappe/erpnext.git"
-Documentation = "https://docs.frappe.io/erpnext"
-"Bug Reports" = "https://github.com/frappe/erpnext/issues"
+Homepage = "https://zeshan.local"

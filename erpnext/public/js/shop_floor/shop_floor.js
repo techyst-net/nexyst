@@ -101,7 +101,7 @@ class ShopFloor {
 
 		this.app = this.wrapper.find(".sf-app");
 		this.brand_icon = `<img class="sf-brand-icon" src="/assets/erpnext/images/erpnext-logo.svg" alt="${__(
-			"ERPNext"
+			"Zeshan ERP"
 		)}">`;
 		this.topbar_left = this.wrapper.find(".sf-topbar-left");
 		this.topbar_center = this.wrapper.find(".sf-topbar-center");

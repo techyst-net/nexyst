@@ -1,0 +1,47 @@
+// Zeshan brand palette.
+//
+// The desk chrome, controls and layout come from the Frappe framework, which
+// exposes its palette as CSS custom properties. This app's bundle is injected
+// after the framework's stylesheet (see `app_include_css` in hooks.py), so
+// redefining those properties here retints the whole UI without forking the
+// framework or overriding component rules one by one.
+//
+// Tokens mirror ../../../../BRAND.md.
+
+:root {
+	// Primary ramp — replaces the framework's default blue scale.
+	--blue-50: #EEF2FF;
+	--blue-100: #E0E7FF;
+	--blue-200: #C7D2FE;
+	--blue-300: #A5B4FC;
+	--blue-400: #818CF8;
+	--blue-500: #6366F1;
+	--blue-600: #4F46E5;
+	--blue-700: #4338CA;
+	--blue-800: #3730A3;
+	--blue-900: #312E81;
+
+	--primary: #6366F1;
+	--primary-color: #6366F1;
+	--text-on-primary: #F8FAFC;
+
+	// Accents
+	--green-500: #10B981;
+	--yellow-500: #F59E0B;
+	--red-500: #F43F5E;
+
+	// Shape
+	--border-radius: 8px;
+	--border-radius-md: 8px;
+	--border-radius-lg: 12px;
+
+	// Typography
+	--font-stack: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+		"Helvetica Neue", Ubuntu, sans-serif;
+}
+
+// Brand mark sizing in the manufacturing shop-floor view.
+.sf-brand-icon {
+	height: 24px;
+	width: auto;
+}

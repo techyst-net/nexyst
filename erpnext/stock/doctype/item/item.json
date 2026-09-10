@@ -240,7 +240,7 @@
    "allow_in_quick_entry": 1,
    "bold": 1,
    "default": "1",
-   "description": "ERPNext will make a stock ledger entry for each transaction of this item. Keep unchecked for non-stock or service items.",
+   "description": "A stock ledger entry will be made for each transaction of this item. Keep unchecked for non-stock or service items.",
    "fieldname": "is_stock_item",
    "fieldtype": "Check",
    "label": "Maintain Stock",
