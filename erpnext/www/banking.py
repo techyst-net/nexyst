@@ -20,7 +20,7 @@ def get_context(context):
 	context.csrf_token = csrf_token
 	context.build_version = frappe.utils.get_build_version()
 	context.app_name = (
-		frappe.get_website_settings("app_name") or frappe.get_system_settings("app_name") or "Zeshan ERP"
+		frappe.get_website_settings("app_name") or frappe.get_system_settings("app_name") or "Nexyst"
 	)
 
 	context.layout_direction = "rtl" if is_rtl() else "ltr"

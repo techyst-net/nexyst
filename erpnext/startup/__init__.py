@@ -16,5 +16,5 @@
 
 # default settings that can be made for a user.
 
-product_name = "Zeshan ERP"
+product_name = "Nexyst"
 user_defaults = {"Company": "company", "Territory": "territory"}

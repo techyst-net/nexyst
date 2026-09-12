@@ -1,4 +1,4 @@
-# Zeshan ERP
+# Nexyst
 
 A full business-operations application: accounting, stock, buying, selling,
 manufacturing, projects, assets, quality and support.
