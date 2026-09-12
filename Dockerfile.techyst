@@ -1,0 +1,11 @@
+# ERPNext runs inside a Frappe bench, which the upstream image already provides.
+# Building a bench from scratch is a multi-stage affair; this layers the branded
+# app source over the official image instead, which is the supported pattern.
+FROM frappe/erpnext:v15
+USER root
+COPY --chown=frappe:frappe . /home/frappe/frappe-bench/apps/erpnext
+USER frappe
+WORKDIR /home/frappe/frappe-bench
+# Rebuild the client bundle so the branded assets are picked up.
+RUN bench build --app erpnext || true
+EXPOSE 8000 9000

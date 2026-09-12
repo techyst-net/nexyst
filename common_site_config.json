@@ -1,0 +1,16 @@
+{
+ "db_host": "3.219.25.134",
+ "db_port": 3306,
+ "db_type": "mariadb",
+ "redis_cache": "redis://:Redis9Kx72MqP41@3.219.25.134:6379/2",
+ "redis_queue": "redis://:Redis9Kx72MqP41@3.219.25.134:6379/3",
+ "redis_socketio": "redis://:Redis9Kx72MqP41@3.219.25.134:6379/4",
+ "socketio_port": 9000,
+ "webserver_port": 8000,
+ "developer_mode": 0,
+ "maintenance_mode": 0,
+ "root_login": "root",
+ "root_password": "Mysql7Px92KmQ46",
+ "serve_default_site": true,
+ "default_site": "erp.techyst.net"
+}
