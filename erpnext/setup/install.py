@@ -14,7 +14,7 @@ from erpnext.setup.doctype.incoterm.incoterm import create_incoterms
 from .default_success_action import get_default_success_action
 
 default_mail_footer = """<div style="padding: 7px; text-align: right; color: #94A3B8"><small>Sent via
-	Zeshan ERP</small></div>"""
+	Nexyst</small></div>"""
 
 
 def after_install():
@@ -260,7 +260,7 @@ def add_standard_navbar_items():
 
 
 def add_app_name():
-	frappe.db.set_single_value("System Settings", "app_name", "Zeshan ERP")
+	frappe.db.set_single_value("System Settings", "app_name", "Nexyst")
 
 
 def update_roles():

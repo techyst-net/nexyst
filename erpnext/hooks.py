@@ -1,5 +1,5 @@
 app_name = "erpnext"
-app_title = "Zeshan ERP"
+app_title = "Nexyst"
 app_publisher = "Zeshan"
 app_description = """Business operations, unified"""
 app_icon = "fa fa-th"

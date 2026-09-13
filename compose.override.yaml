@@ -1,0 +1,77 @@
+# Nexyst (ERPNext) — runs the official v16 images.
+#
+# The custom image built from this repo cannot be used yet: this checkout is
+# ERPNext's development branch (17.0.0-dev), which needs a Frappe 17 that does
+# not exist as a release. Frappe and ERPNext ship as a matched pair, so both
+# come from upstream's v16 tag until the fork is rebased onto version-16 and
+# branding is layered back on.
+#
+#   docker compose -f 03-erpnext.yml -f compose.override.yaml up -d
+#
+# 1. A persistent `sites` volume. Frappe keeps each site's config, private and
+#    public files under sites/; without a volume a created site lives only in
+#    the container's writable layer and disappears on the next recreate. Every
+#    service mounts the same volume because the workers read the same site.
+#
+# 2. An nginx frontend. The backend is a gunicorn app server that serves no
+#    static assets and does not route by site, so proxying straight to it
+#    returns 404. The published image already carries nginx-entrypoint.sh and
+#    the built assets, so the frontend is the same image with a different
+#    command rather than a second build.
+name: techyst-03-erpnext
+services:
+  backend:
+    image: frappe/erpnext:v16
+    volumes:
+    - sites:/home/frappe/frappe-bench/sites
+    - ../../03-erpnext/common_site_config.json:/home/frappe/frappe-bench/sites/common_site_config.json:ro
+
+  worker:
+    image: frappe/erpnext:v16
+    volumes:
+    - sites:/home/frappe/frappe-bench/sites
+    - ../../03-erpnext/common_site_config.json:/home/frappe/frappe-bench/sites/common_site_config.json:ro
+
+  scheduler:
+    image: frappe/erpnext:v16
+    volumes:
+    - sites:/home/frappe/frappe-bench/sites
+    - ../../03-erpnext/common_site_config.json:/home/frappe/frappe-bench/sites/common_site_config.json:ro
+
+  socketio:
+    image: frappe/erpnext:v16
+    volumes:
+    - sites:/home/frappe/frappe-bench/sites
+    - ../../03-erpnext/common_site_config.json:/home/frappe/frappe-bench/sites/common_site_config.json:ro
+
+  frontend:
+    image: frappe/erpnext:v16
+    entrypoint: [nginx-entrypoint.sh]
+    environment:
+      BACKEND: backend:8000
+      SOCKETIO: socketio:9000
+      # Resolve the site from the Host header, so the public hostname selects
+      # the site rather than it being pinned at build time.
+      FRAPPE_SITE_NAME_HEADER: $$host
+      UPSTREAM_REAL_IP_ADDRESS: 127.0.0.1
+      UPSTREAM_REAL_IP_HEADER: X-Forwarded-For
+      UPSTREAM_REAL_IP_RECURSIVE: "off"
+      PROXY_READ_TIMEOUT: "120"
+      CLIENT_MAX_BODY_SIZE: 50m
+    volumes:
+    - sites:/home/frappe/frappe-bench/sites
+    - ../../03-erpnext/common_site_config.json:/home/frappe/frappe-bench/sites/common_site_config.json:ro
+    ports:
+    - 127.0.0.1:8021:8080
+    depends_on:
+    - backend
+    - socketio
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+volumes:
+  sites:
